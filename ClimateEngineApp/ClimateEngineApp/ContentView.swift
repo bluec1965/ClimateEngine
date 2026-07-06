@@ -37,14 +37,18 @@ struct ContentView: View {
                     title: "Indoor",
                     systemImage: "house.fill",
                     temperature: formatTemperature(snapshot?.indoor.temperature),
-                    humidity: formatHumidity(snapshot?.indoor.humidity)
+                    humidity: formatHumidity(snapshot?.indoor.humidity),
+                    dewPoint: formatDewPoint(snapshot?.indoor),
+                    absoluteHumidity: formatAbsoluteHumidity(snapshot?.indoor)
                 )
 
                 ClimateCard(
                     title: "Outdoor",
                     systemImage: "tree.fill",
                     temperature: formatTemperature(snapshot?.outdoor.temperature),
-                    humidity: formatHumidity(snapshot?.outdoor.humidity)
+                    humidity: formatHumidity(snapshot?.outdoor.humidity),
+                    dewPoint: formatDewPoint(snapshot?.outdoor),
+                    absoluteHumidity: formatAbsoluteHumidity(snapshot?.outdoor)
                 )
             }
 
@@ -74,7 +78,7 @@ struct ContentView: View {
             .font(.headline)
         }
         .padding(32)
-        .frame(minWidth: 620, minHeight: 440)
+        .frame(minWidth: 720, minHeight: 500)
         .onAppear {
             loadSnapshot()
         }
@@ -103,6 +107,28 @@ struct ContentView: View {
         guard let value else { return "-- %" }
         return String(format: "%.0f %%", value)
     }
+
+    private func formatDewPoint(_ measurement: ClimateMeasurement?) -> String {
+        guard let measurement else { return "--.- °C" }
+
+        let dewPoint = ClimateCalculator.dewPoint(
+            temperatureCelsius: measurement.temperature,
+            relativeHumidity: measurement.humidity
+        )
+
+        return String(format: "%.1f °C", dewPoint)
+    }
+
+    private func formatAbsoluteHumidity(_ measurement: ClimateMeasurement?) -> String {
+        guard let measurement else { return "--.- g/m³" }
+
+        let absoluteHumidity = ClimateCalculator.absoluteHumidity(
+            temperatureCelsius: measurement.temperature,
+            relativeHumidity: measurement.humidity
+        )
+
+        return String(format: "%.1f g/m³", absoluteHumidity)
+    }
 }
 
 private struct ClimateCard: View {
@@ -110,6 +136,8 @@ private struct ClimateCard: View {
     let systemImage: String
     let temperature: String
     let humidity: String
+    let dewPoint: String
+    let absoluteHumidity: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -120,10 +148,12 @@ private struct ClimateCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 ClimateRow(label: "Temperature", value: temperature)
                 ClimateRow(label: "Humidity", value: humidity)
+                ClimateRow(label: "Dew Point", value: dewPoint)
+                ClimateRow(label: "Abs. Humidity", value: absoluteHumidity)
             }
         }
         .padding(20)
-        .frame(width: 250, alignment: .leading)
+        .frame(width: 300, alignment: .leading)
         .background(.quaternary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
