@@ -39,3 +39,18 @@ func absoluteHumidityCalculation() {
     #expect(humidity > 10)
     #expect(humidity < 11)
 }
+@Test
+func ventilationRecommendationForCurrentSnapshot() throws {
+    let url = FileManager.default
+        .homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents/ClimateEngine/current.json")
+
+    let snapshot = try SensorSnapshotLoader().load(from: url)
+    let recommendation = VentilationAdvisor.recommendation(for: snapshot)
+
+    #expect([
+        VentilationRecommendation.ventilate,
+        VentilationRecommendation.neutral,
+        VentilationRecommendation.closeWindows
+    ].contains(recommendation))
+}
