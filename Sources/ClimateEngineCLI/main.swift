@@ -3,11 +3,9 @@ import ClimateEngine
 
 let home = FileManager.default.homeDirectoryForCurrentUser
 
-let snapshotDirectory = home
+let snapshotURL = home
     .appendingPathComponent("Documents")
     .appendingPathComponent("ClimateEngine")
-
-let snapshotURL = snapshotDirectory
     .appendingPathComponent("current.json")
 
 let stateDirectory = home
@@ -48,56 +46,17 @@ func markNotifiedToday() throws {
 }
 
 func numericValue(from text: String) throws -> Double {
-    let allowed = text
+    let cleaned = text
         .replacingOccurrences(of: ",", with: ".")
         .filter { character in
             character.isNumber || character == "." || character == "-"
         }
 
-    guard let value = Double(allowed) else {
+    guard let value = Double(cleaned) else {
         throw NSError(domain: "ClimateEngineCLI", code: 1)
     }
 
     return value
-}
-
-func writeCurrentJSON(
-    indoorTemperature: Double,
-    indoorHumidity: Double,
-    outdoorTemperature: Double,
-    outdoorHumidity: Double
-) throws {
-    try FileManager.default.createDirectory(
-        at: snapshotDirectory,
-        withIntermediateDirectories: true
-    )
-
-    let formatter = ISO8601DateFormatter()
-    let timestamp = formatter.string(from: Date())
-
-    let json = """
-    {
-      "version": 1,
-      "timestamp": "\(timestamp)",
-      "source": "ClimateEngineCLI",
-
-      "indoor": {
-        "temperature": "\(String(format: "%.3f", indoorTemperature)) °C",
-        "humidity": \(indoorHumidity)
-      },
-
-      "outdoor": {
-        "temperature": "\(String(format: "%.3f", outdoorTemperature)) °C",
-        "humidity": \(outdoorHumidity)
-      }
-    }
-    """
-
-    try json.write(
-        to: snapshotURL,
-        atomically: true,
-        encoding: .utf8
-    )
 }
 
 do {
@@ -109,11 +68,12 @@ do {
         let outdoorTemperature = try numericValue(from: arguments[2])
         let outdoorHumidity = try numericValue(from: arguments[3])
 
-        try writeCurrentJSON(
+        try SensorSnapshotWriter().write(
             indoorTemperature: indoorTemperature,
             indoorHumidity: indoorHumidity,
             outdoorTemperature: outdoorTemperature,
-            outdoorHumidity: outdoorHumidity
+            outdoorHumidity: outdoorHumidity,
+            to: snapshotURL
         )
     }
 
