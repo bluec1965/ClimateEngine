@@ -3,13 +3,11 @@ import ClimateEngine
 
 let home = FileManager.default.homeDirectoryForCurrentUser
 
-let snapshotURL = home
-    .appendingPathComponent("Library")
-    .appendingPathComponent("Containers")
-    .appendingPathComponent("io.github.bluec1965.ClimateEngineApp")
-    .appendingPathComponent("Data")
+let snapshotDirectory = home
     .appendingPathComponent("Documents")
     .appendingPathComponent("ClimateEngine")
+
+let snapshotURL = snapshotDirectory
     .appendingPathComponent("current.json")
 
 let stateDirectory = home
@@ -49,7 +47,76 @@ func markNotifiedToday() throws {
     )
 }
 
+func numericValue(from text: String) throws -> Double {
+    let allowed = text
+        .replacingOccurrences(of: ",", with: ".")
+        .filter { character in
+            character.isNumber || character == "." || character == "-"
+        }
+
+    guard let value = Double(allowed) else {
+        throw NSError(domain: "ClimateEngineCLI", code: 1)
+    }
+
+    return value
+}
+
+func writeCurrentJSON(
+    indoorTemperature: Double,
+    indoorHumidity: Double,
+    outdoorTemperature: Double,
+    outdoorHumidity: Double
+) throws {
+    try FileManager.default.createDirectory(
+        at: snapshotDirectory,
+        withIntermediateDirectories: true
+    )
+
+    let formatter = ISO8601DateFormatter()
+    let timestamp = formatter.string(from: Date())
+
+    let json = """
+    {
+      "version": 1,
+      "timestamp": "\(timestamp)",
+      "source": "ClimateEngineCLI",
+
+      "indoor": {
+        "temperature": "\(String(format: "%.3f", indoorTemperature)) °C",
+        "humidity": \(indoorHumidity)
+      },
+
+      "outdoor": {
+        "temperature": "\(String(format: "%.3f", outdoorTemperature)) °C",
+        "humidity": \(outdoorHumidity)
+      }
+    }
+    """
+
+    try json.write(
+        to: snapshotURL,
+        atomically: true,
+        encoding: .utf8
+    )
+}
+
 do {
+    let arguments = Array(CommandLine.arguments.dropFirst())
+
+    if arguments.count == 4 {
+        let indoorTemperature = try numericValue(from: arguments[0])
+        let indoorHumidity = try numericValue(from: arguments[1])
+        let outdoorTemperature = try numericValue(from: arguments[2])
+        let outdoorHumidity = try numericValue(from: arguments[3])
+
+        try writeCurrentJSON(
+            indoorTemperature: indoorTemperature,
+            indoorHumidity: indoorHumidity,
+            outdoorTemperature: outdoorTemperature,
+            outdoorHumidity: outdoorHumidity
+        )
+    }
+
     if alreadyNotifiedToday() {
         exit(0)
     }
