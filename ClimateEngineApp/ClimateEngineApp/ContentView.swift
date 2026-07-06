@@ -1,11 +1,5 @@
 import SwiftUI
-
-struct SensorSnapshot: Decodable {
-    let indoorTemperature: Double
-    let indoorHumidity: Double
-    let outdoorTemperature: Double
-    let outdoorHumidity: Double
-}
+import ClimateEngine
 
 struct ContentView: View {
     @State private var snapshot: SensorSnapshot?
@@ -17,7 +11,7 @@ struct ContentView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Version 0.1.0-alpha")
+                Text("Version 0.2.0-alpha")
                     .foregroundStyle(.secondary)
             }
 
@@ -27,15 +21,15 @@ struct ContentView: View {
                 ClimateCard(
                     title: "Indoor",
                     systemImage: "house.fill",
-                    temperature: formatTemperature(snapshot?.indoorTemperature),
-                    humidity: formatHumidity(snapshot?.indoorHumidity)
+                    temperature: formatTemperature(snapshot?.indoor.temperature),
+                    humidity: formatHumidity(snapshot?.indoor.humidity)
                 )
 
                 ClimateCard(
                     title: "Outdoor",
                     systemImage: "tree.fill",
-                    temperature: formatTemperature(snapshot?.outdoorTemperature),
-                    humidity: formatHumidity(snapshot?.outdoorHumidity)
+                    temperature: formatTemperature(snapshot?.outdoor.temperature),
+                    humidity: formatHumidity(snapshot?.outdoor.humidity)
                 )
             }
 
@@ -64,8 +58,8 @@ struct ContentView: View {
             .appendingPathComponent("Documents/ClimateEngine/current.json")
 
         do {
-            let data = try Data(contentsOf: url)
-            snapshot = try JSONDecoder().decode(SensorSnapshot.self, from: data)
+            let loader = SensorSnapshotLoader()
+            snapshot = try loader.load(from: url)
         } catch {
             print("Could not load sensor snapshot:", error)
             snapshot = nil

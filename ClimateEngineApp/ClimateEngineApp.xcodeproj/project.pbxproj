@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		643406BE2FFBBBBB005D0A0E /* ClimateEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 643406BD2FFBBBBB005D0A0E /* ClimateEngine */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		64CE97712FFAFA5600945D88 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				643406BE2FFBBBBB005D0A0E /* ClimateEngine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +77,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		643406BC2FFBBBBB005D0A0E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		64CE975A2FFAFA5300945D88 = {
 			isa = PBXGroup;
 			children = (
 				64CE97652FFAFA5300945D88 /* ClimateEngineApp */,
 				64CE97732FFAFA5600945D88 /* ClimateEngineAppTests */,
 				64CE977D2FFAFA5600945D88 /* ClimateEngineAppUITests */,
+				643406BC2FFBBBBB005D0A0E /* Frameworks */,
 				64CE97642FFAFA5300945D88 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +125,7 @@
 			);
 			name = ClimateEngineApp;
 			packageProductDependencies = (
+				643406BD2FFBBBBB005D0A0E /* ClimateEngine */,
 			);
 			productName = ClimateEngineApp;
 			productReference = 64CE97632FFAFA5300945D88 /* ClimateEngineApp.app */;
@@ -195,6 +209,9 @@
 			);
 			mainGroup = 64CE975A2FFAFA5300945D88;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				643B80AB2FFBB90F00962070 /* XCLocalSwiftPackageReference "../../ClimateEngine" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 64CE97642FFAFA5300945D88 /* Products */;
 			projectDirPath = "";
@@ -573,6 +590,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		643B80AB2FFBB90F00962070 /* XCLocalSwiftPackageReference "../../ClimateEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../ClimateEngine;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		643406BD2FFBBBBB005D0A0E /* ClimateEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 643B80AB2FFBB90F00962070 /* XCLocalSwiftPackageReference "../../ClimateEngine" */;
+			productName = ClimateEngine;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 64CE975B2FFAFA5300945D88 /* Project object */;
 }
