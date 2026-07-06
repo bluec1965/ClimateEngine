@@ -1,8 +1,8 @@
 import Foundation
 
 public enum SensorSnapshotLoaderError: Error {
-    case fileNotFound
-    case invalidJSON
+    case fileNotFound(URL)
+    case unreadableFile(URL)
 }
 
 public final class SensorSnapshotLoader {
@@ -11,9 +11,13 @@ public final class SensorSnapshotLoader {
 
     public func loadText(from url: URL) throws -> String {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SensorSnapshotLoaderError.fileNotFound
+            throw SensorSnapshotLoaderError.fileNotFound(url)
         }
 
-        return try String(contentsOf: url, encoding: .utf8)
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            throw SensorSnapshotLoaderError.unreadableFile(url)
+        }
     }
 }
