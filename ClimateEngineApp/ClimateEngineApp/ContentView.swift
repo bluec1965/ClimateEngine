@@ -30,7 +30,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
-                Text("Climate Engine")
+                Text("Klima Check bei Hitze")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
@@ -42,7 +42,7 @@ struct ContentView: View {
 
             HStack(spacing: 20) {
                 ClimateCard(
-                    title: "Indoor",
+                    title: "Innenbereich",
                     systemImage: "house.fill",
                     temperature: formatTemperature(snapshot?.indoor.temperature),
                     humidity: formatHumidity(snapshot?.indoor.humidity),
@@ -51,7 +51,7 @@ struct ContentView: View {
                 )
 
                 ClimateCard(
-                    title: "Outdoor",
+                    title: "Auf der Terrasse",
                     systemImage: "tree.fill",
                     temperature: formatTemperature(snapshot?.outdoor.temperature),
                     humidity: formatHumidity(snapshot?.outdoor.humidity),
