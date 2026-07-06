@@ -171,7 +171,7 @@ private struct RecommendationPanel: View {
                 .foregroundStyle(.secondary)
 
             if let moistureDifference {
-                Text(String(format: "Feuchtigkeitsdifferenz: %.1f g/m³", moistureDifference))
+                Text(String(format: "Aussenluft ist %.1f g/m³ trockener als Raumluft", moistureDifference))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -231,7 +231,7 @@ private struct ClimateCard: View {
                 ClimateRow(label: "Temperatur", value: temperature)
                 ClimateRow(label: "Feuchtigkeit", value: humidity)
                 ClimateRow(label: "Taupunkt", value: dewPoint)
-                ClimateRow(label: "absol. Feuchtigkeit", value: absoluteHumidity)
+                ClimateRow(label: "Absolute Luftfeuchtigkeit", value: absoluteHumidity)
             }
         }
         .padding(20)
