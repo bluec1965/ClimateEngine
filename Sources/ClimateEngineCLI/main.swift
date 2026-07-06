@@ -3,8 +3,7 @@ import ClimateEngine
 
 let home = FileManager.default.homeDirectoryForCurrentUser
 
-let snapshotURL =
-home
+let snapshotURL = home
     .appendingPathComponent("Library")
     .appendingPathComponent("Containers")
     .appendingPathComponent("io.github.bluec1965.ClimateEngineApp")
@@ -14,29 +13,25 @@ home
     .appendingPathComponent("current.json")
 
 do {
+    let snapshot = try SensorSnapshotLoader().load(from: snapshotURL)
 
-    let loader = SensorSnapshotLoader()
+    let indoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
+        temperatureCelsius: snapshot.indoor.temperature,
+        relativeHumidity: snapshot.indoor.humidity
+    )
 
-    let snapshot = try loader.load(from: snapshotURL)
+    let outdoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
+        temperatureCelsius: snapshot.outdoor.temperature,
+        relativeHumidity: snapshot.outdoor.humidity
+    )
 
-    let recommendation = VentilationAdvisor.recommendation(for: snapshot)
+    let outdoorIsWarmerOrEqual = snapshot.outdoor.temperature >= snapshot.indoor.temperature
+    let outdoorIsMoreHumidOrEqual = outdoorAbsoluteHumidity >= indoorAbsoluteHumidity
 
-    switch recommendation {
-
-    case .ventilate:
-
-        print("Jetzt lüften.")
-
-    case .closeWindows:
-
-        print("Fenster geschlossen halten.")
-
-    case .neutral:
-
-        print("Keine Lüftungsempfehlung.")
+    if outdoorIsWarmerOrEqual && outdoorIsMoreHumidOrEqual {
+        print("Jetzt können die Fenster geschlossen werden. Die Aussenluft ist nun wärmer und feuchter als die Raumluft.")
     }
 
 } catch {
-
     print("Fehler beim Laden der Sensordaten.")
 }
