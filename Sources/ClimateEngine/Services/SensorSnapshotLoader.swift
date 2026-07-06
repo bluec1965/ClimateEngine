@@ -21,6 +21,13 @@ public final class SensorSnapshotLoader {
             throw SensorSnapshotLoaderError.unreadableFile(url)
         }
     }
+    public func load(from url: URL) throws -> SensorSnapshot {
+
+        let text = try loadText(from: url)
+        let raw = try decode(text)
+
+        return try raw.toSensorSnapshot()
+    }
 
     func decode(_ text: String) throws -> RawSensorSnapshot {
         let data = Data(text.utf8)
