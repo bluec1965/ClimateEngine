@@ -1,9 +1,3 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
-
-@main
-struct ClimateEngine {
-    static func main() {
-        print("Hello, world!")
-    }
+public enum ClimateEngine {
+    public static let version = "0.2.0-alpha"
 }
