@@ -18,3 +18,24 @@ import Testing
     #expect(snapshot.outdoor.temperature > 0)
     #expect(snapshot.outdoor.humidity > 0)
 }
+@Test
+func dewPointCalculation() {
+    let dewPoint = ClimateCalculator.dewPoint(
+        temperatureCelsius: 24.3,
+        relativeHumidity: 49
+    )
+
+    #expect(dewPoint > 12.8)
+    #expect(dewPoint < 13.0)
+}
+
+@Test
+func absoluteHumidityCalculation() {
+    let humidity = ClimateCalculator.absoluteHumidity(
+        temperatureCelsius: 24.3,
+        relativeHumidity: 49
+    )
+
+    #expect(humidity > 10)
+    #expect(humidity < 11)
+}
