@@ -11,7 +11,7 @@ import Testing
     let snapshot = try loader.load(from: url)
 
     #expect(snapshot.version == 1)
-    #expect(snapshot.source == "Apple Shortcuts")
+    #expect(snapshot.source == "ClimateEngineCLI")
 
     #expect(snapshot.indoor.temperature > 0)
     #expect(snapshot.indoor.humidity > 0)
