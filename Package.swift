@@ -4,20 +4,34 @@ import PackageDescription
 
 let package = Package(
     name: "ClimateEngine",
+
     products: [
         .library(
             name: "ClimateEngine",
             targets: ["ClimateEngine"]
+        ),
+        .executable(
+            name: "ClimateEngineCLI",
+            targets: ["ClimateEngineCLI"]
         )
     ],
+
     targets: [
+
         .target(
             name: "ClimateEngine"
         ),
+
+        .executableTarget(
+            name: "ClimateEngineCLI",
+            dependencies: ["ClimateEngine"]
+        ),
+
         .testTarget(
             name: "ClimateEngineTests",
             dependencies: ["ClimateEngine"]
         )
     ],
+
     swiftLanguageModes: [.v6]
 )
