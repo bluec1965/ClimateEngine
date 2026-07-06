@@ -1,8 +1,23 @@
 import SwiftUI
+import Combine
 import ClimateEngine
 
 struct ContentView: View {
     @State private var snapshot: SensorSnapshot?
+    @State private var lastUpdated: Date?
+    @State private var loadError: String?
+
+    private let refreshTimer = Timer.publish(
+        every: 10,
+        on: .main,
+        in: .common
+    ).autoconnect()
+
+    private var snapshotURL: URL {
+        FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/ClimateEngine/current.json")
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -35,34 +50,47 @@ struct ContentView: View {
 
             Divider()
 
-            if snapshot == nil {
-                Label("Waiting for sensor data…", systemImage: "circle.dashed")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("Sensor data loaded", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
-                    .foregroundStyle(.green)
+            VStack(spacing: 8) {
+                if snapshot == nil {
+                    Label("Waiting for sensor data…", systemImage: "circle.dashed")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Label("Sensor data loaded", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+
+                if let lastUpdated {
+                    Text("Last updated: \(lastUpdated.formatted(date: .omitted, time: .standard))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let loadError {
+                    Text(loadError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
+            .font(.headline)
         }
         .padding(32)
-        .frame(minWidth: 620, minHeight: 420)
+        .frame(minWidth: 620, minHeight: 440)
         .onAppear {
+            loadSnapshot()
+        }
+        .onReceive(refreshTimer) { _ in
             loadSnapshot()
         }
     }
 
     private func loadSnapshot() {
-        let url = FileManager.default
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/ClimateEngine/current.json")
-
         do {
             let loader = SensorSnapshotLoader()
-            snapshot = try loader.load(from: url)
+            snapshot = try loader.load(from: snapshotURL)
+            lastUpdated = Date()
+            loadError = nil
         } catch {
-            print("Could not load sensor snapshot:", error)
-            snapshot = nil
+            loadError = "Could not load sensor data"
         }
     }
 
