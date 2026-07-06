@@ -4,6 +4,7 @@ import ClimateEngine
 
 struct ContentView: View {
     @State private var snapshot: SensorSnapshot?
+    @State private var recommendation: VentilationRecommendation = .neutral
     @State private var lastUpdated: Date?
     @State private var loadError: String?
 
@@ -54,6 +55,10 @@ struct ContentView: View {
 
             Divider()
 
+            RecommendationPanel(recommendation: recommendation)
+
+            Divider()
+
             VStack(spacing: 8) {
                 if snapshot == nil {
                     Label("Waiting for sensor data…", systemImage: "circle.dashed")
@@ -78,7 +83,7 @@ struct ContentView: View {
             .font(.headline)
         }
         .padding(32)
-        .frame(minWidth: 720, minHeight: 500)
+        .frame(minWidth: 720, minHeight: 560)
         .onAppear {
             loadSnapshot()
         }
@@ -90,7 +95,10 @@ struct ContentView: View {
     private func loadSnapshot() {
         do {
             let loader = SensorSnapshotLoader()
-            snapshot = try loader.load(from: snapshotURL)
+            let loadedSnapshot = try loader.load(from: snapshotURL)
+
+            snapshot = loadedSnapshot
+            recommendation = VentilationAdvisor.recommendation(for: loadedSnapshot)
             lastUpdated = Date()
             loadError = nil
         } catch {
@@ -128,6 +136,62 @@ struct ContentView: View {
         )
 
         return String(format: "%.1f g/m³", absoluteHumidity)
+    }
+}
+
+private struct RecommendationPanel: View {
+    let recommendation: VentilationRecommendation
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+
+                Text(title)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(color)
+            }
+
+            Text(explanation)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var title: String {
+        switch recommendation {
+        case .ventilate:
+            return "Ventilate now"
+        case .neutral:
+            return "No recommendation"
+        case .closeWindows:
+            return "Keep windows closed"
+        }
+    }
+
+    private var color: Color {
+        switch recommendation {
+        case .ventilate:
+            return .green
+        case .neutral:
+            return .orange
+        case .closeWindows:
+            return .red
+        }
+    }
+
+    private var explanation: String {
+        switch recommendation {
+        case .ventilate:
+            return "Outdoor air is drier than indoor air."
+        case .neutral:
+            return "Indoor and outdoor air are nearly identical."
+        case .closeWindows:
+            return "Outdoor air contains more moisture than indoor air."
+        }
     }
 }
 
