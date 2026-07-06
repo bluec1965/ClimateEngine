@@ -71,15 +71,15 @@ struct ContentView: View {
 
             VStack(spacing: 8) {
                 if snapshot == nil {
-                    Label("Waiting for sensor data…", systemImage: "circle.dashed")
+                    Label("Warte auf Sensordaten…", systemImage: "circle.dashed")
                         .foregroundStyle(.secondary)
                 } else {
-                    Label("Sensor data loaded", systemImage: "checkmark.circle.fill")
+                    Label("Sensordaten geladen", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 }
 
                 if let lastUpdated {
-                    Text("Last updated: \(lastUpdated.formatted(date: .omitted, time: .standard))")
+                    Text("Letzte Aktualisierung: \(lastUpdated.formatted(date: .omitted, time: .standard))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -113,7 +113,7 @@ struct ContentView: View {
             lastUpdated = Date()
             loadError = nil
         } catch {
-            loadError = "Could not load sensor data"
+            loadError = "Sensordaten konnten nicht geladen werden."
         }
     }
 
@@ -171,7 +171,7 @@ private struct RecommendationPanel: View {
                 .foregroundStyle(.secondary)
 
             if let moistureDifference {
-                Text(String(format: "Moisture difference: %.1f g/m³", moistureDifference))
+                Text(String(format: "Feuchtigkeitsdifferenz: %.1f g/m³", moistureDifference))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -182,11 +182,11 @@ private struct RecommendationPanel: View {
     private var title: String {
         switch recommendation {
         case .ventilate:
-            return "Ventilate now"
+            return "Jetzt lüften"
         case .neutral:
-            return "No recommendation"
+            return "Keine Empfehlung"
         case .closeWindows:
-            return "Keep windows closed"
+            return "Fenster geschlossen halten"
         }
     }
 
@@ -204,11 +204,11 @@ private struct RecommendationPanel: View {
     private var explanation: String {
         switch recommendation {
         case .ventilate:
-            return "Outdoor air is drier than indoor air."
+            return "Die Aussenluft enthält weniger Feuchtigkeit als die Raumluft."
         case .neutral:
-            return "Indoor and outdoor air are nearly identical."
+            return "Innen- und Aussenluft unterscheiden sich nur gering."
         case .closeWindows:
-            return "Outdoor air contains more moisture than indoor air."
+            return "Die Aussenluft enthält mehr Feuchtigkeit als die Raumluft."
         }
     }
 }
@@ -228,10 +228,10 @@ private struct ClimateCard: View {
                 .fontWeight(.semibold)
 
             VStack(alignment: .leading, spacing: 10) {
-                ClimateRow(label: "Temperature", value: temperature)
-                ClimateRow(label: "Humidity", value: humidity)
-                ClimateRow(label: "Dew Point", value: dewPoint)
-                ClimateRow(label: "Abs. Humidity", value: absoluteHumidity)
+                ClimateRow(label: "Temperatur", value: temperature)
+                ClimateRow(label: "Feuchtigkeit", value: humidity)
+                ClimateRow(label: "Taupunkt", value: dewPoint)
+                ClimateRow(label: "absol. Feuchtigkeit", value: absoluteHumidity)
             }
         }
         .padding(20)
