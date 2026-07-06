@@ -3,6 +3,7 @@ import Foundation
 public enum SensorSnapshotLoaderError: Error {
     case fileNotFound(URL)
     case unreadableFile(URL)
+    case invalidJSON
 }
 
 public final class SensorSnapshotLoader {
@@ -18,6 +19,17 @@ public final class SensorSnapshotLoader {
             return try String(contentsOf: url, encoding: .utf8)
         } catch {
             throw SensorSnapshotLoaderError.unreadableFile(url)
+        }
+    }
+
+    func decode(_ text: String) throws -> RawSensorSnapshot {
+        let data = Data(text.utf8)
+        let decoder = JSONDecoder()
+
+        do {
+            return try decoder.decode(RawSensorSnapshot.self, from: data)
+        } catch {
+            throw SensorSnapshotLoaderError.invalidJSON
         }
     }
 }
