@@ -20,6 +20,13 @@ struct ContentView: View {
             .appendingPathComponent("Documents/ClimateEngine/current.json")
     }
 
+    private var moistureDifference: Double? {
+        guard let snapshot else { return nil }
+
+        let analysis = VentilationAdvisor.analyze(snapshot: snapshot)
+        return analysis.absoluteHumidityDifference
+    }
+
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
@@ -55,7 +62,10 @@ struct ContentView: View {
 
             Divider()
 
-            RecommendationPanel(recommendation: recommendation)
+            RecommendationPanel(
+                recommendation: recommendation,
+                moistureDifference: moistureDifference
+            )
 
             Divider()
 
@@ -83,7 +93,7 @@ struct ContentView: View {
             .font(.headline)
         }
         .padding(32)
-        .frame(minWidth: 720, minHeight: 560)
+        .frame(minWidth: 720, minHeight: 580)
         .onAppear {
             loadSnapshot()
         }
@@ -96,9 +106,10 @@ struct ContentView: View {
         do {
             let loader = SensorSnapshotLoader()
             let loadedSnapshot = try loader.load(from: snapshotURL)
+            let analysis = VentilationAdvisor.analyze(snapshot: loadedSnapshot)
 
             snapshot = loadedSnapshot
-            recommendation = VentilationAdvisor.recommendation(for: loadedSnapshot)
+            recommendation = analysis.recommendation
             lastUpdated = Date()
             loadError = nil
         } catch {
@@ -141,6 +152,7 @@ struct ContentView: View {
 
 private struct RecommendationPanel: View {
     let recommendation: VentilationRecommendation
+    let moistureDifference: Double?
 
     var body: some View {
         VStack(spacing: 10) {
@@ -157,6 +169,12 @@ private struct RecommendationPanel: View {
 
             Text(explanation)
                 .foregroundStyle(.secondary)
+
+            if let moistureDifference {
+                Text(String(format: "Moisture difference: %.1f g/m³", moistureDifference))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 8)
     }
