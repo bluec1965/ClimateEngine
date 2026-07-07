@@ -15,6 +15,7 @@ public struct HistoryEntry: Codable {
 
     public let recommendation: String
     public let notificationSent: Bool
+    public let explanation: String
 
     public init(
         timestamp: Date,
@@ -27,7 +28,8 @@ public struct HistoryEntry: Codable {
         outdoorAbsoluteHumidity: Double,
         outdoorDewPoint: Double,
         recommendation: String,
-        notificationSent: Bool
+        notificationSent: Bool,
+        explanation: String,
     ) {
         self.timestamp = timestamp
         self.indoorTemperature = indoorTemperature
@@ -40,5 +42,6 @@ public struct HistoryEntry: Codable {
         self.outdoorDewPoint = outdoorDewPoint
         self.recommendation = recommendation
         self.notificationSent = notificationSent
+        self.explanation = explanation
     }
 }

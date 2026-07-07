@@ -39,7 +39,8 @@ func historyEntry(
             relativeHumidity: snapshot.outdoor.humidity
         ),
         recommendation: recommendationText(analysis.recommendation),
-        notificationSent: notificationSent
+        notificationSent: notificationSent,
+        explanation: analysis.explanation
     )
 }
 

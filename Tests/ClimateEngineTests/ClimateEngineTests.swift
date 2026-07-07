@@ -70,7 +70,8 @@ func historyWriterAndReaderRoundTrip() throws {
         outdoorAbsoluteHumidity: 10.4,
         outdoorDewPoint: 12.0,
         recommendation: "ventilate",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     try HistoryWriter(directory: temporaryDirectory).append(entry)
@@ -103,7 +104,8 @@ func historyPolicyStoresRelevantChanges() throws {
         outdoorAbsoluteHumidity: 9.0,
         outdoorDewPoint: 12.0,
         recommendation: "ventilate",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     let unchanged = HistoryEntry(
@@ -117,7 +119,8 @@ func historyPolicyStoresRelevantChanges() throws {
         outdoorAbsoluteHumidity: 9.0,
         outdoorDewPoint: 12.0,
         recommendation: "ventilate",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     let changedRecommendation = HistoryEntry(
@@ -131,7 +134,8 @@ func historyPolicyStoresRelevantChanges() throws {
         outdoorAbsoluteHumidity: 9.0,
         outdoorDewPoint: 12.0,
         recommendation: "closeWindows",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     let changedTemperature = HistoryEntry(
@@ -145,7 +149,8 @@ func historyPolicyStoresRelevantChanges() throws {
         outdoorAbsoluteHumidity: 9.0,
         outdoorDewPoint: 12.0,
         recommendation: "ventilate",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     let heartbeat = HistoryEntry(
@@ -159,7 +164,8 @@ func historyPolicyStoresRelevantChanges() throws {
         outdoorAbsoluteHumidity: 9.0,
         outdoorDewPoint: 12.0,
         recommendation: "ventilate",
-        notificationSent: false
+        notificationSent: false,
+        explanation: "Test explanation",
     )
 
     #expect(policy.shouldStore(previous: nil, current: previous))
@@ -187,7 +193,8 @@ func historyReaderReturnsRecommendationEvents() throws {
             outdoorAbsoluteHumidity: 9.0,
             outdoorDewPoint: 12.0,
             recommendation: "ventilate",
-            notificationSent: false
+            notificationSent: false,
+            explanation: "Test explanation",
         ),
         HistoryEntry(
             timestamp: now.addingTimeInterval(60),
@@ -200,7 +207,8 @@ func historyReaderReturnsRecommendationEvents() throws {
             outdoorAbsoluteHumidity: 9.1,
             outdoorDewPoint: 12.0,
             recommendation: "ventilate",
-            notificationSent: false
+            notificationSent: false,
+            explanation: "Test explanation",
         ),
         HistoryEntry(
             timestamp: now.addingTimeInterval(120),
@@ -213,7 +221,8 @@ func historyReaderReturnsRecommendationEvents() throws {
             outdoorAbsoluteHumidity: 9.5,
             outdoorDewPoint: 12.0,
             recommendation: "closeWindows",
-            notificationSent: true
+            notificationSent: true,
+            explanation: "Test explanation",
         )
     ]
 

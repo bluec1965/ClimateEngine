@@ -60,7 +60,8 @@ public final class HistoryReader {
                     HistoryEvent(
                         timestamp: entry.timestamp,
                         recommendation: entry.recommendation,
-                        notificationSent: entry.notificationSent
+                        notificationSent: entry.notificationSent,
+                        explanation: entry.explanation,
                     )
                 )
 
