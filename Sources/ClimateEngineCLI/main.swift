@@ -89,9 +89,18 @@ do {
 
     var notificationSent = false
 
-    if let text = speechText(for: notification.action) {
-        print(text)
+    switch notification.action {
+
+    case .openWindows:
+        print("OPEN_WINDOWS")
         notificationSent = true
+
+    case .closeWindows:
+        print("CLOSE_WINDOWS")
+        notificationSent = true
+
+    case .none:
+        print("NONE")
     }
 
     if notification.newState != currentState {
