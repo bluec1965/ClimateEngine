@@ -2,39 +2,46 @@ import Foundation
 import ClimateEngine
 
 let snapshotURL = CLIPaths.snapshotURL
-let stateDirectory = CLIPaths.stateDirectory
-let stateURL = CLIPaths.stateURL
+let historyDirectory = CLIPaths.historyDirectory
 
-func todayKey() -> String {
-    let formatter = DateFormatter()
-    formatter.calendar = Calendar(identifier: .gregorian)
-    formatter.locale = Locale(identifier: "de_CH")
-    formatter.dateFormat = "yyyy-MM-dd"
-    return formatter.string(from: Date())
-}
+let notificationState = NotificationState()
 
-func alreadyNotifiedToday() -> Bool {
-    guard let content = try? String(contentsOf: stateURL, encoding: .utf8) else {
-        return false
+func recommendationText(_ recommendation: VentilationRecommendation) -> String {
+    switch recommendation {
+    case .ventilate:
+        return "ventilate"
+    case .neutral:
+        return "neutral"
+    case .closeWindows:
+        return "closeWindows"
     }
-
-    return content.trimmingCharacters(in: .whitespacesAndNewlines) == todayKey()
 }
 
-func markNotifiedToday() throws {
-    try FileManager.default.createDirectory(
-        at: stateDirectory,
-        withIntermediateDirectories: true
-    )
-
-    try todayKey().write(
-        to: stateURL,
-        atomically: true,
-        encoding: .utf8
+func historyEntry(
+    from snapshot: SensorSnapshot,
+    analysis: VentilationAnalysis,
+    notificationSent: Bool
+) -> HistoryEntry {
+    HistoryEntry(
+        timestamp: snapshot.timestamp,
+        indoorTemperature: snapshot.indoor.temperature,
+        indoorHumidity: snapshot.indoor.humidity,
+        indoorAbsoluteHumidity: analysis.indoorAbsoluteHumidity,
+        indoorDewPoint: ClimateCalculator.dewPoint(
+            temperatureCelsius: snapshot.indoor.temperature,
+            relativeHumidity: snapshot.indoor.humidity
+        ),
+        outdoorTemperature: snapshot.outdoor.temperature,
+        outdoorHumidity: snapshot.outdoor.humidity,
+        outdoorAbsoluteHumidity: analysis.outdoorAbsoluteHumidity,
+        outdoorDewPoint: ClimateCalculator.dewPoint(
+            temperatureCelsius: snapshot.outdoor.temperature,
+            relativeHumidity: snapshot.outdoor.humidity
+        ),
+        recommendation: recommendationText(analysis.recommendation),
+        notificationSent: notificationSent
     )
 }
-
-
 
 do {
     let arguments = Array(CommandLine.arguments.dropFirst())
@@ -54,30 +61,36 @@ do {
         )
     }
 
-    let notificationState = NotificationState()
+    let snapshot = try SensorSnapshotLoader().load(from: snapshotURL)
+    let analysis = VentilationAdvisor.analyze(snapshot: snapshot)
 
-    if notificationState.alreadyNotifiedToday(){
-        exit(0)
+    var notificationSent = false
+
+    if analysis.recommendation == .closeWindows,
+       !notificationState.alreadyNotifiedToday() {
+
+        print("Jetzt ist ein guter Zeitpunkt, die Nachtlüftung zu beenden. Die Fenster können geschlossen werden. Die Aussenluft ist inzwischen wärmer und feuchter als die Raumluft.")
+
+        try notificationState.markNotifiedToday()
+        notificationSent = true
     }
 
-    let snapshot = try SensorSnapshotLoader().load(from: snapshotURL)
-
-    let indoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
-        temperatureCelsius: snapshot.indoor.temperature,
-        relativeHumidity: snapshot.indoor.humidity
+    let currentEntry = historyEntry(
+        from: snapshot,
+        analysis: analysis,
+        notificationSent: notificationSent
     )
 
-    let outdoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
-        temperatureCelsius: snapshot.outdoor.temperature,
-        relativeHumidity: snapshot.outdoor.humidity
+    let historyReader = HistoryReader(directory: historyDirectory)
+    let previousEntry = try historyReader.loadToday().last
+
+    let shouldStore = HistoryPolicy().shouldStore(
+        previous: previousEntry,
+        current: currentEntry
     )
 
-    let outdoorIsWarmerOrEqual = snapshot.outdoor.temperature >= snapshot.indoor.temperature
-    let outdoorIsMoreHumidOrEqual = outdoorAbsoluteHumidity >= indoorAbsoluteHumidity
-
-    if outdoorIsWarmerOrEqual && outdoorIsMoreHumidOrEqual {
-        print("Jetzt ist ein guter Zeitpunkt, die Nachtlüftung zu beenden. Die Fenster können geschlossen werden. Die Aussenluft ist inzwischen wärmer und feuchter als die Raumluft.")
-        try notificationState.markNotifiedToday()
+    if shouldStore {
+        try HistoryWriter(directory: historyDirectory).append(currentEntry)
     }
 
 } catch {

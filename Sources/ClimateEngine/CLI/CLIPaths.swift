@@ -24,4 +24,11 @@ public enum CLIPaths {
         stateDirectory
             .appendingPathComponent("last-summer-night-ventilation-notification.txt")
     }
+    
+    public static var historyDirectory: URL {
+        home
+            .appendingPathComponent("Documents")
+            .appendingPathComponent("ClimateEngine")
+            .appendingPathComponent("history")
+    }
 }
