@@ -82,3 +82,89 @@ func historyWriterAndReaderRoundTrip() throws {
     #expect(entries.first?.recommendation == "ventilate")
     #expect(entries.first?.notificationSent == false)
 }
+@Test
+func historyPolicyStoresRelevantChanges() throws {
+    let policy = HistoryPolicy(
+        temperatureThreshold: 0.2,
+        absoluteHumidityThreshold: 0.2,
+        heartbeatInterval: 10 * 60
+    )
+
+    let now = Date()
+
+    let previous = HistoryEntry(
+        timestamp: now,
+        indoorTemperature: 24.0,
+        indoorHumidity: 50.0,
+        indoorAbsoluteHumidity: 10.0,
+        indoorDewPoint: 13.0,
+        outdoorTemperature: 20.0,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 9.0,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false
+    )
+
+    let unchanged = HistoryEntry(
+        timestamp: now.addingTimeInterval(60),
+        indoorTemperature: 24.0,
+        indoorHumidity: 50.0,
+        indoorAbsoluteHumidity: 10.0,
+        indoorDewPoint: 13.0,
+        outdoorTemperature: 20.0,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 9.0,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false
+    )
+
+    let changedRecommendation = HistoryEntry(
+        timestamp: now.addingTimeInterval(60),
+        indoorTemperature: 24.0,
+        indoorHumidity: 50.0,
+        indoorAbsoluteHumidity: 10.0,
+        indoorDewPoint: 13.0,
+        outdoorTemperature: 20.0,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 9.0,
+        outdoorDewPoint: 12.0,
+        recommendation: "closeWindows",
+        notificationSent: false
+    )
+
+    let changedTemperature = HistoryEntry(
+        timestamp: now.addingTimeInterval(60),
+        indoorTemperature: 24.3,
+        indoorHumidity: 50.0,
+        indoorAbsoluteHumidity: 10.0,
+        indoorDewPoint: 13.0,
+        outdoorTemperature: 20.0,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 9.0,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false
+    )
+
+    let heartbeat = HistoryEntry(
+        timestamp: now.addingTimeInterval(10 * 60),
+        indoorTemperature: 24.0,
+        indoorHumidity: 50.0,
+        indoorAbsoluteHumidity: 10.0,
+        indoorDewPoint: 13.0,
+        outdoorTemperature: 20.0,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 9.0,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false
+    )
+
+    #expect(policy.shouldStore(previous: nil, current: previous))
+    #expect(policy.shouldStore(previous: previous, current: unchanged) == false)
+    #expect(policy.shouldStore(previous: previous, current: changedRecommendation))
+    #expect(policy.shouldStore(previous: previous, current: changedTemperature))
+    #expect(policy.shouldStore(previous: previous, current: heartbeat))
+}
