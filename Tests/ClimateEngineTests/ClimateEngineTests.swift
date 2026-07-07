@@ -54,3 +54,31 @@ func ventilationRecommendationForCurrentSnapshot() throws {
         VentilationRecommendation.closeWindows
     ].contains(recommendation))
 }
+@Test
+func historyWriterAndReaderRoundTrip() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+
+    let entry = HistoryEntry(
+        timestamp: Date(),
+        indoorTemperature: 24.3,
+        indoorHumidity: 49.0,
+        indoorAbsoluteHumidity: 10.7,
+        indoorDewPoint: 12.9,
+        outdoorTemperature: 20.1,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 10.4,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false
+    )
+
+    try HistoryWriter(directory: temporaryDirectory).append(entry)
+
+    let entries = try HistoryReader(directory: temporaryDirectory).loadToday()
+
+    #expect(entries.count == 1)
+    #expect(entries.first?.indoorTemperature == 24.3)
+    #expect(entries.first?.recommendation == "ventilate")
+    #expect(entries.first?.notificationSent == false)
+}
