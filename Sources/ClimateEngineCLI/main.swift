@@ -45,28 +45,16 @@ func markNotifiedToday() throws {
     )
 }
 
-func numericValue(from text: String) throws -> Double {
-    let cleaned = text
-        .replacingOccurrences(of: ",", with: ".")
-        .filter { character in
-            character.isNumber || character == "." || character == "-"
-        }
 
-    guard let value = Double(cleaned) else {
-        throw NSError(domain: "ClimateEngineCLI", code: 1)
-    }
-
-    return value
-}
 
 do {
     let arguments = Array(CommandLine.arguments.dropFirst())
 
     if arguments.count == 4 {
-        let indoorTemperature = try numericValue(from: arguments[0])
-        let indoorHumidity = try numericValue(from: arguments[1])
-        let outdoorTemperature = try numericValue(from: arguments[2])
-        let outdoorHumidity = try numericValue(from: arguments[3])
+        let indoorTemperature = try MeasurementParser.double(from: arguments[0])
+        let indoorHumidity = try MeasurementParser.double(from: arguments[1])
+        let outdoorTemperature = try MeasurementParser.double(from: arguments[2])
+        let outdoorHumidity = try MeasurementParser.double(from: arguments[3])
 
         try SensorSnapshotWriter().write(
             indoorTemperature: indoorTemperature,

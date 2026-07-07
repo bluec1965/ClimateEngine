@@ -43,6 +43,7 @@ public enum CLIError: Error, LocalizedError {
 
     case missingArgument(String)
     case missingValue(String)
+    case invalidNumber(String)
 
     public var errorDescription: String? {
 
@@ -53,6 +54,9 @@ public enum CLIError: Error, LocalizedError {
 
         case .missingValue(let name):
             return "Kein Wert für \(name)"
+            
+        case .invalidNumber(let value):
+            return "Ungültiger Zahlenwert \(value)"
         }
     }
 }
