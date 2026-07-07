@@ -54,7 +54,9 @@ do {
         )
     }
 
-    if alreadyNotifiedToday() {
+    let notificationState = NotificationState()
+
+    if notificationState.alreadyNotifiedToday(){
         exit(0)
     }
 
@@ -75,7 +77,7 @@ do {
 
     if outdoorIsWarmerOrEqual && outdoorIsMoreHumidOrEqual {
         print("Jetzt ist ein guter Zeitpunkt, die Nachtlüftung zu beenden. Die Fenster können geschlossen werden. Die Aussenluft ist inzwischen wärmer und feuchter als die Raumluft.")
-        try markNotifiedToday()
+        try notificationState.markNotifiedToday()
     }
 
 } catch {
