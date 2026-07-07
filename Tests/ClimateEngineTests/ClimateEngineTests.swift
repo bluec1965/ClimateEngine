@@ -168,3 +168,65 @@ func historyPolicyStoresRelevantChanges() throws {
     #expect(policy.shouldStore(previous: previous, current: changedTemperature))
     #expect(policy.shouldStore(previous: previous, current: heartbeat))
 }
+@Test
+func historyReaderReturnsRecommendationEvents() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+
+    let now = Date()
+
+    let entries = [
+        HistoryEntry(
+            timestamp: now,
+            indoorTemperature: 24.0,
+            indoorHumidity: 50.0,
+            indoorAbsoluteHumidity: 10.0,
+            indoorDewPoint: 13.0,
+            outdoorTemperature: 20.0,
+            outdoorHumidity: 60.0,
+            outdoorAbsoluteHumidity: 9.0,
+            outdoorDewPoint: 12.0,
+            recommendation: "ventilate",
+            notificationSent: false
+        ),
+        HistoryEntry(
+            timestamp: now.addingTimeInterval(60),
+            indoorTemperature: 24.1,
+            indoorHumidity: 50.0,
+            indoorAbsoluteHumidity: 10.1,
+            indoorDewPoint: 13.0,
+            outdoorTemperature: 20.1,
+            outdoorHumidity: 60.0,
+            outdoorAbsoluteHumidity: 9.1,
+            outdoorDewPoint: 12.0,
+            recommendation: "ventilate",
+            notificationSent: false
+        ),
+        HistoryEntry(
+            timestamp: now.addingTimeInterval(120),
+            indoorTemperature: 24.2,
+            indoorHumidity: 50.0,
+            indoorAbsoluteHumidity: 10.2,
+            indoorDewPoint: 13.0,
+            outdoorTemperature: 21.0,
+            outdoorHumidity: 60.0,
+            outdoorAbsoluteHumidity: 9.5,
+            outdoorDewPoint: 12.0,
+            recommendation: "closeWindows",
+            notificationSent: true
+        )
+    ]
+
+    let writer = HistoryWriter(directory: temporaryDirectory)
+
+    for entry in entries {
+        try writer.append(entry)
+    }
+
+    let events = try HistoryReader(directory: temporaryDirectory).todayEvents()
+
+    #expect(events.count == 2)
+    #expect(events[0].recommendation == "ventilate")
+    #expect(events[1].recommendation == "closeWindows")
+    #expect(events[1].notificationSent == true)
+}

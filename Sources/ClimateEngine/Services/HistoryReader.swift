@@ -38,4 +38,36 @@ public final class HistoryReader {
                 )
             }
     }
+    public func todaySummary() throws -> HistorySummary {
+
+        let entries = try loadToday()
+
+        return HistorySummary(
+            measurementCount: entries.count,
+            firstMeasurement: entries.first?.timestamp,
+            lastMeasurement: entries.last?.timestamp
+        )
+    }
+    public func todayEvents() throws -> [HistoryEvent] {
+        let entries = try loadToday()
+
+        var events: [HistoryEvent] = []
+        var previousRecommendation: String?
+
+        for entry in entries {
+            if entry.recommendation != previousRecommendation || entry.notificationSent {
+                events.append(
+                    HistoryEvent(
+                        timestamp: entry.timestamp,
+                        recommendation: entry.recommendation,
+                        notificationSent: entry.notificationSent
+                    )
+                )
+
+                previousRecommendation = entry.recommendation
+            }
+        }
+
+        return events
+    }
 }
