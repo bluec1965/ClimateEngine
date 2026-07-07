@@ -294,3 +294,61 @@ func historyAnalyzerCalculatesStatistics() {
     #expect(statistics.recommendationChanges == 2)
     #expect(statistics.ventilationPeriods == 2)
 }
+@Test
+func windowStateRoundTrip() throws {
+
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+
+    try FileManager.default.createDirectory(
+        at: directory,
+        withIntermediateDirectories: true
+    )
+
+    let url = directory.appendingPathComponent("windowState.json")
+
+    let store = WindowStateStore(fileURL: url)
+
+    try store.save(.waitingForClosing)
+
+    let loaded = try store.load()
+
+    #expect(loaded == .waitingForClosing)
+}
+@Test
+func notificationManagerOpeningTransition() {
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+    let date = calendar.date(
+        from: DateComponents(
+            year: 2026,
+            month: 7,
+            day: 7,
+            hour: 20
+        )
+    )!
+
+    let result = NotificationManager().evaluate(
+        recommendation: .ventilate,
+        state: .waitingForOpening,
+        now: date,
+        calendar: calendar
+    )
+
+    #expect(result.action == .openWindows)
+    #expect(result.newState == .waitingForClosing)
+}
+@Test
+func measurementParserAcceptsFormattedValues() throws {
+
+    #expect(try MeasurementParser.double(from: "24.4") == 24.4)
+    #expect(try MeasurementParser.double(from: "24,4") == 24.4)
+
+    #expect(try MeasurementParser.double(from: "24.4 °C") == 24.4)
+    #expect(try MeasurementParser.double(from: "24,4 °C") == 24.4)
+
+    #expect(try MeasurementParser.double(from: "53 %") == 53)
+    #expect(try MeasurementParser.double(from: "53%") == 53)
+}
