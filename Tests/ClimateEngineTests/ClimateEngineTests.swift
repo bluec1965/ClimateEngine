@@ -239,3 +239,58 @@ func historyReaderReturnsRecommendationEvents() throws {
     #expect(events[1].recommendation == "closeWindows")
     #expect(events[1].notificationSent == true)
 }
+@Test
+func historyAnalyzerCalculatesStatistics() {
+    let now = Date()
+
+    let entries = [
+        HistoryEntry(
+            timestamp: now,
+            indoorTemperature: 24,
+            indoorHumidity: 50,
+            indoorAbsoluteHumidity: 10,
+            indoorDewPoint: 13,
+            outdoorTemperature: 20,
+            outdoorHumidity: 60,
+            outdoorAbsoluteHumidity: 9,
+            outdoorDewPoint: 12,
+            recommendation: "ventilate",
+            notificationSent: false,
+            explanation: "Test"
+        ),
+        HistoryEntry(
+            timestamp: now.addingTimeInterval(60),
+            indoorTemperature: 24,
+            indoorHumidity: 50,
+            indoorAbsoluteHumidity: 10,
+            indoorDewPoint: 13,
+            outdoorTemperature: 21,
+            outdoorHumidity: 60,
+            outdoorAbsoluteHumidity: 9,
+            outdoorDewPoint: 12,
+            recommendation: "closeWindows",
+            notificationSent: true,
+            explanation: "Test"
+        ),
+        HistoryEntry(
+            timestamp: now.addingTimeInterval(120),
+            indoorTemperature: 24,
+            indoorHumidity: 50,
+            indoorAbsoluteHumidity: 10,
+            indoorDewPoint: 13,
+            outdoorTemperature: 19,
+            outdoorHumidity: 60,
+            outdoorAbsoluteHumidity: 9,
+            outdoorDewPoint: 12,
+            recommendation: "ventilate",
+            notificationSent: false,
+            explanation: "Test"
+        )
+    ]
+
+    let statistics = HistoryAnalyzer().statistics(from: entries)
+
+    #expect(statistics.measurementCount == 3)
+    #expect(statistics.recommendationChanges == 2)
+    #expect(statistics.ventilationPeriods == 2)
+}
