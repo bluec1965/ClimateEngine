@@ -4,7 +4,9 @@ import ClimateEngine
 let snapshotURL = CLIPaths.snapshotURL
 let historyDirectory = CLIPaths.historyDirectory
 
-let notificationState = NotificationState()
+let windowStateStore = WindowStateStore(
+    fileURL: CLIPaths.windowStateURL
+)
 
 func recommendationText(_ recommendation: VentilationRecommendation) -> String {
     switch recommendation {
@@ -14,6 +16,19 @@ func recommendationText(_ recommendation: VentilationRecommendation) -> String {
         return "neutral"
     case .closeWindows:
         return "closeWindows"
+    }
+}
+
+func speechText(for action: NotificationAction) -> String? {
+    switch action {
+    case .openWindows:
+        return "Die Aussenluft ist jetzt kühler und trockener als die Raumluft. Es ist ein guter Zeitpunkt, die Fenster zu öffnen."
+
+    case .closeWindows:
+        return "Die Aussenluft ist nicht mehr optimal. Bitte die Fenster jetzt schliessen."
+
+    case .none:
+        return nil
     }
 }
 
@@ -65,15 +80,22 @@ do {
     let snapshot = try SensorSnapshotLoader().load(from: snapshotURL)
     let analysis = VentilationAdvisor.analyze(snapshot: snapshot)
 
+    let currentState = try windowStateStore.load()
+
+    let notification = NotificationManager().evaluate(
+        recommendation: analysis.recommendation,
+        state: currentState
+    )
+
     var notificationSent = false
 
-    if analysis.recommendation == .closeWindows,
-       !notificationState.alreadyNotifiedToday() {
-
-        print("Jetzt ist ein guter Zeitpunkt, die Nachtlüftung zu beenden. Die Fenster können geschlossen werden. Die Aussenluft ist inzwischen wärmer und feuchter als die Raumluft.")
-
-        try notificationState.markNotifiedToday()
+    if let text = speechText(for: notification.action) {
+        print(text)
         notificationSent = true
+    }
+
+    if notification.newState != currentState {
+        try windowStateStore.save(notification.newState)
     }
 
     let currentEntry = historyEntry(
