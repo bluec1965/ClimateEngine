@@ -4,7 +4,12 @@ import ClimateEngine
 
 struct ContentView: View {
     @State private var snapshot: SensorSnapshot?
-    @State private var recommendation: VentilationRecommendation = .neutral
+    @State private var analysis: VentilationAnalysis?
+    @State private var historySummary = HistorySummary(
+        measurementCount: 0,
+        firstMeasurement: nil,
+        lastMeasurement: nil
+    )
     @State private var lastUpdated: Date?
     @State private var loadError: String?
 
@@ -20,21 +25,24 @@ struct ContentView: View {
             .appendingPathComponent("Documents/ClimateEngine/current.json")
     }
 
-    private var moistureDifference: Double? {
-        guard let snapshot else { return nil }
-
-        let analysis = VentilationAdvisor.analyze(snapshot: snapshot)
-        return analysis.absoluteHumidityDifference
+    private var historyDirectory: URL {
+        FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/ClimateEngine/history")
     }
 
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
-                Text("Klima Check bei Hitze")
+                Text("Climate Engine")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                
+                Text("Der intelligente Klima-Assistent")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
 
-                Text("Version 0.2.0-alpha")
+                Text("Version 1.2-alpha")
                     .foregroundStyle(.secondary)
             }
 
@@ -42,7 +50,7 @@ struct ContentView: View {
 
             HStack(spacing: 20) {
                 ClimateCard(
-                    title: "Innenbereich",
+                    title: "Innen",
                     systemImage: "house.fill",
                     temperature: formatTemperature(snapshot?.indoor.temperature),
                     humidity: formatHumidity(snapshot?.indoor.humidity),
@@ -51,7 +59,7 @@ struct ContentView: View {
                 )
 
                 ClimateCard(
-                    title: "Auf der Terrasse",
+                    title: "Aussen",
                     systemImage: "tree.fill",
                     temperature: formatTemperature(snapshot?.outdoor.temperature),
                     humidity: formatHumidity(snapshot?.outdoor.humidity),
@@ -62,10 +70,11 @@ struct ContentView: View {
 
             Divider()
 
-            RecommendationPanel(
-                recommendation: recommendation,
-                moistureDifference: moistureDifference
-            )
+            RecommendationPanel(analysis: analysis)
+
+            Divider()
+
+            HistorySummaryPanel(summary: historySummary)
 
             Divider()
 
@@ -93,7 +102,7 @@ struct ContentView: View {
             .font(.headline)
         }
         .padding(32)
-        .frame(minWidth: 720, minHeight: 580)
+        .frame(minWidth: 760, minHeight: 740)
         .onAppear {
             loadSnapshot()
         }
@@ -106,10 +115,11 @@ struct ContentView: View {
         do {
             let loader = SensorSnapshotLoader()
             let loadedSnapshot = try loader.load(from: snapshotURL)
-            let analysis = VentilationAdvisor.analyze(snapshot: loadedSnapshot)
+            let loadedAnalysis = VentilationAdvisor.analyze(snapshot: loadedSnapshot)
 
             snapshot = loadedSnapshot
-            recommendation = analysis.recommendation
+            analysis = loadedAnalysis
+            historySummary = try HistoryReader(directory: historyDirectory).todaySummary()
             lastUpdated = Date()
             loadError = nil
         } catch {
@@ -147,115 +157,6 @@ struct ContentView: View {
         )
 
         return String(format: "%.1f g/m³", absoluteHumidity)
-    }
-}
-
-private struct RecommendationPanel: View {
-    let recommendation: VentilationRecommendation
-    let moistureDifference: Double?
-
-    var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 10, height: 10)
-
-                Text(title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(color)
-            }
-
-            Text(explanation)
-                .foregroundStyle(.secondary)
-
-            if let moistureDifference {
-                Text(String(format: "Aussenluft ist %.1f g/m³ trockener als Raumluft", moistureDifference))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 8)
-    }
-
-    private var title: String {
-        switch recommendation {
-        case .ventilate:
-            return "Jetzt lüften"
-        case .neutral:
-            return "Keine Empfehlung"
-        case .closeWindows:
-            return "Fenster geschlossen halten"
-        }
-    }
-
-    private var color: Color {
-        switch recommendation {
-        case .ventilate:
-            return .green
-        case .neutral:
-            return .orange
-        case .closeWindows:
-            return .red
-        }
-    }
-
-    private var explanation: String {
-        switch recommendation {
-        case .ventilate:
-            return "Die Aussenluft enthält weniger Feuchtigkeit als die Raumluft."
-        case .neutral:
-            return "Innen- und Aussenluft unterscheiden sich nur gering."
-        case .closeWindows:
-            return "Die Aussenluft enthält mehr Feuchtigkeit als die Raumluft."
-        }
-    }
-}
-
-private struct ClimateCard: View {
-    let title: String
-    let systemImage: String
-    let temperature: String
-    let humidity: String
-    let dewPoint: String
-    let absoluteHumidity: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(title, systemImage: systemImage)
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            VStack(alignment: .leading, spacing: 10) {
-                ClimateRow(label: "Temperatur", value: temperature)
-                ClimateRow(label: "Feuchtigkeit", value: humidity)
-                ClimateRow(label: "Taupunkt", value: dewPoint)
-                ClimateRow(label: "Absolute Luftfeuchtigkeit", value: absoluteHumidity)
-            }
-        }
-        .padding(20)
-        .frame(width: 300, alignment: .leading)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-    }
-}
-
-private struct ClimateRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Text(value)
-                .fontWeight(.medium)
-                .monospacedDigit()
-        }
     }
 }
 
