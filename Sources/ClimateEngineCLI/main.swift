@@ -1,20 +1,9 @@
 import Foundation
 import ClimateEngine
 
-let home = FileManager.default.homeDirectoryForCurrentUser
-
-let snapshotURL = home
-    .appendingPathComponent("Documents")
-    .appendingPathComponent("ClimateEngine")
-    .appendingPathComponent("current.json")
-
-let stateDirectory = home
-    .appendingPathComponent("Library")
-    .appendingPathComponent("Application Support")
-    .appendingPathComponent("ClimateEngine")
-
-let stateURL = stateDirectory
-    .appendingPathComponent("last-summer-night-ventilation-notification.txt")
+let snapshotURL = CLIPaths.snapshotURL
+let stateDirectory = CLIPaths.stateDirectory
+let stateURL = CLIPaths.stateURL
 
 func todayKey() -> String {
     let formatter = DateFormatter()
