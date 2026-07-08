@@ -62,11 +62,34 @@ func historyEntry(
 do {
     let arguments = Array(CommandLine.arguments.dropFirst())
 
-    if arguments.count == 4 {
-        let indoorTemperature = try MeasurementParser.double(from: arguments[0])
-        let indoorHumidity = try MeasurementParser.double(from: arguments[1])
-        let outdoorTemperature = try MeasurementParser.double(from: arguments[2])
-        let outdoorHumidity = try MeasurementParser.double(from: arguments[3])
+    var numericValues = arguments.compactMap {
+        try? MeasurementParser.double(from: $0)
+    }
+
+    // Falls keine Argumente vorhanden sind,
+    // versuchen wir vier Zeilen von stdin zu lesen.
+    if numericValues.count < 4 {
+
+        let stdin = String(
+            data: FileHandle.standardInput.readDataToEndOfFile(),
+            encoding: .utf8
+        ) ?? ""
+
+        let lines = stdin
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+
+        numericValues = lines.compactMap {
+            try? MeasurementParser.double(from: $0)
+        }
+    }
+
+    if numericValues.count >= 4 {
+
+        let indoorTemperature = numericValues[0]
+        let indoorHumidity = numericValues[1]
+        let outdoorTemperature = numericValues[2]
+        let outdoorHumidity = numericValues[3]
 
         try SensorSnapshotWriter().write(
             indoorTemperature: indoorTemperature,
