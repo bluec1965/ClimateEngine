@@ -22,6 +22,9 @@ public struct VentilationAnalysis: Equatable {
     public let indoorAbsoluteHumidity: Double
     public let outdoorAbsoluteHumidity: Double
     public let absoluteHumidityDifference: Double
+    public let explanation: String
+    public let indoorTemperature: Double
+    public let outdoorTemperature: Double
 }
 
 public enum VentilationAdvisor {
@@ -39,21 +42,43 @@ public enum VentilationAdvisor {
 
         let difference = outdoorAbsoluteHumidity - indoorAbsoluteHumidity
 
-        let recommendation: VentilationRecommendation
+        let outdoorIsClearlyDrier = difference < -0.3
+        let outdoorIsClearlyMoreHumid = difference > 0.3
+        let outdoorIsCooler = snapshot.outdoor.temperature < snapshot.indoor.temperature
+        let outdoorIsWarmerOrEqual = snapshot.outdoor.temperature >= snapshot.indoor.temperature
 
-        if difference < -0.3 {
+        let recommendation: VentilationRecommendation
+        let explanation: String
+
+        if outdoorIsClearlyDrier && outdoorIsCooler {
             recommendation = .ventilate
-        } else if difference > 0.3 {
+            explanation = "Die Aussenluft ist kühler und trockener als die Raumluft."
+        } else if outdoorIsClearlyDrier && outdoorIsWarmerOrEqual {
             recommendation = .closeWindows
+            explanation = "Die Aussenluft ist zwar trockener, aber wärmer als die Raumluft."
+        } else if outdoorIsClearlyMoreHumid && outdoorIsCooler {
+            recommendation = .closeWindows
+            explanation = "Die Aussenluft ist zwar kühler, enthält aber mehr Feuchtigkeit als die Raumluft."
+        } else if outdoorIsClearlyMoreHumid && outdoorIsWarmerOrEqual {
+            recommendation = .closeWindows
+            explanation = "Die Aussenluft ist wärmer und feuchter als die Raumluft."
+        } else if outdoorIsWarmerOrEqual {
+            recommendation = .closeWindows
+            explanation = "Die Aussenluft ist wärmer als die Raumluft."
         } else {
             recommendation = .neutral
+            explanation = "Innen- und Aussenluft unterscheiden sich nur gering."
         }
 
         return VentilationAnalysis(
             recommendation: recommendation,
             indoorAbsoluteHumidity: indoorAbsoluteHumidity,
             outdoorAbsoluteHumidity: outdoorAbsoluteHumidity,
-            absoluteHumidityDifference: difference
+            absoluteHumidityDifference: difference,
+            explanation: explanation,
+            indoorTemperature: snapshot.indoor.temperature,
+            outdoorTemperature: snapshot.outdoor.temperature,
+
         )
     }
 

@@ -352,3 +352,39 @@ func measurementParserAcceptsFormattedValues() throws {
     #expect(try MeasurementParser.double(from: "53 %") == 53)
     #expect(try MeasurementParser.double(from: "53%") == 53)
 }
+
+@Test
+func completeCLIRunCreatesDailyHistoryFile() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    let runDate = ISO8601DateFormatter().date(from: "2026-07-31T20:15:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+
+    let output = try ClimateEngineCommand(
+        paths: paths,
+        now: { runDate }
+    ).run(arguments: ["24.0", "50", "18.0", "50"])
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let historyURL = paths.historyDirectory
+        .appendingPathComponent(formatter.string(from: runDate) + ".jsonl")
+
+    #expect(["OPEN_WINDOWS", "NONE"].contains(output))
+    #expect(FileManager.default.fileExists(atPath: paths.snapshotURL.path))
+    #expect(FileManager.default.fileExists(atPath: historyURL.path))
+
+    let entries = try HistoryReader(directory: paths.historyDirectory)
+        .loadToday(now: runDate)
+    #expect(entries.count == 1)
+    #expect(entries.first?.timestamp == runDate)
+    #expect(entries.first?.indoorTemperature == 24.0)
+    #expect(entries.first?.outdoorTemperature == 18.0)
+}

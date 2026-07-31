@@ -15,10 +15,15 @@ struct RawClimateMeasurement: Decodable {
 extension RawSensorSnapshot {
 
     func toSensorSnapshot() throws -> SensorSnapshot {
+        guard let measurementTime = ISO8601DateFormatter().date(from: timestamp) else {
+            throw SensorSnapshotLoaderError.invalidJSON(
+                "Messzeitpunkt ist kein gültiger ISO-8601-Zeitstempel: \(timestamp)"
+            )
+        }
 
-        SensorSnapshot(
+        return SensorSnapshot(
             version: version,
-            timestamp: ISO8601DateFormatter().date(from: timestamp) ?? Date(),
+            timestamp: measurementTime,
             source: source,
             indoor: ClimateMeasurement(
                 temperature: try indoor.temperatureValue(),
@@ -41,7 +46,9 @@ extension RawClimateMeasurement {
             .trimmingCharacters(in: .whitespaces)
 
         guard let value = Double(cleaned) else {
-            throw SensorSnapshotLoaderError.invalidJSON
+            throw SensorSnapshotLoaderError.invalidJSON(
+                "Temperaturwert ist keine Zahl: \(temperature)"
+            )
         }
 
         return value

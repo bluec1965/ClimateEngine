@@ -12,14 +12,14 @@ public final class HistoryReader {
         self.decoder.dateDecodingStrategy = .iso8601
     }
 
-    public func loadToday() throws -> [HistoryEntry] {
+    public func loadToday(now: Date = Date()) throws -> [HistoryEntry] {
 
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
 
-        let filename = formatter.string(from: Date()) + ".jsonl"
+        let filename = formatter.string(from: now) + ".jsonl"
 
         let fileURL = directory.appendingPathComponent(filename)
 
@@ -38,9 +38,9 @@ public final class HistoryReader {
                 )
             }
     }
-    public func todaySummary() throws -> HistorySummary {
+    public func todaySummary(now: Date = Date()) throws -> HistorySummary {
 
-        let entries = try loadToday()
+        let entries = try loadToday(now: now)
 
         return HistorySummary(
             measurementCount: entries.count,
@@ -48,8 +48,8 @@ public final class HistoryReader {
             lastMeasurement: entries.last?.timestamp
         )
     }
-    public func todayEvents() throws -> [HistoryEvent] {
-        let entries = try loadToday()
+    public func todayEvents(now: Date = Date()) throws -> [HistoryEvent] {
+        let entries = try loadToday(now: now)
 
         var events: [HistoryEvent] = []
         var previousRecommendation: String?

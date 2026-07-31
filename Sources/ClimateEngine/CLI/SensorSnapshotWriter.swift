@@ -9,6 +9,7 @@ public final class SensorSnapshotWriter {
         indoorHumidity: Double,
         outdoorTemperature: Double,
         outdoorHumidity: Double,
+        timestamp: Date = Date(),
         to url: URL
     ) throws {
 
@@ -18,7 +19,7 @@ public final class SensorSnapshotWriter {
         )
 
         let formatter = ISO8601DateFormatter()
-        let timestamp = formatter.string(from: Date())
+        let timestamp = formatter.string(from: timestamp)
 
         let json = """
         {

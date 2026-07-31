@@ -1,9 +1,20 @@
 import Foundation
 
-public enum SensorSnapshotLoaderError: Error {
+public enum SensorSnapshotLoaderError: Error, CustomStringConvertible {
     case fileNotFound(URL)
-    case unreadableFile(URL)
-    case invalidJSON
+    case unreadableFile(URL, String)
+    case invalidJSON(String)
+
+    public var description: String {
+        switch self {
+        case .fileNotFound(let url):
+            return "Sensordatei nicht gefunden: \(url.path)"
+        case .unreadableFile(let url, let cause):
+            return "Sensordatei nicht lesbar (\(url.path)): \(cause)"
+        case .invalidJSON(let cause):
+            return "Ungültige Sensordaten: \(cause)"
+        }
+    }
 }
 
 public final class SensorSnapshotLoader {
@@ -18,7 +29,10 @@ public final class SensorSnapshotLoader {
         do {
             return try String(contentsOf: url, encoding: .utf8)
         } catch {
-            throw SensorSnapshotLoaderError.unreadableFile(url)
+            throw SensorSnapshotLoaderError.unreadableFile(
+                url,
+                String(reflecting: error)
+            )
         }
     }
     public func load(from url: URL) throws -> SensorSnapshot {
@@ -36,7 +50,9 @@ public final class SensorSnapshotLoader {
         do {
             return try decoder.decode(RawSensorSnapshot.self, from: data)
         } catch {
-            throw SensorSnapshotLoaderError.invalidJSON
+            throw SensorSnapshotLoaderError.invalidJSON(
+                String(reflecting: error)
+            )
         }
     }
 }

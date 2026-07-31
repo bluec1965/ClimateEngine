@@ -10,8 +10,13 @@ struct ContentView: View {
         firstMeasurement: nil,
         lastMeasurement: nil
     )
-    @State private var lastUpdated: Date?
     @State private var loadError: String?
+    @State private var historyStatistics = HistoryStatistics(
+        measurementCount: 0,
+        recommendationChanges: 0,
+        ventilationPeriods: 0
+    )
+    @State private var historyEvents: [HistoryEvent] = []
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -19,17 +24,7 @@ struct ContentView: View {
         in: .common
     ).autoconnect()
 
-    private var snapshotURL: URL {
-        FileManager.default
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/ClimateEngine/current.json")
-    }
-
-    private var historyDirectory: URL {
-        FileManager.default
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/ClimateEngine/history")
-    }
+    private let paths = ClimateEnginePaths.current
 
     var body: some View {
         VStack(spacing: 24) {
@@ -74,8 +69,12 @@ struct ContentView: View {
 
             Divider()
 
-            HistorySummaryPanel(summary: historySummary)
+            HistorySummaryPanel(
+                summary: historySummary,
+                statistics: historyStatistics
+            )
 
+            HistoryTimelinePanel(events: historyEvents)
             Divider()
 
             VStack(spacing: 8) {
@@ -87,8 +86,8 @@ struct ContentView: View {
                         .foregroundStyle(.green)
                 }
 
-                if let lastUpdated {
-                    Text("Letzte Aktualisierung: \(lastUpdated.formatted(date: .omitted, time: .standard))")
+                if let measurementTime = snapshot?.timestamp {
+                    Text("Sensormessung: \(measurementTime.formatted(date: .abbreviated, time: .standard))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -113,17 +112,34 @@ struct ContentView: View {
 
     private func loadSnapshot() {
         do {
-            let loader = SensorSnapshotLoader()
-            let loadedSnapshot = try loader.load(from: snapshotURL)
+            let loadedSnapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
             let loadedAnalysis = VentilationAdvisor.analyze(snapshot: loadedSnapshot)
 
             snapshot = loadedSnapshot
             analysis = loadedAnalysis
-            historySummary = try HistoryReader(directory: historyDirectory).todaySummary()
-            lastUpdated = Date()
             loadError = nil
         } catch {
-            loadError = "Sensordaten konnten nicht geladen werden."
+            loadError = "Sensordaten konnten nicht geladen werden: \(error)"
+        }
+
+        do {
+            let reader = HistoryReader(directory: paths.historyDirectory)
+            let entries = try reader.loadToday()
+            historySummary = try reader.todaySummary()
+            historyEvents = try reader.todayEvents()
+            historyStatistics = HistoryAnalyzer().statistics(from: entries)
+        } catch {
+            historySummary = HistorySummary(
+                measurementCount: 0,
+                firstMeasurement: nil,
+                lastMeasurement: nil
+            )
+            historyEvents = []
+            historyStatistics = HistoryStatistics(
+                measurementCount: 0,
+                recommendationChanges: 0,
+                ventilationPeriods: 0
+            )
         }
     }
 

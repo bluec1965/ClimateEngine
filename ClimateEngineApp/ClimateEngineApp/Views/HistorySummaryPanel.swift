@@ -3,6 +3,7 @@ import ClimateEngine
 
 struct HistorySummaryPanel: View {
     let summary: HistorySummary
+    let statistics: HistoryStatistics
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -10,7 +11,9 @@ struct HistorySummaryPanel: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            ClimateRow(label: "Messungen", value: "\(summary.measurementCount)")
+            ClimateRow(label: "Messungen", value: "\(statistics.measurementCount)")
+            ClimateRow(label: "Empfehlungswechsel", value: "\(statistics.recommendationChanges)")
+            ClimateRow(label: "Lüftungsfenster", value: "\(statistics.ventilationPeriods)")
             ClimateRow(label: "Erste Messung", value: formatTime(summary.firstMeasurement))
             ClimateRow(label: "Letzte Messung", value: formatTime(summary.lastMeasurement))
         }
