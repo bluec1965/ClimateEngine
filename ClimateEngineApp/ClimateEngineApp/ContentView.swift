@@ -27,6 +27,21 @@ struct ContentView: View {
     private let paths = ClimateEnginePaths.current
 
     var body: some View {
+        ScrollView(.vertical) {
+            dashboardContent
+                .padding(32)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(minWidth: 760, minHeight: 740)
+        .onAppear {
+            loadSnapshot()
+        }
+        .onReceive(refreshTimer) { _ in
+            loadSnapshot()
+        }
+    }
+
+    private var dashboardContent: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
                 Text("Climate Engine")
@@ -99,14 +114,6 @@ struct ContentView: View {
                 }
             }
             .font(.headline)
-        }
-        .padding(32)
-        .frame(minWidth: 760, minHeight: 740)
-        .onAppear {
-            loadSnapshot()
-        }
-        .onReceive(refreshTimer) { _ in
-            loadSnapshot()
         }
     }
 
