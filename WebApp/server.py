@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 
 WEB_ROOT = Path(__file__).resolve().parent
-DATA_ROOT = Path.home() / "Documents" / "ClimateEngine"
+DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
 
 
 def read_dashboard_data():

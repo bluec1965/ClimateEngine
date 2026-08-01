@@ -2,6 +2,18 @@ import Foundation
 import Testing
 @testable import ClimateEngine
 
+@Test
+func defaultPathsUseApplicationSupport() {
+    let homeDirectory = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
+    let paths = ClimateEnginePaths(homeDirectory: homeDirectory)
+    let expectedDirectory = homeDirectory
+        .appendingPathComponent("Library/Application Support/ClimateEngine")
+
+    #expect(paths.dataDirectory == expectedDirectory)
+    #expect(paths.stateDirectory == expectedDirectory)
+    #expect(paths.snapshotURL == expectedDirectory.appendingPathComponent("current.json"))
+}
+
 @Test func loadCurrentSensorSnapshot() throws {
     let url = FileManager.default
         .homeDirectoryForCurrentUser

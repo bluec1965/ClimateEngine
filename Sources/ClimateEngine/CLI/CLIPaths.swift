@@ -13,14 +13,14 @@ public struct ClimateEnginePaths: Sendable {
     }
 
     public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+        let applicationSupportDirectory = homeDirectory
+            .appendingPathComponent("Library")
+            .appendingPathComponent("Application Support")
+            .appendingPathComponent("ClimateEngine")
+
         self.init(
-            dataDirectory: homeDirectory
-            .appendingPathComponent("Documents")
-            .appendingPathComponent("ClimateEngine"),
-            stateDirectory: homeDirectory
-                .appendingPathComponent("Library")
-                .appendingPathComponent("Application Support")
-                .appendingPathComponent("ClimateEngine")
+            dataDirectory: applicationSupportDirectory,
+            stateDirectory: applicationSupportDirectory
         )
     }
 
