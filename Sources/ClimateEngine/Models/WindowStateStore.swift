@@ -20,13 +20,7 @@ public final class WindowStateStore {
 
         let data = try Data(contentsOf: fileURL)
         let persisted = try JSONDecoder().decode(PersistedWindowState.self, from: data)
-
-        if persisted.day == dayKey(for: now) {
-            return persisted.state
-        }
-
-        try save(.waitingForOpening, now: now)
-        return .waitingForOpening
+        return persisted.state
     }
 
     public func save(

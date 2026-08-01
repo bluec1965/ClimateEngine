@@ -340,6 +340,84 @@ func notificationManagerOpeningTransition() {
     #expect(result.action == .openWindows)
     #expect(result.newState == .waitingForClosing)
 }
+
+@Test
+func notificationManagerUsesOvernightOpeningWindow() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+    let beforeFive = calendar.date(
+        from: DateComponents(year: 2026, month: 8, day: 1, hour: 4, minute: 59)
+    )!
+    let atFive = calendar.date(
+        from: DateComponents(year: 2026, month: 8, day: 1, hour: 5)
+    )!
+    let manager = NotificationManager()
+
+    #expect(manager.evaluate(
+        recommendation: .ventilate,
+        state: .waitingForOpening,
+        now: beforeFive,
+        calendar: calendar
+    ).action == .openWindows)
+    #expect(manager.evaluate(
+        recommendation: .ventilate,
+        state: .waitingForOpening,
+        now: atFive,
+        calendar: calendar
+    ).action == .none)
+}
+
+@Test
+func notificationManagerClosesThroughElevenFiftyNine() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+    let beforeNoon = calendar.date(
+        from: DateComponents(year: 2026, month: 8, day: 1, hour: 11, minute: 59)
+    )!
+    let atNoon = calendar.date(
+        from: DateComponents(year: 2026, month: 8, day: 1, hour: 12)
+    )!
+    let manager = NotificationManager()
+
+    #expect(manager.evaluate(
+        recommendation: .closeWindows,
+        state: .waitingForClosing,
+        now: beforeNoon,
+        calendar: calendar
+    ).action == .closeWindows)
+    #expect(manager.evaluate(
+        recommendation: .closeWindows,
+        state: .waitingForClosing,
+        now: atNoon,
+        calendar: calendar
+    ).action == .none)
+}
+
+@Test
+func windowStateSurvivesMidnight() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    let beforeMidnight = calendar.date(
+        from: DateComponents(year: 2026, month: 7, day: 31, hour: 23, minute: 59)
+    )!
+    let afterMidnight = calendar.date(
+        from: DateComponents(year: 2026, month: 8, day: 1, hour: 5)
+    )!
+    let store = WindowStateStore(
+        fileURL: temporaryDirectory.appendingPathComponent("windowState.json"),
+        calendar: calendar
+    )
+
+    try store.save(.waitingForClosing, now: beforeMidnight)
+
+    #expect(try store.load(now: afterMidnight) == .waitingForClosing)
+}
 @Test
 func measurementParserAcceptsFormattedValues() throws {
 

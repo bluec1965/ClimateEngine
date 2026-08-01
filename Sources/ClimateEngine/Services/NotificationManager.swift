@@ -36,7 +36,9 @@ public struct NotificationManager {
 
         case .waitingForOpening:
 
-            if (18...23).contains(hour),
+            let isOpeningWindow = hour >= 18 || hour <= 4
+
+            if isOpeningWindow,
                recommendation == .ventilate {
 
                 return NotificationResult(
@@ -47,7 +49,7 @@ public struct NotificationManager {
 
         case .waitingForClosing:
 
-            if (5...9).contains(hour),
+            if (5...11).contains(hour),
                recommendation == .closeWindows {
 
                 return NotificationResult(
