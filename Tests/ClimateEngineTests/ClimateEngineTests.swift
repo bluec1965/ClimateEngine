@@ -12,6 +12,8 @@ func defaultPathsUseApplicationSupport() {
     #expect(paths.dataDirectory == expectedDirectory)
     #expect(paths.stateDirectory == expectedDirectory)
     #expect(paths.snapshotURL == expectedDirectory.appendingPathComponent("current.json"))
+    #expect(paths.weatherSnapshotURL == expectedDirectory.appendingPathComponent("weather/current.json"))
+    #expect(paths.weatherHistoryDirectory == expectedDirectory.appendingPathComponent("weather/history"))
 }
 
 @Test func loadCurrentSensorSnapshot() throws {
@@ -577,4 +579,113 @@ func incompleteSupplementalInputKeepsSafeReferencePair() throws {
     let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
     #expect(snapshot.indoorRooms.map(\.name) == ["Stube"])
     #expect(snapshot.outdoorSensors.map(\.name) == ["Eve Degree"])
+}
+
+@Test
+func weatherInputParserAcceptsShortcutText() throws {
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-02T14:37:00Z")!
+    let input = """
+    CLIMATEENGINE_WEATHER_V1
+    LOCATION|Platz 3
+    CURRENT|NOW|21,4 °C|73 %|Leicht bewölkt||8,5 km/h|
+    FORECAST|+1|20,8 °C|0,75|Bewölkt|0,4|7 km/h|0 mm
+    FORECAST|2026-08-02T16:00:00Z|19,9 °C|81 %|Leichter Regen|65 %|10 km/h|0,4 mm
+    """
+
+    let snapshot = try WeatherInputParser().parse(input, now: runDate)
+
+    #expect(snapshot.location == "Platz 3")
+    #expect(snapshot.timestamp == runDate)
+    #expect(snapshot.current.timestamp == runDate)
+    #expect(snapshot.current.temperature == 21.4)
+    #expect(snapshot.current.humidity == 73)
+    #expect(snapshot.current.precipitationChance == nil)
+    #expect(snapshot.current.windSpeed == 8.5)
+    #expect(snapshot.hourlyForecast.count == 2)
+    #expect(snapshot.hourlyForecast[0].timestamp == ISO8601DateFormatter().date(
+        from: "2026-08-02T15:00:00Z"
+    ))
+    #expect(snapshot.hourlyForecast[0].humidity == 75)
+    #expect(snapshot.hourlyForecast[0].precipitationChance == 40)
+    #expect(snapshot.hourlyForecast[1].precipitationAmount == 0.4)
+}
+
+@Test
+func completeWeatherConnectorRunWritesSnapshotAndDailyHistory() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-02T14:37:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let input = """
+    CLIMATEENGINE_WEATHER_V1
+    LOCATION|Platz 3
+    CURRENT|NOW|21.4 °C|73 %|Leicht bewölkt||8.5 km/h|
+    FORECAST|+1|20.8 °C|75 %|Bewölkt|40 %|7 km/h|0 mm
+    """
+
+    let output = try ClimateEngineCommand(
+        paths: paths,
+        now: { runDate }
+    ).run(arguments: ["weather"], standardInput: input)
+
+    #expect(output == "WEATHER_SAVED")
+    #expect(FileManager.default.fileExists(atPath: paths.weatherSnapshotURL.path))
+    #expect(FileManager.default.fileExists(atPath: paths.snapshotURL.path) == false)
+
+    let snapshot = try WeatherSnapshotStore().load(from: paths.weatherSnapshotURL)
+    #expect(snapshot.location == "Platz 3")
+    #expect(snapshot.current.condition == "Leicht bewölkt")
+    #expect(snapshot.hourlyForecast.count == 1)
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let historyURL = paths.weatherHistoryDirectory
+        .appendingPathComponent(formatter.string(from: runDate) + ".jsonl")
+    let historyText = try String(contentsOf: historyURL, encoding: .utf8)
+    #expect(historyText.split(separator: "\n").count == 1)
+}
+
+@Test
+func malformedWeatherInputDoesNotReplaceExistingSnapshot() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-02T14:37:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let existing = WeatherSnapshot(
+        timestamp: runDate,
+        location: "Bestehender Ort",
+        current: WeatherReading(
+            timestamp: runDate,
+            temperature: 20,
+            humidity: 50,
+            condition: "Klar"
+        ),
+        hourlyForecast: []
+    )
+    try WeatherSnapshotStore().write(existing, to: paths.weatherSnapshotURL)
+
+    #expect(throws: (any Error).self) {
+        try ClimateEngineCommand(
+            paths: paths,
+            now: { runDate }
+        ).run(
+            arguments: ["weather"],
+            standardInput: "CURRENT|NOW|keine Zahl|73 %|Bewölkt||8 km/h"
+        )
+    }
+
+    let unchanged = try WeatherSnapshotStore().load(from: paths.weatherSnapshotURL)
+    #expect(unchanged == existing)
 }

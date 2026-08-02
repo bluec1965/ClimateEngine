@@ -37,9 +37,26 @@ def read_dashboard_data():
                             f"Ungültiger Verlauf in Zeile {line_number}: {error}"
                         ) from error
 
+    weather = None
+    weather_error = None
+    weather_path = DATA_ROOT / "weather" / "current.json"
+    if weather_path.exists():
+        try:
+            with weather_path.open(encoding="utf-8") as file:
+                weather = json.load(file)
+            if not isinstance(weather, dict) or not isinstance(
+                weather.get("current"), dict
+            ):
+                raise ValueError("Aktuelle Wetterbeobachtung fehlt")
+        except Exception as error:
+            weather = None
+            weather_error = f"Wetterdaten konnten nicht geladen werden: {error}"
+
     return {
         "snapshot": snapshot,
         "history": history,
+        "weather": weather,
+        "weatherError": weather_error,
         "servedAt": datetime.now().astimezone().isoformat(),
     }
 

@@ -17,6 +17,8 @@ struct ContentView: View {
         ventilationPeriods: 0
     )
     @State private var historyEvents: [HistoryEvent] = []
+    @State private var weatherSnapshot: WeatherSnapshot?
+    @State private var weatherLoadError: String?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -52,7 +54,7 @@ struct ContentView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
-                Text("Version 1.3-alpha")
+                Text("Version 1.4-alpha")
                     .foregroundStyle(.secondary)
             }
 
@@ -70,6 +72,11 @@ struct ContentView: View {
                 subtitle: outdoorSensorSubtitle,
                 readings: snapshot?.outdoorSensors ?? [],
                 systemImage: "tree.fill"
+            )
+
+            WeatherObservationPanel(
+                snapshot: weatherSnapshot,
+                loadError: weatherLoadError
             )
 
             if let snapshot {
@@ -197,6 +204,24 @@ struct ContentView: View {
                 ventilationPeriods: 0
             )
         }
+
+        do {
+            weatherSnapshot = try WeatherSnapshotStore().load(
+                from: paths.weatherSnapshotURL
+            )
+            weatherLoadError = nil
+        } catch let error as WeatherSnapshotStoreError {
+            weatherSnapshot = nil
+            switch error {
+            case .fileNotFound:
+                weatherLoadError = nil
+            default:
+                weatherLoadError = error.description
+            }
+        } catch {
+            weatherSnapshot = nil
+            weatherLoadError = String(describing: error)
+        }
     }
 
     private func formatTemperature(_ value: Double?) -> String {
@@ -229,6 +254,175 @@ struct ContentView: View {
         )
 
         return String(format: "%.1f g/m³", absoluteHumidity)
+    }
+}
+
+private struct WeatherObservationPanel: View {
+    let snapshot: WeatherSnapshot?
+    let loadError: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Wetterbeobachtung")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("Apple Weather · noch ohne Einfluss auf SMS und Empfehlungen")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if let snapshot {
+                    Text(freshnessText(snapshot.timestamp))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(isStale(snapshot.timestamp) ? .orange : .green)
+                }
+            }
+
+            if let snapshot {
+                currentWeather(snapshot)
+
+                if !snapshot.hourlyForecast.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(
+                            Array(snapshot.hourlyForecast.prefix(6).enumerated()),
+                            id: \.offset
+                        ) { index, reading in
+                            WeatherForecastRow(reading: reading)
+                            if index < min(snapshot.hourlyForecast.count, 6) - 1 {
+                                Divider()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .background(.quaternary.opacity(0.35))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Noch keine Wetterdaten", systemImage: "cloud.sun")
+                        .font(.headline)
+                    Text(loadError ?? "Der separate Weather Connector wurde noch nicht ausgeführt.")
+                        .font(.caption)
+                        .foregroundColor(loadError == nil ? .secondary : .red)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(.quaternary.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func currentWeather(_ snapshot: WeatherSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(snapshot.location, systemImage: "location.fill")
+                    .font(.headline)
+                Spacer()
+                Text(snapshot.current.condition)
+                    .fontWeight(.semibold)
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 125), spacing: 14)],
+                spacing: 14
+            ) {
+                WeatherMetric(title: "Temperatur", value: temperature(snapshot.current.temperature))
+                WeatherMetric(title: "Luftfeuchte", value: percentage(snapshot.current.humidity))
+                WeatherMetric(title: "Taupunkt", value: temperature(snapshot.current.dewPoint))
+                WeatherMetric(title: "Absolute Feuchte", value: String(format: "%.1f g/m³", snapshot.current.absoluteHumidity))
+                WeatherMetric(title: "Regenchance", value: optionalPercentage(snapshot.current.precipitationChance))
+                WeatherMetric(title: "Wind", value: optionalSpeed(snapshot.current.windSpeed))
+            }
+        }
+        .padding(18)
+        .background(.quaternary.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func freshnessText(_ timestamp: Date) -> String {
+        if isStale(timestamp) {
+            return "Abruf veraltet · \(timestamp.formatted(date: .omitted, time: .shortened))"
+        }
+        return "Aktuell · \(timestamp.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private func isStale(_ timestamp: Date) -> Bool {
+        Date().timeIntervalSince(timestamp) > 90 * 60
+    }
+
+    private func temperature(_ value: Double) -> String {
+        String(format: "%.1f °C", value)
+    }
+
+    private func percentage(_ value: Double) -> String {
+        String(format: "%.0f %%", value)
+    }
+
+    private func optionalPercentage(_ value: Double?) -> String {
+        guard let value else { return "–" }
+        return percentage(value)
+    }
+
+    private func optionalSpeed(_ value: Double?) -> String {
+        guard let value else { return "–" }
+        return String(format: "%.1f km/h", value)
+    }
+}
+
+private struct WeatherMetric: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .fontWeight(.semibold)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct WeatherForecastRow: View {
+    let reading: WeatherReading
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Text(reading.timestamp.formatted(date: .omitted, time: .shortened))
+                .fontWeight(.semibold)
+                .frame(width: 52, alignment: .leading)
+
+            Text(reading.condition)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text(String(format: "%.1f °C", reading.temperature))
+                .fontWeight(.semibold)
+            Text(String(format: "%.1f g/m³", reading.absoluteHumidity))
+                .foregroundStyle(.secondary)
+                .frame(width: 80, alignment: .trailing)
+            Text(precipitationText)
+                .foregroundColor((reading.precipitationChance ?? 0) >= 40 ? .blue : .secondary)
+                .frame(width: 48, alignment: .trailing)
+        }
+        .font(.subheadline)
+        .padding(.vertical, 12)
+    }
+
+    private var precipitationText: String {
+        guard let chance = reading.precipitationChance else { return "–" }
+        return String(format: "%.0f %%", chance)
     }
 }
 

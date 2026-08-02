@@ -14,6 +14,12 @@ public struct ClimateEngineCommand {
 
     @discardableResult
     public func run(arguments: [String], standardInput: String = "") throws -> String {
+        if arguments.first?.lowercased() == "weather" {
+            return try WeatherConnectorCommand(paths: paths, now: now).run(
+                standardInput: standardInput
+            )
+        }
+
         let executionDate = now()
         var numericValues = arguments.compactMap {
             try? MeasurementParser.double(from: $0)

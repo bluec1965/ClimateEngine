@@ -81,6 +81,10 @@ const setText = (id, value) => { byId(id).textContent = value; };
 const temperatureText = (value) => `${value.toFixed(1)} °C`;
 const humidityText = (value) => `${value.toFixed(0)} %`;
 const absoluteText = (value) => `${value.toFixed(1)} g/m³`;
+const precipitationText = (value) =>
+  value == null ? "–" : `${Number(value).toFixed(0)} %`;
+const windText = (value) =>
+  value == null ? "–" : `${Number(value).toFixed(1)} km/h`;
 
 const sensorReading = (raw, fallback) => ({
   id: raw?.id || fallback.id,
@@ -174,6 +178,73 @@ const renderOutdoorSummary = (readings) => {
   summary.className = `section-note${uncertain ? " warning" : ""}`;
 };
 
+const renderWeather = (weather, weatherError) => {
+  const content = byId("weather-content");
+  const status = byId("weather-status");
+
+  if (!weather) {
+    status.textContent = weatherError ? "Wetterdaten fehlerhaft" : "Noch keine Wetterdaten";
+    status.className = `count-badge${weatherError ? " warning" : ""}`;
+    const empty = document.createElement("p");
+    empty.className = `empty-state${weatherError ? " error-text" : ""}`;
+    empty.textContent = weatherError || "Der separate Weather Connector wurde noch nicht ausgeführt.";
+    content.replaceChildren(empty);
+    return;
+  }
+
+  const age = Date.now() - new Date(weather.timestamp).getTime();
+  const stale = age > 90 * 60 * 1000;
+  status.textContent = `${stale ? "Veraltet" : "Aktuell"} · ${formatTime(weather.timestamp)}`;
+  status.className = `count-badge ${stale ? "warning" : "fresh"}`;
+
+  const current = weather.current;
+  const currentCard = document.createElement("article");
+  currentCard.className = "weather-current";
+  currentCard.innerHTML = `
+    <div class="weather-current-title">
+      <div>
+        <span class="weather-location"></span>
+        <h3></h3>
+      </div>
+    </div>
+    <dl class="weather-metrics">
+      <div><dt>Temperatur</dt><dd>${temperatureText(Number(current.temperature))}</dd></div>
+      <div><dt>Luftfeuchte</dt><dd>${humidityText(Number(current.humidity))}</dd></div>
+      <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(Number(current.temperature), Number(current.humidity)))}</dd></div>
+      <div><dt>Absolute Feuchte</dt><dd>${absoluteText(absoluteHumidity(Number(current.temperature), Number(current.humidity)))}</dd></div>
+      <div><dt>Regenchance</dt><dd>${precipitationText(current.precipitationChance)}</dd></div>
+      <div><dt>Wind</dt><dd>${windText(current.windSpeed)}</dd></div>
+    </dl>`;
+  currentCard.querySelector(".weather-location").textContent = weather.location || "Aktueller Ort";
+  currentCard.querySelector("h3").textContent = current.condition || "Wetterlage unbekannt";
+
+  const forecast = document.createElement("div");
+  forecast.className = "weather-forecast";
+  const readings = (weather.hourlyForecast || []).slice(0, 6);
+  if (!readings.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Noch keine Stundenprognose vorhanden.";
+    forecast.append(empty);
+  } else {
+    for (const reading of readings) {
+      const row = document.createElement("article");
+      const rainChance = Number(reading.precipitationChance || 0);
+      row.className = `weather-hour${rainChance >= 40 ? " rainy" : ""}`;
+      row.innerHTML = `
+        <time>${formatTime(reading.timestamp)}</time>
+        <span class="weather-condition"></span>
+        <strong>${temperatureText(Number(reading.temperature))}</strong>
+        <span>${absoluteText(absoluteHumidity(Number(reading.temperature), Number(reading.humidity)))}</span>
+        <span>${precipitationText(reading.precipitationChance)}</span>`;
+      row.querySelector(".weather-condition").textContent = reading.condition || "–";
+      forecast.append(row);
+    }
+  }
+
+  content.replaceChildren(currentCard, forecast);
+};
+
 const renderHistory = (history) => {
   setText("measurement-count", `${history.length} ${history.length === 1 ? "Messung" : "Messungen"}`);
   setText("first-measurement", formatTime(history[0]?.timestamp));
@@ -221,7 +292,7 @@ const renderHistory = (history) => {
   }));
 };
 
-const render = ({ snapshot, history }) => {
+const render = ({ snapshot, history, weather, weatherError }) => {
   const { indoorRooms, outdoorSensors } = snapshotReadings(snapshot);
   const indoor = indoorRooms.find((reading) => reading.isPrimary) || indoorRooms[0];
   const outdoor = outdoorSensors.find((reading) => reading.isPrimary) || outdoorSensors[0];
@@ -232,6 +303,11 @@ const render = ({ snapshot, history }) => {
   renderSensorCards("outdoor-grid", outdoorSensors, "♧");
   renderRoomObservations(indoorRooms, outdoor);
   renderOutdoorSummary(outdoorSensors);
+  try {
+    renderWeather(weather, weatherError);
+  } catch (error) {
+    renderWeather(null, `Wetterdaten konnten nicht dargestellt werden: ${error.message}`);
+  }
 
   setText("compare-temp-indoor", temperatureText(indoor.temperature));
   setText("compare-temp-outdoor", temperatureText(outdoor.temperature));
