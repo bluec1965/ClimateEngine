@@ -49,6 +49,36 @@ public struct HistoryPolicy {
             return true
         }
 
+        if sensorReadingsChanged(previous.indoorRooms, current.indoorRooms) {
+            return true
+        }
+
+        if sensorReadingsChanged(previous.outdoorSensors, current.outdoorSensors) {
+            return true
+        }
+
         return false
+    }
+
+    private func sensorReadingsChanged(
+        _ previous: [SensorReading],
+        _ current: [SensorReading]
+    ) -> Bool {
+        guard previous.map(\.id) == current.map(\.id) else {
+            return true
+        }
+
+        return zip(previous, current).contains { old, new in
+            let oldAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
+                temperatureCelsius: old.measurement.temperature,
+                relativeHumidity: old.measurement.humidity
+            )
+            let newAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
+                temperatureCelsius: new.measurement.temperature,
+                relativeHumidity: new.measurement.humidity
+            )
+            return abs(old.measurement.temperature - new.measurement.temperature) >= temperatureThreshold
+                || abs(oldAbsoluteHumidity - newAbsoluteHumidity) >= absoluteHumidityThreshold
+        }
     }
 }

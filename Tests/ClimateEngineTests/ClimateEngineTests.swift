@@ -478,3 +478,103 @@ func completeCLIRunCreatesDailyHistoryFile() throws {
     #expect(entries.first?.indoorTemperature == 24.0)
     #expect(entries.first?.outdoorTemperature == 18.0)
 }
+
+@Test
+func completeMultiSensorCLIRunStoresAllReadings() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-02T20:15:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let input = """
+    22.5
+    52
+    21.3
+    58
+    21.8
+    55
+    22.9
+    50
+    23.5
+    61
+    19.5
+    65
+    """
+
+    _ = try ClimateEngineCommand(
+        paths: paths,
+        now: { runDate }
+    ).run(arguments: [], standardInput: input)
+
+    let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+    #expect(snapshot.version == 2)
+    #expect(snapshot.indoorRooms.map(\.name) == [
+        "Stube", "Schlafzimmer", "Büro Alois", "Sauna"
+    ])
+    #expect(snapshot.outdoorSensors.map(\.name) == [
+        "Eve Degree", "HomePod Terrasse"
+    ])
+    #expect(snapshot.indoor.temperature == 22.5)
+    #expect(snapshot.outdoor.temperature == 21.3)
+
+    let entries = try HistoryReader(directory: paths.historyDirectory)
+        .loadToday(now: runDate)
+    #expect(entries.count == 1)
+    #expect(entries[0].indoorRooms.count == 4)
+    #expect(entries[0].outdoorSensors.count == 2)
+    #expect(entries[0].indoorRooms.last?.measurement.temperature == 23.5)
+    #expect(entries[0].outdoorSensors.last?.measurement.temperature == 19.5)
+}
+
+@Test
+func legacySnapshotProvidesReferenceSensorNames() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+    try FileManager.default.createDirectory(
+        at: temporaryDirectory,
+        withIntermediateDirectories: true
+    )
+    let url = temporaryDirectory.appendingPathComponent("current.json")
+    let json = """
+    {
+      "version": 1,
+      "timestamp": "2026-08-02T06:00:00Z",
+      "source": "ClimateEngineCLI",
+      "indoor": { "temperature": "22.5 °C", "humidity": 52 },
+      "outdoor": { "temperature": "19.5 °C", "humidity": 65 }
+    }
+    """
+    try json.write(to: url, atomically: true, encoding: .utf8)
+
+    let snapshot = try SensorSnapshotLoader().load(from: url)
+
+    #expect(snapshot.indoorRooms.map(\.name) == ["Stube"])
+    #expect(snapshot.outdoorSensors.map(\.name) == ["Eve Degree"])
+    #expect(snapshot.indoorRooms[0].isPrimary)
+    #expect(snapshot.outdoorSensors[0].isPrimary)
+}
+
+@Test
+func incompleteSupplementalInputKeepsSafeReferencePair() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+
+    _ = try ClimateEngineCommand(paths: paths).run(
+        arguments: ["22.5", "52", "21.3", "58", "21.8", "55"],
+        standardInput: ""
+    )
+
+    let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+    #expect(snapshot.indoorRooms.map(\.name) == ["Stube"])
+    #expect(snapshot.outdoorSensors.map(\.name) == ["Eve Degree"])
+}

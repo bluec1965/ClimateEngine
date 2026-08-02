@@ -52,29 +52,30 @@ struct ContentView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
-                Text("Version 1.2-alpha")
+                Text("Version 1.3-alpha")
                     .foregroundStyle(.secondary)
             }
 
             Divider()
 
-            HStack(spacing: 20) {
-                ClimateCard(
-                    title: "Innen",
-                    systemImage: "house.fill",
-                    temperature: formatTemperature(snapshot?.indoor.temperature),
-                    humidity: formatHumidity(snapshot?.indoor.humidity),
-                    dewPoint: formatDewPoint(snapshot?.indoor),
-                    absoluteHumidity: formatAbsoluteHumidity(snapshot?.indoor)
-                )
+            sensorSection(
+                title: "Innenräume",
+                subtitle: "Stube bleibt während der Beobachtungsphase die SMS-Referenz.",
+                readings: snapshot?.indoorRooms ?? [],
+                systemImage: "house.fill"
+            )
 
-                ClimateCard(
-                    title: "Aussen",
-                    systemImage: "tree.fill",
-                    temperature: formatTemperature(snapshot?.outdoor.temperature),
-                    humidity: formatHumidity(snapshot?.outdoor.humidity),
-                    dewPoint: formatDewPoint(snapshot?.outdoor),
-                    absoluteHumidity: formatAbsoluteHumidity(snapshot?.outdoor)
+            sensorSection(
+                title: "Aussensensoren",
+                subtitle: outdoorSensorSubtitle,
+                readings: snapshot?.outdoorSensors ?? [],
+                systemImage: "tree.fill"
+            )
+
+            if let snapshot {
+                RoomObservationPanel(
+                    rooms: snapshot.indoorRooms,
+                    referenceOutdoor: snapshot.outdoor
                 )
             }
 
@@ -115,6 +116,54 @@ struct ContentView: View {
             }
             .font(.headline)
         }
+    }
+
+    private func sensorSection(
+        title: String,
+        subtitle: String,
+        readings: [SensorReading],
+        systemImage: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 290), spacing: 20)],
+                spacing: 20
+            ) {
+                ForEach(readings) { reading in
+                    ClimateCard(
+                        title: reading.name,
+                        systemImage: systemImage,
+                        temperature: formatTemperature(reading.measurement.temperature),
+                        humidity: formatHumidity(reading.measurement.humidity),
+                        dewPoint: formatDewPoint(reading.measurement),
+                        absoluteHumidity: formatAbsoluteHumidity(reading.measurement),
+                        referenceLabel: reading.isPrimary ? "SMS-Referenz" : nil
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var outdoorSensorSubtitle: String {
+        guard let readings = snapshot?.outdoorSensors, readings.count > 1 else {
+            return "Eve Degree bleibt während der Beobachtungsphase die SMS-Referenz."
+        }
+        let temperatures = readings.map(\.measurement.temperature)
+        let spread = (temperatures.max() ?? 0) - (temperatures.min() ?? 0)
+        return String(
+            format: "Eve Degree ist SMS-Referenz · aktuelle Temperaturspanne %.1f °C",
+            spread
+        )
     }
 
     private func loadSnapshot() {
@@ -180,6 +229,97 @@ struct ContentView: View {
         )
 
         return String(format: "%.1f g/m³", absoluteHumidity)
+    }
+}
+
+private struct RoomObservationPanel: View {
+    let rooms: [SensorReading]
+    let referenceOutdoor: ClimateMeasurement
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Raumbeobachtung")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("Noch ohne zusätzliche SMS-Benachrichtigungen")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(rooms) { room in
+                    RoomObservationRow(
+                        room: room,
+                        analysis: VentilationAdvisor.analyze(
+                            indoor: room.measurement,
+                            outdoor: referenceOutdoor
+                        )
+                    )
+
+                    if room.id != rooms.last?.id {
+                        Divider()
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .background(.quaternary.opacity(0.35))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct RoomObservationRow: View {
+    let room: SensorReading
+    let analysis: VentilationAnalysis
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(room.name)
+                    .fontWeight(.semibold)
+                Text(analysis.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var title: String {
+        switch analysis.recommendation {
+        case .ventilate: return "Lüften"
+        case .neutral: return "Beobachten"
+        case .closeWindows: return "Geschlossen"
+        }
+    }
+
+    private var icon: String {
+        switch analysis.recommendation {
+        case .ventilate: return "wind"
+        case .neutral: return "minus.circle.fill"
+        case .closeWindows: return "xmark.circle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch analysis.recommendation {
+        case .ventilate: return .green
+        case .neutral: return .orange
+        case .closeWindows: return .red
+        }
     }
 }
 

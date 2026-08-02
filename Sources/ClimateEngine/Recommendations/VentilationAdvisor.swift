@@ -30,22 +30,29 @@ public struct VentilationAnalysis: Equatable {
 public enum VentilationAdvisor {
 
     public static func analyze(snapshot: SensorSnapshot) -> VentilationAnalysis {
+        analyze(indoor: snapshot.indoor, outdoor: snapshot.outdoor)
+    }
+
+    public static func analyze(
+        indoor: ClimateMeasurement,
+        outdoor: ClimateMeasurement
+    ) -> VentilationAnalysis {
         let indoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
-            temperatureCelsius: snapshot.indoor.temperature,
-            relativeHumidity: snapshot.indoor.humidity
+            temperatureCelsius: indoor.temperature,
+            relativeHumidity: indoor.humidity
         )
 
         let outdoorAbsoluteHumidity = ClimateCalculator.absoluteHumidity(
-            temperatureCelsius: snapshot.outdoor.temperature,
-            relativeHumidity: snapshot.outdoor.humidity
+            temperatureCelsius: outdoor.temperature,
+            relativeHumidity: outdoor.humidity
         )
 
         let difference = outdoorAbsoluteHumidity - indoorAbsoluteHumidity
 
         let outdoorIsClearlyDrier = difference < -0.3
         let outdoorIsClearlyMoreHumid = difference > 0.3
-        let outdoorIsCooler = snapshot.outdoor.temperature < snapshot.indoor.temperature
-        let outdoorIsWarmerOrEqual = snapshot.outdoor.temperature >= snapshot.indoor.temperature
+        let outdoorIsCooler = outdoor.temperature < indoor.temperature
+        let outdoorIsWarmerOrEqual = outdoor.temperature >= indoor.temperature
 
         let recommendation: VentilationRecommendation
         let explanation: String
@@ -76,8 +83,8 @@ public enum VentilationAdvisor {
             outdoorAbsoluteHumidity: outdoorAbsoluteHumidity,
             absoluteHumidityDifference: difference,
             explanation: explanation,
-            indoorTemperature: snapshot.indoor.temperature,
-            outdoorTemperature: snapshot.outdoor.temperature,
+            indoorTemperature: indoor.temperature,
+            outdoorTemperature: outdoor.temperature,
 
         )
     }

@@ -63,6 +63,15 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
+.sensor-section { margin-top: 20px; }
+.sensor-heading { align-items: center; margin-bottom: 12px; padding: 0 3px; }
+.section-note {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-align: right;
+}
+.section-note.warning { color: var(--amber); }
 .climate-card, .panel {
   border: 1px solid rgba(255, 255, 255, 0.035);
   border-radius: 22px;
@@ -71,7 +80,18 @@ body {
 }
 .climate-card { padding: 22px; }
 .card-title { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-.card-title span { font-size: 1.5rem; }
+.card-title .card-icon { font-size: 1.5rem; }
+.card-title h3 { margin: 0; font-size: 1.08rem; }
+.reference-badge {
+  margin-left: auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(32, 223, 108, 0.12);
+  color: var(--green);
+  font-size: 0.65rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
 h2 { margin: 0; font-size: 1.08rem; }
 dl { margin: 0; }
 dl > div { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; }
@@ -109,6 +129,39 @@ dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabul
 .history-stats div { padding: 14px; border-radius: 15px; background: rgba(18, 24, 26, 0.28); }
 .history-stats strong { display: block; margin-bottom: 6px; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .history-stats span { color: var(--muted); font-size: 0.76rem; line-height: 1.25; }
+
+.room-observations { display: grid; }
+.room-observation {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+.room-observation + .room-observation { border-top: 1px solid var(--line); }
+.room-advice-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 800;
+}
+.room-observation h3 { margin: 0; font-size: 0.95rem; }
+.room-observation p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.room-observation strong { font-size: 0.8rem; }
+.room-observation.ventilate .room-advice-icon,
+.room-observation.ventilate strong { color: var(--green); }
+.room-observation.close .room-advice-icon,
+.room-observation.close strong { color: var(--red); }
+.room-observation.neutral .room-advice-icon,
+.room-observation.neutral strong { color: var(--amber); }
 
 .timeline { display: grid; }
 .timeline-event { display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 14px 0; }
@@ -149,6 +202,10 @@ button:active { transform: scale(0.98); }
   .hero { padding-top: 12px; }
   .climate-card, .panel { border-radius: 18px; }
   footer { align-items: flex-start; flex-direction: column; }
+  .sensor-heading { align-items: flex-start; flex-direction: column; }
+  .section-note { text-align: left; }
+  .room-observation { grid-template-columns: 30px minmax(0, 1fr); }
+  .room-observation strong { grid-column: 2; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

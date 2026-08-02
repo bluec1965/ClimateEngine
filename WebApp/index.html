@@ -22,34 +22,47 @@
         </div>
       </header>
 
-      <section class="measurement-grid" aria-label="Aktuelle Messwerte">
-        <article class="climate-card">
-          <div class="card-title"><span aria-hidden="true">⌂</span><h2>Innen</h2></div>
-          <dl>
-            <div><dt>Temperatur</dt><dd id="indoor-temperature">–</dd></div>
-            <div><dt>Luftfeuchtigkeit</dt><dd id="indoor-humidity">–</dd></div>
-            <div><dt>Taupunkt</dt><dd id="indoor-dew-point">–</dd></div>
-            <div><dt>Absolute Feuchte</dt><dd id="indoor-absolute">–</dd></div>
-          </dl>
-        </article>
+      <section class="sensor-section" aria-labelledby="indoor-heading">
+        <div class="section-heading sensor-heading">
+          <div>
+            <p class="section-label">Innen</p>
+            <h2 id="indoor-heading">Räume</h2>
+          </div>
+          <span class="section-note">Stube ist SMS-Referenz</span>
+        </div>
+        <div class="measurement-grid" id="indoor-grid"></div>
+      </section>
 
-        <article class="climate-card">
-          <div class="card-title"><span aria-hidden="true">♧</span><h2>Aussen</h2></div>
-          <dl>
-            <div><dt>Temperatur</dt><dd id="outdoor-temperature">–</dd></div>
-            <div><dt>Luftfeuchtigkeit</dt><dd id="outdoor-humidity">–</dd></div>
-            <div><dt>Taupunkt</dt><dd id="outdoor-dew-point">–</dd></div>
-            <div><dt>Absolute Feuchte</dt><dd id="outdoor-absolute">–</dd></div>
-          </dl>
-        </article>
+      <section class="sensor-section" aria-labelledby="outdoor-heading">
+        <div class="section-heading sensor-heading">
+          <div>
+            <p class="section-label">Aussen</p>
+            <h2 id="outdoor-heading">Sensoren</h2>
+          </div>
+          <span class="section-note" id="outdoor-summary">Eve Degree ist SMS-Referenz</span>
+        </div>
+        <div class="measurement-grid" id="outdoor-grid"></div>
       </section>
 
       <section class="recommendation panel" id="recommendation-panel">
         <div class="recommendation-icon" id="recommendation-icon" aria-hidden="true">•</div>
         <div>
-          <p class="section-label">Empfehlung</p>
+          <p class="section-label">SMS-Empfehlung · Stube</p>
           <h2 id="recommendation-title">Sensordaten werden geladen</h2>
           <p id="recommendation-explanation">Bitte einen Moment warten.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">Beobachtungsphase</p>
+            <h2>Empfehlungen nach Raum</h2>
+          </div>
+          <span class="count-badge">Noch ohne zusätzliche SMS</span>
+        </div>
+        <div class="room-observations" id="room-observations">
+          <p class="empty-state">Raumdaten werden geladen</p>
         </div>
       </section>
 
@@ -57,16 +70,16 @@
         <article class="panel compact">
           <p class="section-label">Temperaturvergleich</p>
           <dl>
-            <div><dt>Innen</dt><dd id="compare-temp-indoor">–</dd></div>
-            <div><dt>Aussen</dt><dd id="compare-temp-outdoor">–</dd></div>
+            <div><dt>Stube</dt><dd id="compare-temp-indoor">–</dd></div>
+            <div><dt>Eve Degree</dt><dd id="compare-temp-outdoor">–</dd></div>
             <div class="difference"><dt>Differenz</dt><dd id="compare-temp-difference">–</dd></div>
           </dl>
         </article>
         <article class="panel compact">
           <p class="section-label">Feuchtigkeitsvergleich</p>
           <dl>
-            <div><dt>Innen</dt><dd id="compare-humidity-indoor">–</dd></div>
-            <div><dt>Aussen</dt><dd id="compare-humidity-outdoor">–</dd></div>
+            <div><dt>Stube</dt><dd id="compare-humidity-indoor">–</dd></div>
+            <div><dt>Eve Degree</dt><dd id="compare-humidity-outdoor">–</dd></div>
             <div class="difference"><dt>Differenz</dt><dd id="compare-humidity-difference">–</dd></div>
           </dl>
         </article>

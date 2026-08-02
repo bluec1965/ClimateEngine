@@ -26,11 +26,10 @@ public struct ClimateEngineCommand {
         }
 
         if numericValues.count >= 4 {
+            let readings = makeSensorReadings(from: numericValues)
             try SensorSnapshotWriter().write(
-                indoorTemperature: numericValues[0],
-                indoorHumidity: numericValues[1],
-                outdoorTemperature: numericValues[2],
-                outdoorHumidity: numericValues[3],
+                indoorRooms: readings.indoorRooms,
+                outdoorSensors: readings.outdoorSensors,
                 timestamp: executionDate,
                 to: paths.snapshotURL
             )
@@ -93,7 +92,81 @@ public struct ClimateEngineCommand {
             ),
             recommendation: recommendationText(analysis.recommendation),
             notificationSent: notificationSent,
-            explanation: analysis.explanation
+            explanation: analysis.explanation,
+            indoorRooms: snapshot.indoorRooms,
+            outdoorSensors: snapshot.outdoorSensors
+        )
+    }
+
+    private func makeSensorReadings(
+        from values: [Double]
+    ) -> (indoorRooms: [SensorReading], outdoorSensors: [SensorReading]) {
+        var indoorRooms = [
+            reading(
+                id: "stube",
+                name: "Stube",
+                temperature: values[0],
+                humidity: values[1],
+                isPrimary: true
+            )
+        ]
+        var outdoorSensors = [
+            reading(
+                id: "eve-degree",
+                name: "Eve Degree",
+                temperature: values[2],
+                humidity: values[3],
+                isPrimary: true
+            )
+        ]
+
+        guard values.count >= 12 else {
+            return (indoorRooms, outdoorSensors)
+        }
+
+        let additionalIndoorRooms = [
+            (id: "schlafzimmer", name: "Schlafzimmer", startIndex: 4),
+            (id: "buero-alois", name: "Büro Alois", startIndex: 6),
+            (id: "sauna", name: "Sauna", startIndex: 8)
+        ]
+        for room in additionalIndoorRooms {
+            indoorRooms.append(
+                reading(
+                    id: room.id,
+                    name: room.name,
+                    temperature: values[room.startIndex],
+                    humidity: values[room.startIndex + 1]
+                )
+            )
+        }
+
+        outdoorSensors.append(
+            reading(
+                id: "homepod-terrasse",
+                name: "HomePod Terrasse",
+                temperature: values[10],
+                humidity: values[11]
+            )
+        )
+
+        return (indoorRooms, outdoorSensors)
+    }
+
+    private func reading(
+        id: String,
+        name: String,
+        temperature: Double,
+        humidity: Double,
+        isPrimary: Bool = false
+    ) -> SensorReading {
+        SensorReading(
+            id: id,
+            name: name,
+            measurement: ClimateMeasurement(
+                temperature: temperature,
+                humidity: humidity
+            ),
+            isPrimary: isPrimary
         )
     }
 
