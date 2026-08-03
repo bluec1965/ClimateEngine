@@ -7,9 +7,21 @@ struct HistorySummaryPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Historie heute")
-                .font(.title3)
-                .fontWeight(.semibold)
+            HStack(spacing: 12) {
+                LiquidGlassGlyph(
+                    systemName: "chart.xyaxis.line",
+                    size: 40,
+                    symbolSize: 23
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    LiquidGlassSectionLabel(text: "Heute")
+                    Text("Historie")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+            }
 
             ClimateRow(label: "Messungen", value: "\(statistics.measurementCount)")
             ClimateRow(label: "Empfehlungswechsel", value: "\(statistics.recommendationChanges)")
@@ -18,9 +30,8 @@ struct HistorySummaryPanel: View {
             ClimateRow(label: "Letzte Messung", value: formatTime(summary.lastMeasurement))
         }
         .padding(20)
-        .frame(width: 620, alignment: .leading)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.cyan)
     }
 
     private func formatTime(_ date: Date?) -> String {

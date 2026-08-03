@@ -6,28 +6,32 @@ struct RecommendationPanel: View {
     let analysis: VentilationAnalysis?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 15) {
+                LiquidGlassStatusIcon(
+                    status: status,
+                    size: 52,
+                    symbolSize: 22
+                )
 
-        VStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    LiquidGlassSectionLabel(text: "SMS-Empfehlung · Stube")
 
-            HStack(spacing: 8) {
+                    Text(title)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(color)
 
-                Circle()
-                    .fill(color)
-                    .frame(width: 10, height: 10)
-
-                Text(title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(color)
+                    Text(explanation)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+                }
             }
 
-            Text(explanation)
-                .foregroundStyle(.secondary)
-
             if let analysis {
-
-                HStack(spacing: 16) {
-
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 270), spacing: 16)],
+                    spacing: 16
+                ) {
                     ComparisonBox(
                         title: "Temperaturvergleich",
                         indoor: String(format: "%.1f °C", analysis.indoorTemperature),
@@ -52,9 +56,9 @@ struct RecommendationPanel: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-
                     Text("Voraussetzungen zum Lüften")
                         .font(.headline)
+                        .foregroundStyle(.white)
 
                     requirementRow(
                         "Aussenluft ist trockener",
@@ -66,10 +70,15 @@ struct RecommendationPanel: View {
                         fulfilled: analysis.outdoorTemperature < analysis.indoorTemperature
                     )
                 }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .liquidGlassInset(cornerRadius: 18)
                 .font(.caption)
             }
         }
-        .padding(.vertical, 8)
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(glowColor: color)
     }
 
     private var recommendation: VentilationRecommendation {
@@ -106,6 +115,17 @@ struct RecommendationPanel: View {
         }
     }
 
+    private var status: LiquidGlassStatus {
+        switch recommendation {
+        case .ventilate:
+            return .ventilate
+        case .neutral:
+            return .neutral
+        case .closeWindows:
+            return .close
+        }
+    }
+
     private var explanation: String {
         analysis?.explanation ?? "Noch keine Analyse verfügbar."
     }
@@ -116,22 +136,16 @@ struct RecommendationPanel: View {
         fulfilled: Bool
     ) -> some View {
 
-        Label {
+        HStack(spacing: 10) {
+            LiquidGlassIndicatorIcon(
+                systemName: fulfilled ? "checkmark" : "xmark",
+                tint: fulfilled ? .green : .red,
+                size: 26,
+                symbolSize: 10
+            )
 
             Text(text)
-
-        } icon: {
-
-            Image(
-                systemName: fulfilled
-                ? "checkmark.circle.fill"
-                : "xmark.circle.fill"
-            )
-            .foregroundStyle(
-                fulfilled
-                ? .green
-                : .red
-            )
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
         }
     }
 }

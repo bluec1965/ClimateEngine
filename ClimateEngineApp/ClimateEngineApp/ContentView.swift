@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AppKit
 import ClimateEngine
 
 struct ContentView: View {
@@ -29,12 +30,20 @@ struct ContentView: View {
     private let paths = ClimateEnginePaths.current
 
     var body: some View {
-        ScrollView(.vertical) {
-            dashboardContent
-                .padding(32)
-                .frame(maxWidth: .infinity)
+        ZStack {
+            LiquidGlassBackground()
+
+            ScrollView(.vertical) {
+                dashboardContent
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 28)
+                    .frame(maxWidth: 1040)
+                    .frame(maxWidth: .infinity)
+            }
+            .scrollIndicators(.hidden)
         }
         .frame(minWidth: 760, minHeight: 740)
+        .preferredColorScheme(.dark)
         .onAppear {
             loadSnapshot()
         }
@@ -44,21 +53,39 @@ struct ContentView: View {
     }
 
     private var dashboardContent: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Text("Climate Engine")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Der intelligente Klima-Assistent")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 26) {
+            HStack(alignment: .center, spacing: 32) {
+                VStack(alignment: .leading, spacing: 10) {
+                    LiquidGlassSectionLabel(text: "Live vom Mac mini")
 
-                Text("Version 1.4-alpha")
-                    .foregroundStyle(.secondary)
+                    Text("Climate Engine")
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .foregroundStyle(LiquidGlassTheme.brandGradient)
+                        .shadow(color: LiquidGlassTheme.cyan.opacity(0.22), radius: 16)
+
+                    Text("Der intelligente Klima-Assistent")
+                        .font(.title3)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+
+                    Text("Version 1.4-alpha")
+                        .font(.caption)
+                        .foregroundStyle(LiquidGlassTheme.tertiaryText)
+                }
+
+                Spacer(minLength: 24)
+
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 112, height: 112)
+                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.42), radius: 22, y: 14)
+                    .shadow(color: LiquidGlassTheme.cyan.opacity(0.18), radius: 18, y: 3)
+                    .accessibilityHidden(true)
             }
-
-            Divider()
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             sensorSection(
                 title: "Innenräume",
@@ -86,11 +113,7 @@ struct ContentView: View {
                 )
             }
 
-            Divider()
-
             RecommendationPanel(analysis: analysis)
-
-            Divider()
 
             HistorySummaryPanel(
                 summary: historySummary,
@@ -98,21 +121,31 @@ struct ContentView: View {
             )
 
             HistoryTimelinePanel(events: historyEvents)
-            Divider()
+            LiquidGlassDivider()
 
             VStack(spacing: 8) {
                 if snapshot == nil {
-                    Label("Warte auf Sensordaten…", systemImage: "circle.dashed")
-                        .foregroundStyle(.secondary)
+                    Label("Warte auf Sensordaten…", systemImage: "antenna.radiowaves.left.and.right")
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
                 } else {
-                    Label("Sensordaten geladen", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    HStack(spacing: 10) {
+                        LiquidGlassIndicatorIcon(
+                            systemName: "checkmark",
+                            tint: .green,
+                            size: 26,
+                            symbolSize: 10,
+                            vibrant: true
+                        )
+
+                        Text("Sensordaten geladen")
+                            .foregroundStyle(LiquidGlassTheme.mint)
+                    }
                 }
 
                 if let measurementTime = snapshot?.timestamp {
                     Text("Sensormessung: \(measurementTime.formatted(date: .abbreviated, time: .standard))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
                 }
 
                 if let loadError {
@@ -122,6 +155,9 @@ struct ContentView: View {
                 }
             }
             .font(.headline)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 13)
+            .liquidGlassCard(cornerRadius: 18, glowColor: LiquidGlassTheme.mint, raised: false)
         }
     }
 
@@ -133,12 +169,15 @@ struct ContentView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
+                LiquidGlassSectionLabel(text: title == "Innenräume" ? "Innen" : "Aussen")
+
                 Text(title)
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
             }
 
             LazyVGrid(
@@ -265,12 +304,15 @@ private struct WeatherObservationPanel: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
+                    LiquidGlassSectionLabel(text: "Apple Weather")
+
                     Text("Wetterbeobachtung")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundStyle(.white)
                     Text("Apple Weather · noch ohne Einfluss auf SMS und Empfehlungen")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
                 }
 
                 Spacer()
@@ -280,6 +322,9 @@ private struct WeatherObservationPanel: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(isStale(snapshot.timestamp) ? .orange : .green)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .liquidGlassInset(cornerRadius: 99)
                 }
             }
 
@@ -294,39 +339,58 @@ private struct WeatherObservationPanel: View {
                         ) { index, reading in
                             WeatherForecastRow(reading: reading)
                             if index < min(snapshot.hourlyForecast.count, 6) - 1 {
-                                Divider()
+                                Rectangle()
+                                    .fill(LiquidGlassTheme.divider)
+                                    .frame(height: 1)
                             }
                         }
                     }
                     .padding(.horizontal, 18)
-                    .background(.quaternary.opacity(0.35))
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .liquidGlassInset(cornerRadius: 18)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Noch keine Wetterdaten", systemImage: "cloud.sun")
-                        .font(.headline)
+                    HStack(spacing: 12) {
+                        LiquidGlassIcon(
+                            systemName: "cloud.sun.fill",
+                            tint: LiquidGlassTheme.cyan,
+                            size: 38,
+                            symbolSize: 16
+                        )
+                        Text("Noch keine Wetterdaten")
+                            .font(.headline)
+                    }
                     Text(loadError ?? "Der separate Weather Connector wurde noch nicht ausgeführt.")
                         .font(.caption)
-                        .foregroundColor(loadError == nil ? .secondary : .red)
+                        .foregroundColor(loadError == nil ? LiquidGlassTheme.secondaryText : .red)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
-                .background(.quaternary.opacity(0.35))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .liquidGlassInset(cornerRadius: 18)
             }
         }
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(glowColor: LiquidGlassTheme.cyan)
     }
 
     private func currentWeather(_ snapshot: WeatherSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label(snapshot.location, systemImage: "location.fill")
-                    .font(.headline)
+                HStack(spacing: 12) {
+                    LiquidGlassGlyph(
+                        systemName: "location.fill",
+                        size: 38,
+                        symbolSize: 23
+                    )
+
+                    Text(snapshot.location)
+                        .font(.headline)
+                }
                 Spacer()
                 Text(snapshot.current.condition)
                     .fontWeight(.semibold)
+                    .foregroundStyle(LiquidGlassTheme.ice)
             }
 
             LazyVGrid(
@@ -342,8 +406,7 @@ private struct WeatherObservationPanel: View {
             }
         }
         .padding(18)
-        .background(.quaternary.opacity(0.35))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .liquidGlassInset(cornerRadius: 18)
     }
 
     private func freshnessText(_ timestamp: Date) -> String {
@@ -384,9 +447,10 @@ private struct WeatherMetric: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
             Text(value)
                 .fontWeight(.semibold)
+                .foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -402,7 +466,7 @@ private struct WeatherForecastRow: View {
                 .frame(width: 52, alignment: .leading)
 
             Text(reading.condition)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
                 .lineLimit(1)
 
             Spacer()
@@ -410,10 +474,14 @@ private struct WeatherForecastRow: View {
             Text(String(format: "%.1f °C", reading.temperature))
                 .fontWeight(.semibold)
             Text(String(format: "%.1f g/m³", reading.absoluteHumidity))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
                 .frame(width: 80, alignment: .trailing)
             Text(precipitationText)
-                .foregroundColor((reading.precipitationChance ?? 0) >= 40 ? .blue : .secondary)
+                .foregroundColor(
+                    (reading.precipitationChance ?? 0) >= 40
+                    ? LiquidGlassTheme.cyan
+                    : LiquidGlassTheme.secondaryText
+                )
                 .frame(width: 48, alignment: .trailing)
         }
         .font(.subheadline)
@@ -433,12 +501,15 @@ private struct RoomObservationPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
+                LiquidGlassSectionLabel(text: "Beobachtungsphase")
+
                 Text("Raumbeobachtung")
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundStyle(.white)
                 Text("Noch ohne zusätzliche SMS-Benachrichtigungen")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
             }
 
             VStack(spacing: 0) {
@@ -452,15 +523,18 @@ private struct RoomObservationPanel: View {
                     )
 
                     if room.id != rooms.last?.id {
-                        Divider()
+                        Rectangle()
+                            .fill(LiquidGlassTheme.divider)
+                            .frame(height: 1)
                     }
                 }
             }
             .padding(.horizontal, 18)
-            .background(.quaternary.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .liquidGlassInset(cornerRadius: 18)
         }
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(glowColor: LiquidGlassTheme.mint)
     }
 }
 
@@ -470,16 +544,19 @@ private struct RoomObservationRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 24)
+            LiquidGlassStatusIcon(
+                status: status,
+                size: 34,
+                symbolSize: 14
+            )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(room.name)
                     .fontWeight(.semibold)
+                    .foregroundStyle(.white)
                 Text(analysis.explanation)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
             }
 
             Spacer()
@@ -500,11 +577,11 @@ private struct RoomObservationRow: View {
         }
     }
 
-    private var icon: String {
+    private var status: LiquidGlassStatus {
         switch analysis.recommendation {
-        case .ventilate: return "wind"
-        case .neutral: return "minus.circle.fill"
-        case .closeWindows: return "xmark.circle.fill"
+        case .ventilate: return .ventilate
+        case .neutral: return .neutral
+        case .closeWindows: return .close
         }
     }
 

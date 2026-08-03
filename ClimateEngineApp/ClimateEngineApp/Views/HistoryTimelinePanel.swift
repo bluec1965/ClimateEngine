@@ -6,13 +6,25 @@ struct HistoryTimelinePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Timeline heute")
-                .font(.title3)
-                .fontWeight(.semibold)
+            HStack(spacing: 12) {
+                LiquidGlassGlyph(
+                    systemName: "clock.arrow.circlepath",
+                    size: 40,
+                    symbolSize: 23
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    LiquidGlassSectionLabel(text: "Verlauf")
+                    Text("Timeline heute")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+            }
 
             if events.isEmpty {
                 Text("Noch keine Ereignisse")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
             } else {
 
                 let recentEvents = Array(events.suffix(5).reversed())
@@ -23,10 +35,11 @@ struct HistoryTimelinePanel: View {
 
                         HStack(alignment: .top, spacing: 12) {
 
-                            Image(systemName: icon(for: event.recommendation))
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(color(for: event.recommendation))
-                                .frame(width: 24)
+                            LiquidGlassStatusIcon(
+                                status: status(for: event.recommendation),
+                                size: 34,
+                                symbolSize: 14
+                            )
 
                             HStack(spacing: 6) {
 
@@ -36,14 +49,17 @@ struct HistoryTimelinePanel: View {
 
                                 Text(title(for: event.recommendation))
                                     .fontWeight(.semibold)
+                                    .foregroundStyle(LiquidGlassTheme.secondaryText)
 
                             }
                         }
 
                         if index < recentEvents.count - 1 {
 
-                            Divider()
-                                .padding(.leading, 22)
+                            Rectangle()
+                                .fill(LiquidGlassTheme.divider)
+                                .frame(height: 1)
+                                .padding(.leading, 34)
                         }
                     }
                     .padding(.vertical, 8)
@@ -51,9 +67,8 @@ struct HistoryTimelinePanel: View {
             }
         }
         .padding(20)
-        .frame(width: 620, alignment: .leading)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.mint)
     }
 
     private func title(for recommendation: String) -> String {
@@ -81,14 +96,14 @@ struct HistoryTimelinePanel: View {
     private func formatTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
     }
-    private func icon(for recommendation: String) -> String {
+    private func status(for recommendation: String) -> LiquidGlassStatus {
         switch recommendation {
         case "ventilate":
-            return "wind.circle.fill"
+            return .ventilate
         case "closeWindows":
-            return "xmark.circle.fill"
+            return .close
         default:
-            return "minus.circle.fill"
+            return .neutral
         }
     }
 }

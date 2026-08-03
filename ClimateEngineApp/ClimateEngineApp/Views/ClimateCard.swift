@@ -12,9 +12,18 @@ struct ClimateCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Label(title, systemImage: systemImage)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                HStack(spacing: 12) {
+                    LiquidGlassGlyph(
+                        systemName: systemImage,
+                        size: 42,
+                        symbolSize: 27
+                    )
+
+                    Text(title)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
 
                 Spacer()
 
@@ -22,11 +31,10 @@ struct ClimateCard: View {
                     Text(referenceLabel)
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.green.opacity(0.12))
-                        .clipShape(Capsule())
+                        .foregroundStyle(LiquidGlassTheme.mint)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .liquidGlassInset(cornerRadius: 99)
                 }
             }
 
@@ -39,7 +47,6 @@ struct ClimateCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.cyan)
     }
 }

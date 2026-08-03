@@ -34,7 +34,6 @@ const recommendation = (indoor, outdoor) => {
       key: "ventilate",
       title: "Jetzt lüften",
       explanation: "Die Aussenluft ist kühler und trockener als die Raumluft.",
-      icon: "↝",
     };
   }
   if (drier) {
@@ -42,7 +41,6 @@ const recommendation = (indoor, outdoor) => {
       key: "close",
       title: "Fenster geschlossen halten",
       explanation: "Die Aussenluft ist zwar trockener, aber wärmer als die Raumluft.",
-      icon: "×",
     };
   }
   if (moreHumid && cooler) {
@@ -50,7 +48,6 @@ const recommendation = (indoor, outdoor) => {
       key: "close",
       title: "Fenster geschlossen halten",
       explanation: "Die Aussenluft ist zwar kühler, enthält aber mehr Feuchtigkeit als die Raumluft.",
-      icon: "×",
     };
   }
   if (moreHumid) {
@@ -58,7 +55,6 @@ const recommendation = (indoor, outdoor) => {
       key: "close",
       title: "Fenster geschlossen halten",
       explanation: "Die Aussenluft ist wärmer und feuchter als die Raumluft.",
-      icon: "×",
     };
   }
   if (!cooler) {
@@ -66,14 +62,12 @@ const recommendation = (indoor, outdoor) => {
       key: "close",
       title: "Fenster geschlossen halten",
       explanation: "Die Aussenluft ist wärmer als die Raumluft.",
-      icon: "×",
     };
   }
   return {
     key: "neutral",
     title: "Keine Änderung nötig",
     explanation: "Innen- und Aussenluft unterscheiden sich nur gering.",
-    icon: "–",
   };
 };
 
@@ -119,14 +113,14 @@ const snapshotReadings = (snapshot) => {
   };
 };
 
-const renderSensorCards = (containerId, readings, icon) => {
+const renderSensorCards = (containerId, readings, iconType) => {
   const cards = readings.map((reading) => {
     const absolute = absoluteHumidity(reading.temperature, reading.humidity);
     const card = document.createElement("article");
     card.className = "climate-card";
     card.innerHTML = `
       <div class="card-title">
-        <span class="card-icon" aria-hidden="true">${icon}</span>
+        <span class="card-icon card-icon--${iconType}" aria-hidden="true"></span>
         <h3></h3>
         ${reading.isPrimary ? '<span class="reference-badge">SMS-Referenz</span>' : ""}
       </div>
@@ -148,7 +142,7 @@ const renderRoomObservations = (rooms, referenceOutdoor) => {
     const item = document.createElement("article");
     item.className = `room-observation ${advice.key}`;
     item.innerHTML = `
-      <span class="room-advice-icon" aria-hidden="true">${advice.icon}</span>
+      <span class="room-advice-icon" aria-hidden="true"></span>
       <div>
         <h3></h3>
         <p></p>
@@ -276,10 +270,12 @@ const renderHistory = (history) => {
 
   timeline.replaceChildren(...recentEvents.map((entry) => {
     const ventilate = entry.recommendation === "ventilate";
+    const neutral = entry.recommendation === "neutral";
+    const state = ventilate ? "ventilate" : neutral ? "neutral" : "close";
     const item = document.createElement("article");
-    item.className = `timeline-event ${ventilate ? "ventilate" : "close"}`;
+    item.className = `timeline-event ${state}`;
     item.innerHTML = `
-      <span class="event-icon" aria-hidden="true">${ventilate ? "↝" : "×"}</span>
+      <span class="event-icon" aria-hidden="true"></span>
       <div>
         <div class="event-title">
           <span>${ventilate ? "Jetzt lüften" : entry.recommendation === "neutral" ? "Keine Änderung nötig" : "Fenster geschlossen halten"}</span>
@@ -299,8 +295,8 @@ const render = ({ snapshot, history, weather, weatherError }) => {
   const indoorAbsolute = absoluteHumidity(indoor.temperature, indoor.humidity);
   const outdoorAbsolute = absoluteHumidity(outdoor.temperature, outdoor.humidity);
 
-  renderSensorCards("indoor-grid", indoorRooms, "⌂");
-  renderSensorCards("outdoor-grid", outdoorSensors, "♧");
+  renderSensorCards("indoor-grid", indoorRooms, "indoor");
+  renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   renderRoomObservations(indoorRooms, outdoor);
   renderOutdoorSummary(outdoorSensors);
   try {
@@ -319,7 +315,6 @@ const render = ({ snapshot, history, weather, weatherError }) => {
   const advice = recommendation(indoor, outdoor);
   const panel = byId("recommendation-panel");
   panel.className = `recommendation panel ${advice.key}`;
-  setText("recommendation-icon", advice.icon);
   setText("recommendation-title", advice.title);
   setText("recommendation-explanation", advice.explanation);
   setText("measurement-time", `Sensormessung: ${formatTime(snapshot.timestamp, true)}`);

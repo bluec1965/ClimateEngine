@@ -9,9 +9,17 @@ struct ComparisonBox: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                LiquidGlassGlyph(
+                    systemName: title == "Temperaturvergleich" ? "thermometer.medium" : "humidity.fill",
+                    size: 32,
+                    symbolSize: 20
+                )
 
-            Text(title)
-                .font(.headline)
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+            }
 
             ClimateRow(label: "Innen", value: indoor)
             ClimateRow(label: "Aussen", value: outdoor)
@@ -19,12 +27,17 @@ struct ComparisonBox: View {
             HStack {
 
                 Text("Differenz")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
 
                 Spacer()
 
-                Image(systemName: differenceIsGood ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                    .foregroundStyle(differenceIsGood ? .green : .red)
+                LiquidGlassIndicatorIcon(
+                    systemName: differenceIsGood ? "arrow.down" : "arrow.up",
+                    tint: differenceIsGood ? .green : .red,
+                    size: 16,
+                    symbolSize: 8,
+                    vibrant: true
+                )
 
                 Text(difference)
                     .fontWeight(.medium)
@@ -32,9 +45,8 @@ struct ComparisonBox: View {
                     .foregroundStyle(differenceIsGood ? .green : .red)
             }
         }
-        .padding(14)
-        .frame(width: 300, height: 145)
-        .background(.quaternary.opacity(0.35))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 158, alignment: .leading)
+        .liquidGlassInset(cornerRadius: 18)
     }
 }

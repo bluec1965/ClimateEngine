@@ -7,13 +7,14 @@ struct ClimateRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
 
             Spacer()
 
             Text(value)
                 .fontWeight(.medium)
                 .monospacedDigit()
+                .foregroundStyle(.white)
         }
     }
 }
