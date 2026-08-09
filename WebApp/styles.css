@@ -82,8 +82,8 @@ body::after {
 }
 
 .hero { padding: 22px 4px 34px; }
-.hero-brand { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-.hero-copy { min-width: 0; }
+.hero-brand { display: flex; align-items: center; justify-content: space-between; gap: 26px; }
+.hero-copy { flex: 1 1 0; min-width: 0; }
 .eyebrow,
 .section-label {
   margin: 0 0 7px;
@@ -110,6 +110,46 @@ body::after {
 }
 
 .hero-copy > p:not(.eyebrow) { margin: 10px 0 20px; color: var(--muted); }
+
+.hero-recommendation {
+  --status: var(--amber);
+  display: flex;
+  flex: 0 1 245px;
+  align-items: center;
+  gap: 12px;
+  min-width: 205px;
+  padding: 12px 14px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 46%),
+    rgba(4, 25, 31, 0.36);
+  box-shadow:
+    0 14px 34px rgba(0, 4, 8, 0.27),
+    inset 0 1px rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+.hero-recommendation.ventilate { --status: var(--green); }
+.hero-recommendation.close { --status: var(--red); }
+.hero-recommendation-icon { flex: 0 0 38px; width: 38px; height: 38px; font-size: 1rem; }
+.hero-recommendation-copy { display: grid; min-width: 0; gap: 3px; }
+.hero-recommendation-copy > span {
+  background: linear-gradient(120deg, var(--ice), var(--cyan) 48%, var(--mint));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 0.65rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hero-recommendation-copy strong {
+  color: var(--status);
+  font-size: 0.86rem;
+  line-height: 1.2;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--status) 18%, transparent);
+}
 
 .hero-app-icon {
   display: block;
@@ -236,6 +276,7 @@ button {
 .card-title { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .card-title h3 { margin: 0; color: var(--ice); font-size: 1.08rem; }
 
+.hero-recommendation-icon,
 .recommendation-icon,
 .room-advice-icon,
 .event-icon {
@@ -264,6 +305,7 @@ button {
   backdrop-filter: blur(11px) saturate(112%);
 }
 
+.hero-recommendation-icon::before,
 .recommendation-icon::before,
 .room-advice-icon::before,
 .event-icon::before {
@@ -275,14 +317,18 @@ button {
   text-shadow: 0 1px 2px rgba(0, 4, 8, 0.34), 0 0 8px rgba(225, 251, 255, 0.38);
 }
 
+.hero-recommendation.ventilate .hero-recommendation-icon,
 .recommendation.ventilate .recommendation-icon,
 .room-observation.ventilate .room-advice-icon,
 .timeline-event.ventilate .event-icon { --status: var(--green); }
 
+.hero-recommendation.close .hero-recommendation-icon,
 .recommendation.close .recommendation-icon,
 .room-observation.close .room-advice-icon,
 .timeline-event.close .event-icon { --status: var(--red); }
 
+.hero-recommendation.ventilate .hero-recommendation-icon::before,
+.hero-recommendation.close .hero-recommendation-icon::before,
 .recommendation.ventilate .recommendation-icon::before,
 .recommendation.close .recommendation-icon::before,
 .room-observation.ventilate .room-advice-icon::before,
@@ -290,6 +336,7 @@ button {
 .timeline-event.ventilate .event-icon::before,
 .timeline-event.close .event-icon::before { content: "≋"; }
 
+.hero-recommendation.close .hero-recommendation-icon::after,
 .recommendation.close .recommendation-icon::after,
 .room-observation.close .room-advice-icon::after,
 .timeline-event.close .event-icon::after {
@@ -543,8 +590,20 @@ button:active { transform: translateY(1px) scale(0.985); }
   .comparisons { grid-template-columns: 1fr; }
   .history-stats { grid-template-columns: repeat(2, 1fr); }
   .hero { padding-top: 12px; }
-  .hero-brand { align-items: flex-start; }
-  .hero-app-icon { flex-basis: 92px; width: 92px; height: 92px; }
+  .hero-brand {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    align-items: start;
+  }
+  .hero-copy { grid-column: 1; grid-row: 1; }
+  .hero-app-icon { grid-column: 2; grid-row: 1; width: 92px; height: 92px; }
+  .hero-recommendation {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+    width: min(100%, 300px);
+    min-width: 0;
+  }
   .climate-card,
   .panel { border-radius: 21px; }
   footer { align-items: flex-start; flex-direction: column; }
@@ -561,7 +620,8 @@ button:active { transform: translateY(1px) scale(0.985); }
 
 @media (max-width: 440px) {
   .hero-brand { gap: 14px; }
-  .hero-app-icon { flex-basis: 70px; width: 70px; height: 70px; }
+  .hero-brand { grid-template-columns: minmax(0, 1fr) 70px; }
+  .hero-app-icon { width: 70px; height: 70px; }
   .recommendation { align-items: flex-start; }
   .card-title { flex-wrap: wrap; }
   .reference-badge { margin-left: 0; }
@@ -570,6 +630,7 @@ button:active { transform: translateY(1px) scale(0.985); }
 @media (prefers-reduced-transparency: reduce) {
   .climate-card,
   .panel,
+  .hero-recommendation,
   .status-pill,
   .count-badge,
   button { background-color: #09262e; -webkit-backdrop-filter: none; backdrop-filter: none; }

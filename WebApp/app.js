@@ -313,6 +313,10 @@ const render = ({ snapshot, history, weather, weatherError }) => {
   setText("compare-humidity-difference", absoluteText(outdoorAbsolute - indoorAbsolute));
 
   const advice = recommendation(indoor, outdoor);
+  const heroRecommendation = byId("hero-recommendation");
+  heroRecommendation.className = `hero-recommendation ${advice.key}`;
+  setText("hero-recommendation-title", advice.title);
+
   const panel = byId("recommendation-panel");
   panel.className = `recommendation panel ${advice.key}`;
   setText("recommendation-title", advice.title);
@@ -333,6 +337,8 @@ const refresh = async () => {
   } catch (error) {
     status.className = "status-pill error";
     status.lastElementChild.textContent = "Keine Sensordaten";
+    byId("hero-recommendation").className = "hero-recommendation neutral";
+    setText("hero-recommendation-title", "Warte auf Sensordaten");
     setText("recommendation-title", "Dashboard nicht verfügbar");
     setText("recommendation-explanation", error.message);
   }

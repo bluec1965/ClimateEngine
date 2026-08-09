@@ -54,7 +54,7 @@ struct ContentView: View {
 
     private var dashboardContent: some View {
         VStack(spacing: 26) {
-            HStack(alignment: .center, spacing: 32) {
+            HStack(alignment: .center, spacing: 24) {
                 VStack(alignment: .leading, spacing: 10) {
                     LiquidGlassSectionLabel(text: "Live vom Mac mini")
 
@@ -71,8 +71,11 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(LiquidGlassTheme.tertiaryText)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
 
-                Spacer(minLength: 24)
+                HeaderRecommendationBadge(analysis: analysis)
+                    .frame(width: 220)
 
                 Image(nsImage: NSApplication.shared.applicationIconImage)
                     .resizable()
@@ -491,6 +494,67 @@ private struct WeatherForecastRow: View {
     private var precipitationText: String {
         guard let chance = reading.precipitationChance else { return "–" }
         return String(format: "%.0f %%", chance)
+    }
+}
+
+private struct HeaderRecommendationBadge: View {
+    let analysis: VentilationAnalysis?
+
+    var body: some View {
+        HStack(spacing: 11) {
+            LiquidGlassStatusIcon(
+                status: status,
+                size: 38,
+                symbolSize: 15
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                LiquidGlassSectionLabel(text: "Aktuelle Empfehlung")
+
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(color)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassInset(cornerRadius: 18)
+    }
+
+    private var recommendation: VentilationRecommendation {
+        analysis?.recommendation ?? .neutral
+    }
+
+    private var title: String {
+        guard analysis != nil else { return "Warte auf Analyse" }
+
+        switch recommendation {
+        case .ventilate: return "Jetzt lüften"
+        case .neutral: return "Keine Empfehlung"
+        case .closeWindows: return "Fenster geschlossen halten"
+        }
+    }
+
+    private var status: LiquidGlassStatus {
+        switch recommendation {
+        case .ventilate: return .ventilate
+        case .neutral: return .neutral
+        case .closeWindows: return .close
+        }
+    }
+
+    private var color: Color {
+        guard analysis != nil else { return LiquidGlassTheme.secondaryText }
+
+        switch recommendation {
+        case .ventilate: return .green
+        case .neutral: return .orange
+        case .closeWindows: return .red
+        }
     }
 }
 
