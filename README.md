@@ -37,6 +37,25 @@ weiterhin ausschliesslich anhand von Stube und Eve Degree ausgelöst. Die
 zusätzlichen Sensoren werden gespeichert, im Dashboard dargestellt und dort
 pro Raum bewertet.
 
+## Qualität der Sensoreingänge
+
+Der Sensor Connector soll nur über den LaunchAgent `ch.climateengine.poller`
+im Fünf-Minuten-Takt gestartet werden. Ältere parallele Zeitpläne müssen
+deaktiviert bleiben, damit derselbe Kurzbefehl nicht doppelt ausgeführt wird.
+
+ClimateEngine prüft die Stube als primären Innensensor vor dem Überschreiben
+des aktuellen Snapshots. Ein Sprung von mehr als 1 °C oder 8 Prozentpunkten
+Luftfeuchtigkeit innerhalb des Prüfzeitfensters gilt zunächst als auffällig.
+Der Wert wird erst nach drei aufeinanderfolgenden, konsistenten Messungen
+übernommen. Bis dahin bleibt der letzte gültige Snapshot erhalten und der
+CLI-Lauf endet mit einer genauen Fehlermeldung und Exit-Code 1.
+
+Alle angenommenen und verworfenen Eingänge werden unabhängig von Snapshot und
+Empfehlung unter
+`~/Library/Application Support/ClimateEngine/sensor-input/history/YYYY-MM-DD.jsonl`
+protokolliert. Damit bleiben fehlerhafte HomeKit-Werte für die Diagnose sichtbar,
+ohne die Empfehlung zu beeinflussen.
+
 ## Separater Weather Connector
 
 Der Weather Connector sammelt Apple-Weather-Daten unabhängig vom bestehenden

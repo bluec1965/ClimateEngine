@@ -33,6 +33,43 @@ public struct ClimateEngineCommand {
 
         if numericValues.count >= 4 {
             let readings = makeSensorReadings(from: numericValues)
+            let previousSnapshot: SensorSnapshot?
+            if FileManager.default.fileExists(atPath: paths.snapshotURL.path) {
+                previousSnapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+            } else {
+                previousSnapshot = nil
+            }
+            let qualityDecision = try SensorInputQualityController(
+                stateURL: paths.sensorInputStateURL
+            ).evaluate(
+                indoorRooms: readings.indoorRooms,
+                outdoorSensors: readings.outdoorSensors,
+                previousSnapshot: previousSnapshot,
+                now: executionDate
+            )
+            try SensorInputAuditWriter(
+                directory: paths.sensorInputHistoryDirectory
+            ).append(
+                SensorInputAuditEntry(
+                    timestamp: executionDate,
+                    accepted: qualityDecision.isAccepted,
+                    reason: qualityDecision.reason,
+                    indoorRooms: readings.indoorRooms,
+                    outdoorSensors: readings.outdoorSensors
+                )
+            )
+            guard qualityDecision.isAccepted else {
+                switch qualityDecision.rejectionKind {
+                case .incompleteSensorSet:
+                    throw SensorInputValidationError.incompleteSensorSet(
+                        qualityDecision.reason
+                    )
+                case .awaitingConfirmation, .none:
+                    throw SensorInputValidationError.awaitingConfirmation(
+                        qualityDecision.reason
+                    )
+                }
+            }
             try SensorSnapshotWriter().write(
                 indoorRooms: readings.indoorRooms,
                 outdoorSensors: readings.outdoorSensors,

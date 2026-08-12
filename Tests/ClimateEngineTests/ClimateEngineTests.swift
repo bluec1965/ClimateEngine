@@ -14,6 +14,12 @@ func defaultPathsUseApplicationSupport() {
     #expect(paths.snapshotURL == expectedDirectory.appendingPathComponent("current.json"))
     #expect(paths.weatherSnapshotURL == expectedDirectory.appendingPathComponent("weather/current.json"))
     #expect(paths.weatherHistoryDirectory == expectedDirectory.appendingPathComponent("weather/history"))
+    #expect(paths.sensorInputStateURL == expectedDirectory.appendingPathComponent(
+        "sensor-input/validation-state.json"
+    ))
+    #expect(paths.sensorInputHistoryDirectory == expectedDirectory.appendingPathComponent(
+        "sensor-input/history"
+    ))
 }
 
 @Test func loadCurrentSensorSnapshot() throws {
@@ -533,6 +539,79 @@ func completeMultiSensorCLIRunStoresAllReadings() throws {
 }
 
 @Test
+func implausibleStubeJumpDoesNotReplaceSnapshot() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let firstDate = ISO8601DateFormatter().date(from: "2026-08-09T05:00:00Z")!
+    let jumpDate = firstDate.addingTimeInterval(5 * 60)
+
+    _ = try ClimateEngineCommand(paths: paths, now: { firstDate }).run(
+        arguments: ["24.0", "55", "20.0", "60"]
+    )
+
+    #expect(throws: SensorInputValidationError.self) {
+        _ = try ClimateEngineCommand(paths: paths, now: { jumpDate }).run(
+            arguments: ["27.0", "55", "20.0", "60"]
+        )
+    }
+
+    let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+    #expect(snapshot.timestamp == firstDate)
+    #expect(snapshot.indoor.temperature == 24.0)
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let auditURL = paths.sensorInputHistoryDirectory.appendingPathComponent(
+        formatter.string(from: jumpDate) + ".jsonl"
+    )
+    let auditLines = try String(contentsOf: auditURL, encoding: .utf8)
+        .split(whereSeparator: \.isNewline)
+    #expect(auditLines.count == 2)
+    #expect(auditLines.last?.contains("\"accepted\":false") == true)
+}
+
+@Test
+func implausibleStubeJumpIsAcceptedAfterThreeConsistentReadings() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let firstDate = ISO8601DateFormatter().date(from: "2026-08-09T05:00:00Z")!
+
+    _ = try ClimateEngineCommand(paths: paths, now: { firstDate }).run(
+        arguments: ["24.0", "55", "20.0", "60"]
+    )
+
+    for (index, temperature) in [27.0, 27.1].enumerated() {
+        let date = firstDate.addingTimeInterval(Double(index + 1) * 5 * 60)
+        #expect(throws: SensorInputValidationError.self) {
+            _ = try ClimateEngineCommand(paths: paths, now: { date }).run(
+                arguments: [String(temperature), "55", "20.0", "60"]
+            )
+        }
+    }
+
+    let confirmedDate = firstDate.addingTimeInterval(15 * 60)
+    _ = try ClimateEngineCommand(paths: paths, now: { confirmedDate }).run(
+        arguments: ["26.9", "55", "20.0", "60"]
+    )
+
+    let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+    #expect(snapshot.timestamp == confirmedDate)
+    #expect(snapshot.indoor.temperature == 26.9)
+}
+
+@Test
 func legacySnapshotProvidesReferenceSensorNames() throws {
     let temporaryDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
@@ -579,6 +658,59 @@ func incompleteSupplementalInputKeepsSafeReferencePair() throws {
     let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
     #expect(snapshot.indoorRooms.map(\.name) == ["Stube"])
     #expect(snapshot.outdoorSensors.map(\.name) == ["Eve Degree"])
+}
+
+@Test
+func repeatedIncompleteInputCannotReplaceCompleteMultiSensorSnapshot() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let firstDate = ISO8601DateFormatter().date(from: "2026-08-12T05:00:00Z")!
+    let completeInput = [
+        "23.3", "37", "22.8", "37",
+        "25.5", "42", "23.0", "35",
+        "22.7", "36", "22.7", "36"
+    ]
+
+    _ = try ClimateEngineCommand(paths: paths, now: { firstDate }).run(
+        arguments: completeInput
+    )
+
+    for index in 1...3 {
+        let runDate = firstDate.addingTimeInterval(Double(index) * 5 * 60)
+        #expect(throws: SensorInputValidationError.self) {
+            _ = try ClimateEngineCommand(paths: paths, now: { runDate }).run(
+                arguments: ["23.3", "37", "22.8", "37"]
+            )
+        }
+    }
+
+    let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+    #expect(snapshot.timestamp == firstDate)
+    #expect(snapshot.indoorRooms.map(\.name) == [
+        "Stube", "Schlafzimmer", "Büro Alois", "Sauna"
+    ])
+    #expect(snapshot.outdoorSensors.map(\.name) == [
+        "Eve Degree", "HomePod Terrasse"
+    ])
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let auditURL = paths.sensorInputHistoryDirectory.appendingPathComponent(
+        formatter.string(from: firstDate) + ".jsonl"
+    )
+    let auditLines = try String(contentsOf: auditURL, encoding: .utf8)
+        .split(whereSeparator: \.isNewline)
+    #expect(auditLines.count == 4)
+    #expect(auditLines.dropFirst().allSatisfy {
+        $0.contains("\"accepted\":false")
+    })
 }
 
 @Test
