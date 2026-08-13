@@ -43,6 +43,23 @@ Der Sensor Connector soll nur über den LaunchAgent `ch.climateengine.poller`
 im Fünf-Minuten-Takt gestartet werden. Ältere parallele Zeitpläne müssen
 deaktiviert bleiben, damit derselbe Kurzbefehl nicht doppelt ausgeführt wird.
 
+Der LaunchAgent startet `Scripts/run-sensor-connector.sh`. Falls Kurzbefehle
+mit `Schreib-/Lesevorgang fehlgeschlagen` endet, wartet der Starthelfer 20
+Sekunden und versucht den Lauf höchstens zweimal erneut. Andere Fehler werden
+nicht wiederholt, damit die Prüfung auffälliger Sensorwerte nicht umgangen
+wird. Eine Prozesssperre verhindert parallele Läufe. Das Ergebnis jedes
+Versuchs steht in `/tmp/climateengine-sensor-retry.log`.
+
+Die mitgelieferte LaunchAgent-Vorlage wird so installiert:
+
+```bash
+chmod +x Scripts/run-sensor-connector.sh
+cp Support/ch.climateengine.poller.plist ~/Library/LaunchAgents/
+launchctl bootout gui/$(id -u)/ch.climateengine.poller 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ch.climateengine.poller.plist
+launchctl kickstart -k gui/$(id -u)/ch.climateengine.poller
+```
+
 ClimateEngine prüft die Stube als primären Innensensor vor dem Überschreiben
 des aktuellen Snapshots. Ein Sprung von mehr als 1 °C oder 8 Prozentpunkten
 Luftfeuchtigkeit innerhalb des Prüfzeitfensters gilt zunächst als auffällig.
