@@ -1,6 +1,6 @@
 import Foundation
 
-public enum VentilationRecommendation: Equatable {
+public enum VentilationRecommendation: String, Codable, Equatable, Sendable {
     case ventilate
     case neutral
     case closeWindows
@@ -17,7 +17,7 @@ public enum VentilationRecommendation: Equatable {
     }
 }
 
-public struct VentilationAnalysis: Equatable {
+public struct VentilationAnalysis: Codable, Equatable, Sendable {
     public let recommendation: VentilationRecommendation
     public let indoorAbsoluteHumidity: Double
     public let outdoorAbsoluteHumidity: Double
@@ -25,6 +25,24 @@ public struct VentilationAnalysis: Equatable {
     public let explanation: String
     public let indoorTemperature: Double
     public let outdoorTemperature: Double
+
+    public init(
+        recommendation: VentilationRecommendation,
+        indoorAbsoluteHumidity: Double,
+        outdoorAbsoluteHumidity: Double,
+        absoluteHumidityDifference: Double,
+        explanation: String,
+        indoorTemperature: Double,
+        outdoorTemperature: Double
+    ) {
+        self.recommendation = recommendation
+        self.indoorAbsoluteHumidity = indoorAbsoluteHumidity
+        self.outdoorAbsoluteHumidity = outdoorAbsoluteHumidity
+        self.absoluteHumidityDifference = absoluteHumidityDifference
+        self.explanation = explanation
+        self.indoorTemperature = indoorTemperature
+        self.outdoorTemperature = outdoorTemperature
+    }
 }
 
 public enum VentilationAdvisor {

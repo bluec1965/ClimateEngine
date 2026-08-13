@@ -52,11 +52,21 @@ def read_dashboard_data():
             weather = None
             weather_error = f"Wetterdaten konnten nicht geladen werden: {error}"
 
+    recommendation = None
+    recommendation_path = DATA_ROOT / "current-recommendation.json"
+    if recommendation_path.exists():
+        try:
+            with recommendation_path.open(encoding="utf-8") as file:
+                recommendation = json.load(file)
+        except Exception:
+            recommendation = None
+
     return {
         "snapshot": snapshot,
         "history": history,
         "weather": weather,
         "weatherError": weather_error,
+        "recommendation": recommendation,
         "servedAt": datetime.now().astimezone().isoformat(),
     }
 

@@ -20,6 +20,12 @@ func defaultPathsUseApplicationSupport() {
     #expect(paths.sensorInputHistoryDirectory == expectedDirectory.appendingPathComponent(
         "sensor-input/history"
     ))
+    #expect(paths.recommendationStateURL == expectedDirectory.appendingPathComponent(
+        "recommendation/stability-state.json"
+    ))
+    #expect(paths.recommendationSnapshotURL == expectedDirectory.appendingPathComponent(
+        "current-recommendation.json"
+    ))
 }
 
 @Test func loadCurrentSensorSnapshot() throws {
@@ -820,4 +826,370 @@ func malformedWeatherInputDoesNotReplaceExistingSnapshot() throws {
 
     let unchanged = try WeatherSnapshotStore().load(from: paths.weatherSnapshotURL)
     #expect(unchanged == existing)
+}
+
+@Test
+func outdoorReferenceUsesMeanTemperatureAndAbsoluteHumidity() {
+    let readings = [
+        SensorReading(
+            id: "eve-degree",
+            name: "Eve Degree",
+            measurement: ClimateMeasurement(temperature: 21.3, humidity: 60)
+        ),
+        SensorReading(
+            id: "homepod-terrasse",
+            name: "HomePod Terrasse",
+            measurement: ClimateMeasurement(temperature: 19.5, humidity: 70)
+        )
+    ]
+
+    let mean = StableVentilationAdvisor.outdoorMean(from: readings)
+    let expectedAbsoluteHumidity = readings.map {
+        ClimateCalculator.absoluteHumidity(
+            temperatureCelsius: $0.measurement.temperature,
+            relativeHumidity: $0.measurement.humidity
+        )
+    }.reduce(0, +) / 2
+
+    #expect(abs(mean.temperature - 20.4) < 0.001)
+    #expect(abs(ClimateCalculator.absoluteHumidity(
+        temperatureCelsius: mean.temperature,
+        relativeHumidity: mean.humidity
+    ) - expectedAbsoluteHumidity) < 0.001)
+}
+
+@Test
+func recommendationNeedsFifteenMinutesOfStableTendency() {
+    let advisor = StableVentilationAdvisor(transitionInterval: 15 * 60)
+    let start = ISO8601DateFormatter().date(from: "2026-08-13T18:00:00Z")!
+    let ventilateSnapshot = recommendationTestSnapshot(
+        timestamp: start,
+        indoorTemperature: 24,
+        indoorHumidity: 60,
+        outdoorTemperature: 18,
+        outdoorHumidity: 50
+    )
+    let initial = advisor.evaluate(
+        snapshot: ventilateSnapshot,
+        weather: nil,
+        previousState: nil,
+        now: start
+    )
+    #expect(initial.snapshot.analysis.recommendation == .ventilate)
+
+    let previousVentilatingState = RecommendationStabilityState(
+        samples: [],
+        effectiveRecommendation: initial.state.effectiveRecommendation
+    )
+    let closeSnapshot = recommendationTestSnapshot(
+        timestamp: start.addingTimeInterval(5 * 60),
+        indoorTemperature: 24,
+        indoorHumidity: 50,
+        outdoorTemperature: 24.2,
+        outdoorHumidity: 35
+    )
+    let pending = advisor.evaluate(
+        snapshot: closeSnapshot,
+        weather: nil,
+        previousState: previousVentilatingState,
+        now: start.addingTimeInterval(5 * 60)
+    )
+    #expect(pending.snapshot.analysis.recommendation == .ventilate)
+    #expect(pending.snapshot.isTransitionPending)
+
+    let closeSnapshot2 = recommendationTestSnapshot(
+        timestamp: start.addingTimeInterval(10 * 60),
+        indoorTemperature: 24,
+        indoorHumidity: 50,
+        outdoorTemperature: 24.2,
+        outdoorHumidity: 35
+    )
+    let stillPending = advisor.evaluate(
+        snapshot: closeSnapshot2,
+        weather: nil,
+        previousState: pending.state,
+        now: start.addingTimeInterval(15 * 60)
+    )
+    #expect(stillPending.snapshot.analysis.recommendation == .ventilate)
+
+    let closeSnapshot3 = recommendationTestSnapshot(
+        timestamp: start.addingTimeInterval(20 * 60),
+        indoorTemperature: 24,
+        indoorHumidity: 50,
+        outdoorTemperature: 24.2,
+        outdoorHumidity: 35
+    )
+    let changed = advisor.evaluate(
+        snapshot: closeSnapshot3,
+        weather: nil,
+        previousState: stillPending.state,
+        now: start.addingTimeInterval(20 * 60)
+    )
+    #expect(changed.snapshot.analysis.recommendation == .closeWindows)
+}
+
+@Test
+func clearCounterTrendClosesImmediately() {
+    let advisor = StableVentilationAdvisor()
+    let start = ISO8601DateFormatter().date(from: "2026-08-13T18:00:00Z")!
+    let initial = advisor.evaluate(
+        snapshot: recommendationTestSnapshot(
+            timestamp: start,
+            indoorTemperature: 24,
+            indoorHumidity: 60,
+            outdoorTemperature: 18,
+            outdoorHumidity: 50
+        ),
+        weather: nil,
+        previousState: nil,
+        now: start
+    )
+    let warmer = recommendationTestSnapshot(
+        timestamp: start.addingTimeInterval(5 * 60),
+        indoorTemperature: 24,
+        indoorHumidity: 50,
+        outdoorTemperature: 28,
+        outdoorHumidity: 70
+    )
+    var state = initial.state
+    var result = initial
+    for minute in [5, 10, 15] {
+        result = advisor.evaluate(
+            snapshot: warmer,
+            weather: nil,
+            previousState: state,
+            now: start.addingTimeInterval(Double(minute * 60))
+        )
+        state = result.state
+    }
+    #expect(result.snapshot.analysis.recommendation == .closeWindows)
+    #expect(result.snapshot.isTransitionPending == false)
+}
+
+@Test
+func fallingForecastKeepsVentilationWhenTemperaturesConverge() {
+    let advisor = StableVentilationAdvisor()
+    let start = ISO8601DateFormatter().date(from: "2026-08-13T18:00:00Z")!
+    let initial = advisor.evaluate(
+        snapshot: recommendationTestSnapshot(
+            timestamp: start,
+            indoorTemperature: 24,
+            indoorHumidity: 60,
+            outdoorTemperature: 18,
+            outdoorHumidity: 50
+        ),
+        weather: nil,
+        previousState: nil,
+        now: start
+    )
+    let converged = recommendationTestSnapshot(
+        timestamp: start.addingTimeInterval(5 * 60),
+        indoorTemperature: 22,
+        indoorHumidity: 50,
+        outdoorTemperature: 22,
+        outdoorHumidity: 45
+    )
+    let weather = recommendationTestWeather(
+        now: start.addingTimeInterval(5 * 60),
+        temperatures: [22, 21],
+        humidities: [45, 48]
+    )
+    let result = advisor.evaluate(
+        snapshot: converged,
+        weather: weather,
+        previousState: initial.state,
+        now: start.addingTimeInterval(5 * 60)
+    )
+    #expect(result.snapshot.analysis.recommendation == .ventilate)
+}
+
+@Test
+func rainAndWindOnlyWarnWhileVentilating() {
+    let advisor = StableVentilationAdvisor()
+    let now = ISO8601DateFormatter().date(from: "2026-08-13T18:00:00Z")!
+    let weather = recommendationTestWeather(
+        now: now,
+        temperatures: [18, 17],
+        humidities: [60, 65],
+        rainChance: 60,
+        windSpeed: 25
+    )
+    let ventilating = advisor.evaluate(
+        snapshot: recommendationTestSnapshot(
+            timestamp: now,
+            indoorTemperature: 24,
+            indoorHumidity: 60,
+            outdoorTemperature: 18,
+            outdoorHumidity: 50
+        ),
+        weather: weather,
+        previousState: nil,
+        now: now
+    )
+    #expect(ventilating.snapshot.weatherAdvisory?.kind == .rainAndWind)
+    #expect(ventilating.snapshot.analysis.explanation.contains("nur kippen"))
+
+    let closed = advisor.evaluate(
+        snapshot: recommendationTestSnapshot(
+            timestamp: now,
+            indoorTemperature: 20,
+            indoorHumidity: 40,
+            outdoorTemperature: 25,
+            outdoorHumidity: 70
+        ),
+        weather: weather,
+        previousState: nil,
+        now: now
+    )
+    #expect(closed.snapshot.analysis.recommendation == .closeWindows)
+    #expect(closed.snapshot.weatherAdvisory == nil)
+}
+
+private func recommendationTestSnapshot(
+    timestamp: Date,
+    indoorTemperature: Double,
+    indoorHumidity: Double,
+    outdoorTemperature: Double,
+    outdoorHumidity: Double
+) -> SensorSnapshot {
+    let indoor = ClimateMeasurement(
+        temperature: indoorTemperature,
+        humidity: indoorHumidity
+    )
+    let outdoor = ClimateMeasurement(
+        temperature: outdoorTemperature,
+        humidity: outdoorHumidity
+    )
+    return SensorSnapshot(
+        version: 2,
+        timestamp: timestamp,
+        source: "Test",
+        indoor: indoor,
+        outdoor: outdoor,
+        indoorRooms: [
+            SensorReading(id: "stube", name: "Stube", measurement: indoor, isPrimary: true)
+        ],
+        outdoorSensors: [
+            SensorReading(id: "eve-degree", name: "Eve Degree", measurement: outdoor),
+            SensorReading(id: "homepod-terrasse", name: "HomePod Terrasse", measurement: outdoor)
+        ]
+    )
+}
+
+private func recommendationTestWeather(
+    now: Date,
+    temperatures: [Double],
+    humidities: [Double],
+    rainChance: Double = 0,
+    windSpeed: Double = 5
+) -> WeatherSnapshot {
+    WeatherSnapshot(
+        timestamp: now,
+        location: "Zuhause",
+        current: WeatherReading(
+            timestamp: now,
+            temperature: temperatures.first ?? 20,
+            humidity: humidities.first ?? 50,
+            condition: rainChance > 0 ? "Regen" : "Klar",
+            precipitationChance: rainChance,
+            windSpeed: windSpeed
+        ),
+        hourlyForecast: zip(temperatures, humidities).enumerated().map { index, values in
+            WeatherReading(
+                timestamp: now.addingTimeInterval(Double(index + 1) * 60 * 60),
+                temperature: values.0,
+                humidity: values.1,
+                condition: rainChance > 0 ? "Regen" : "Klar",
+                precipitationChance: rainChance,
+                windSpeed: windSpeed
+            )
+        }
+    )
+}
+
+@Test
+func completeCLIRunIncludesWeatherWarningToken() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-13T20:15:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    try WeatherSnapshotStore().write(
+        recommendationTestWeather(
+            now: runDate,
+            temperatures: [17, 16],
+            humidities: [60, 65],
+            rainChance: 70,
+            windSpeed: 25
+        ),
+        to: paths.weatherSnapshotURL
+    )
+    try RecommendationSnapshotStore().write(
+        RecommendationStabilityState(
+            samples: [],
+            effectiveRecommendation: .ventilate
+        ),
+        to: paths.recommendationStateURL
+    )
+    try WindowStateStore(fileURL: paths.windowStateURL).save(
+        .waitingForOpening,
+        now: runDate
+    )
+
+    let output = try ClimateEngineCommand(
+        paths: paths,
+        now: { runDate }
+    ).run(arguments: ["24", "60", "18", "50"])
+
+    #expect(output == "OPEN_WITH_RAIN_AND_WIND_WARNING")
+    #expect(FileManager.default.fileExists(atPath: paths.recommendationSnapshotURL.path))
+    let saved = try RecommendationSnapshotStore().load(
+        from: paths.recommendationSnapshotURL
+    )
+    #expect(saved.weatherAdvisory?.kind == .rainAndWind)
+}
+
+@Test
+func weatherWarningIsOnlyEmittedOnceDuringOpenWindow() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let firstDate = ISO8601DateFormatter().date(from: "2026-08-13T20:15:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    try WeatherSnapshotStore().write(
+        recommendationTestWeather(
+            now: firstDate,
+            temperatures: [17, 16],
+            humidities: [60, 65],
+            rainChance: 70,
+            windSpeed: 25
+        ),
+        to: paths.weatherSnapshotURL
+    )
+    try RecommendationSnapshotStore().write(
+        RecommendationStabilityState(
+            samples: [],
+            effectiveRecommendation: .ventilate
+        ),
+        to: paths.recommendationStateURL
+    )
+
+    let first = try ClimateEngineCommand(
+        paths: paths,
+        now: { firstDate }
+    ).run(arguments: ["24", "60", "18", "50"])
+    let secondDate = firstDate.addingTimeInterval(5 * 60)
+    let second = try ClimateEngineCommand(
+        paths: paths,
+        now: { secondDate }
+    ).run(arguments: ["24", "60", "18", "50"])
+
+    #expect(first == "OPEN_WITH_RAIN_AND_WIND_WARNING")
+    #expect(second == "NONE")
 }

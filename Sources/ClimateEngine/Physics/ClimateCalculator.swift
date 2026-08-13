@@ -39,4 +39,15 @@ public enum ClimateCalculator {
 
         return 216.7 * vaporPressureHPa / (temperatureCelsius + 273.15)
     }
+
+    /// Calculates relative humidity in percent from absolute humidity in g/m³.
+    public static func relativeHumidity(
+        temperatureCelsius: Double,
+        absoluteHumidity: Double
+    ) -> Double {
+        let vaporPressure = absoluteHumidity * (temperatureCelsius + 273.15) / 216.7
+        let relativeHumidity = vaporPressure /
+            saturationVaporPressure(temperatureCelsius: temperatureCelsius) * 100
+        return min(max(relativeHumidity, 0), 100)
+    }
 }

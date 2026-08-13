@@ -92,7 +92,7 @@ struct ContentView: View {
 
             sensorSection(
                 title: "Innenräume",
-                subtitle: "Stube bleibt während der Beobachtungsphase die SMS-Referenz.",
+                subtitle: "Stube bleibt die SMS-Referenz im Innenraum.",
                 readings: snapshot?.indoorRooms ?? [],
                 systemImage: "house.fill"
             )
@@ -112,7 +112,9 @@ struct ContentView: View {
             if let snapshot {
                 RoomObservationPanel(
                     rooms: snapshot.indoorRooms,
-                    referenceOutdoor: snapshot.outdoor
+                    referenceOutdoor: StableVentilationAdvisor.outdoorMean(
+                        from: snapshot.outdoorSensors
+                    )
                 )
             }
 
@@ -195,7 +197,9 @@ struct ContentView: View {
                         humidity: formatHumidity(reading.measurement.humidity),
                         dewPoint: formatDewPoint(reading.measurement),
                         absoluteHumidity: formatAbsoluteHumidity(reading.measurement),
-                        referenceLabel: reading.isPrimary ? "SMS-Referenz" : nil
+                        referenceLabel: title == "Innenräume" && reading.isPrimary
+                            ? "SMS-Referenz"
+                            : nil
                     )
                 }
             }
@@ -205,12 +209,13 @@ struct ContentView: View {
 
     private var outdoorSensorSubtitle: String {
         guard let readings = snapshot?.outdoorSensors, readings.count > 1 else {
-            return "Eve Degree bleibt während der Beobachtungsphase die SMS-Referenz."
+            return "Der vorhandene Aussensensor wird für die Empfehlung verwendet."
         }
         let temperatures = readings.map(\.measurement.temperature)
         let spread = (temperatures.max() ?? 0) - (temperatures.min() ?? 0)
         return String(
-            format: "Eve Degree ist SMS-Referenz · aktuelle Temperaturspanne %.1f °C",
+            format: "Aussenmittel aus %d Sensoren · aktuelle Temperaturspanne %.1f °C",
+            readings.count,
             spread
         )
     }
@@ -218,7 +223,14 @@ struct ContentView: View {
     private func loadSnapshot() {
         do {
             let loadedSnapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
-            let loadedAnalysis = VentilationAdvisor.analyze(snapshot: loadedSnapshot)
+            let loadedAnalysis = (try? RecommendationSnapshotStore().load(
+                from: paths.recommendationSnapshotURL
+            ))?.analysis ?? VentilationAdvisor.analyze(
+                indoor: loadedSnapshot.indoor,
+                outdoor: StableVentilationAdvisor.outdoorMean(
+                    from: loadedSnapshot.outdoorSensors
+                )
+            )
 
             snapshot = loadedSnapshot
             analysis = loadedAnalysis
@@ -313,7 +325,7 @@ private struct WeatherObservationPanel: View {
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
-                    Text("Apple Weather · noch ohne Einfluss auf SMS und Empfehlungen")
+                    Text("Apple Weather · Prognose für stabile Empfehlungen und Lüftungshinweise")
                         .font(.subheadline)
                         .foregroundStyle(LiquidGlassTheme.secondaryText)
                 }

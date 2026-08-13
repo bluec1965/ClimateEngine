@@ -71,6 +71,25 @@ const recommendation = (indoor, outdoor) => {
   };
 };
 
+const analysisAdvice = (analysis) => {
+  const value = analysis?.recommendation;
+  if (!value) return null;
+  return {
+    key: value === "ventilate" ? "ventilate" : value === "closeWindows" ? "close" : "neutral",
+    title: value === "ventilate" ? "Jetzt lüften" : value === "closeWindows" ? "Fenster geschlossen halten" : "Keine Änderung nötig",
+    explanation: analysis.explanation || "",
+  };
+};
+
+const meanOutdoor = (readings) => {
+  const temperature = readings.reduce((sum, item) => sum + item.temperature, 0) / readings.length;
+  const meanAbsolute = readings.reduce(
+    (sum, item) => sum + absoluteHumidity(item.temperature, item.humidity), 0) / readings.length;
+  const saturation = 6.112 * Math.exp((17.62 * temperature) / (temperature + 243.12));
+  const humidity = meanAbsolute * (temperature + 273.15) / (2.167 * saturation);
+  return { id: "outdoor-mean", name: "Aussenmittel", temperature, humidity, isPrimary: false };
+};
+
 const setText = (id, value) => { byId(id).textContent = value; };
 const temperatureText = (value) => `${value.toFixed(1)} °C`;
 const humidityText = (value) => `${value.toFixed(0)} %`;
@@ -122,7 +141,7 @@ const renderSensorCards = (containerId, readings, iconType) => {
       <div class="card-title">
         <span class="card-icon card-icon--${iconType}" aria-hidden="true"></span>
         <h3></h3>
-        ${reading.isPrimary ? '<span class="reference-badge">SMS-Referenz</span>' : ""}
+        ${iconType === "indoor" && reading.isPrimary ? '<span class="reference-badge">SMS-Referenz</span>' : ""}
       </div>
       <dl>
         <div><dt>Temperatur</dt><dd>${temperatureText(reading.temperature)}</dd></div>
@@ -158,7 +177,7 @@ const renderRoomObservations = (rooms, referenceOutdoor) => {
 const renderOutdoorSummary = (readings) => {
   const summary = byId("outdoor-summary");
   if (readings.length < 2) {
-    summary.textContent = "Eve Degree ist SMS-Referenz";
+    summary.textContent = "Der vorhandene Aussensensor wird für die Empfehlung verwendet";
     summary.className = "section-note";
     return;
   }
@@ -168,7 +187,7 @@ const renderOutdoorSummary = (readings) => {
   const temperatureSpread = Math.max(...temperatures) - Math.min(...temperatures);
   const humiditySpread = Math.max(...absoluteValues) - Math.min(...absoluteValues);
   const uncertain = temperatureSpread >= 1.5 || humiditySpread >= 1.0;
-  summary.textContent = `Spanne ${temperatureSpread.toFixed(1)} °C · ${humiditySpread.toFixed(1)} g/m³${uncertain ? " · beobachten" : ""}`;
+  summary.textContent = `Aussenmittel aus ${readings.length} Sensoren · Spanne ${temperatureSpread.toFixed(1)} °C · ${humiditySpread.toFixed(1)} g/m³${uncertain ? " · beobachten" : ""}`;
   summary.className = `section-note${uncertain ? " warning" : ""}`;
 };
 
@@ -288,10 +307,10 @@ const renderHistory = (history) => {
   }));
 };
 
-const render = ({ snapshot, history, weather, weatherError }) => {
+const render = ({ snapshot, history, weather, weatherError, recommendation: savedRecommendation }) => {
   const { indoorRooms, outdoorSensors } = snapshotReadings(snapshot);
   const indoor = indoorRooms.find((reading) => reading.isPrimary) || indoorRooms[0];
-  const outdoor = outdoorSensors.find((reading) => reading.isPrimary) || outdoorSensors[0];
+  const outdoor = meanOutdoor(outdoorSensors);
   const indoorAbsolute = absoluteHumidity(indoor.temperature, indoor.humidity);
   const outdoorAbsolute = absoluteHumidity(outdoor.temperature, outdoor.humidity);
 
@@ -312,7 +331,7 @@ const render = ({ snapshot, history, weather, weatherError }) => {
   setText("compare-humidity-outdoor", absoluteText(outdoorAbsolute));
   setText("compare-humidity-difference", absoluteText(outdoorAbsolute - indoorAbsolute));
 
-  const advice = recommendation(indoor, outdoor);
+  const advice = analysisAdvice(savedRecommendation?.analysis) || recommendation(indoor, outdoor);
   const heroRecommendation = byId("hero-recommendation");
   heroRecommendation.className = `hero-recommendation ${advice.key}`;
   setText("hero-recommendation-title", advice.title);

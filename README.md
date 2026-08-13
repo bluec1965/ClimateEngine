@@ -76,8 +76,29 @@ ohne die Empfehlung zu beeinflussen.
 ## Separater Weather Connector
 
 Der Weather Connector sammelt Apple-Weather-Daten unabhängig vom bestehenden
-Sensor Connector. Wetterdaten beeinflussen während der Beobachtungsphase weder
-SMS noch Lüftungsempfehlungen.
+Sensor Connector. Die Temperaturprognose verhindert ein vorschnelles Schliessen
+nach dem Lüften. Regen und Wind verändern die Empfehlung nicht, ergänzen bei
+`Lüften` aber einen Hinweis zum Kippen beziehungsweise Sichern der Fenster.
+
+Für die SMS-Empfehlung werden Temperatur und absolute Luftfeuchtigkeit von
+Eve Degree und HomePod Terrasse gemittelt. Die letzten drei plausiblen
+Sensormessungen werden geglättet. Eine neue Tendenz wird im Normalfall erst nach
+15 Minuten übernommen; eine klar wärmere oder deutlich feuchtere Gegenentwicklung
+führt beim Lüften sofort zur Schliess-Empfehlung.
+
+Der Sensor Connector gibt für die bestehende Kurzbefehls-Verzweigung weiterhin
+`OPEN_WINDOWS`, `CLOSE_WINDOWS` oder `NONE` aus. Bei einer Lüftungsempfehlung
+mit Wetterhinweis werden stattdessen diese eindeutigen Werte verwendet:
+
+- `OPEN_WITH_RAIN_WARNING`
+- `OPEN_WITH_WIND_WARNING`
+- `OPEN_WITH_RAIN_AND_WIND_WARNING`
+
+Im Kurzbefehl werden dafür drei zusätzliche `Wenn Text enthält ...`-Zweige mit
+passendem Nachrichtentext angelegt. Die Werte enthalten absichtlich nicht
+`OPEN_WINDOWS`, damit nicht gleichzeitig die normale Lüftungsnachricht gesendet
+wird. Ein neuer Wetterhinweis wird während eines laufenden Lüftungsfensters nur
+einmal ausgegeben.
 
 Der Kurzbefehl übergibt seinen Text an diesen Aufruf:
 

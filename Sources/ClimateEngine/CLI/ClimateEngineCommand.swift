@@ -79,9 +79,38 @@ public struct ClimateEngineCommand {
         }
 
         let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
-        let analysis = VentilationAdvisor.analyze(snapshot: snapshot)
         let stateStore = WindowStateStore(fileURL: paths.windowStateURL)
         let currentState = try stateStore.load(now: executionDate)
+        let recommendationStore = RecommendationSnapshotStore()
+        var previousRecommendationState = try recommendationStore.loadState(
+            from: paths.recommendationStateURL
+        )
+        if previousRecommendationState == nil {
+            previousRecommendationState = RecommendationStabilityState(
+                samples: [],
+                effectiveRecommendation: currentState == .waitingForClosing
+                    ? .ventilate
+                    : .neutral
+            )
+        }
+        let weatherSnapshot = try? WeatherSnapshotStore().load(
+            from: paths.weatherSnapshotURL
+        )
+        let stableResult = StableVentilationAdvisor().evaluate(
+            snapshot: snapshot,
+            weather: weatherSnapshot,
+            previousState: previousRecommendationState,
+            now: executionDate
+        )
+        try recommendationStore.write(
+            stableResult.state,
+            to: paths.recommendationStateURL
+        )
+        try recommendationStore.write(
+            stableResult.snapshot,
+            to: paths.recommendationSnapshotURL
+        )
+        let analysis = stableResult.snapshot.analysis
         let notification = NotificationManager().evaluate(
             recommendation: analysis.recommendation,
             state: currentState,
@@ -106,9 +135,15 @@ public struct ClimateEngineCommand {
         }
 
         switch notification.action {
-        case .openWindows: return "OPEN_WINDOWS"
+        case .openWindows:
+            return outputToken(advisory: stableResult.snapshot.weatherAdvisory)
         case .closeWindows: return "CLOSE_WINDOWS"
-        case .none: return "NONE"
+        case .none:
+            if currentState == .waitingForClosing,
+               stableResult.weatherAdvisoryChanged {
+                return outputToken(advisory: stableResult.snapshot.weatherAdvisory)
+            }
+            return "NONE"
         }
     }
 
@@ -126,12 +161,18 @@ public struct ClimateEngineCommand {
                 temperatureCelsius: snapshot.indoor.temperature,
                 relativeHumidity: snapshot.indoor.humidity
             ),
-            outdoorTemperature: snapshot.outdoor.temperature,
-            outdoorHumidity: snapshot.outdoor.humidity,
+            outdoorTemperature: analysis.outdoorTemperature,
+            outdoorHumidity: ClimateCalculator.relativeHumidity(
+                temperatureCelsius: analysis.outdoorTemperature,
+                absoluteHumidity: analysis.outdoorAbsoluteHumidity
+            ),
             outdoorAbsoluteHumidity: analysis.outdoorAbsoluteHumidity,
             outdoorDewPoint: ClimateCalculator.dewPoint(
-                temperatureCelsius: snapshot.outdoor.temperature,
-                relativeHumidity: snapshot.outdoor.humidity
+                temperatureCelsius: analysis.outdoorTemperature,
+                relativeHumidity: ClimateCalculator.relativeHumidity(
+                    temperatureCelsius: analysis.outdoorTemperature,
+                    absoluteHumidity: analysis.outdoorAbsoluteHumidity
+                )
             ),
             recommendation: recommendationText(analysis.recommendation),
             notificationSent: notificationSent,
@@ -218,6 +259,15 @@ public struct ClimateEngineCommand {
         case .ventilate: return "ventilate"
         case .neutral: return "neutral"
         case .closeWindows: return "closeWindows"
+        }
+    }
+
+    private func outputToken(advisory: WeatherAdvisory?) -> String {
+        switch advisory?.kind {
+        case .rain: return "OPEN_WITH_RAIN_WARNING"
+        case .wind: return "OPEN_WITH_WIND_WARNING"
+        case .rainAndWind: return "OPEN_WITH_RAIN_AND_WIND_WARNING"
+        case nil: return "OPEN_WINDOWS"
         }
     }
 }
