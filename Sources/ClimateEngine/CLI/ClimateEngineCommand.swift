@@ -14,6 +14,12 @@ public struct ClimateEngineCommand {
 
     @discardableResult
     public func run(arguments: [String], standardInput: String = "") throws -> String {
+        if arguments.first?.lowercased() == "additional-sensors" {
+            return try AdditionalSensorConnectorCommand(paths: paths, now: now).run(
+                standardInput: standardInput
+            )
+        }
+
         if arguments.first?.lowercased() == "weather" {
             return try WeatherConnectorCommand(paths: paths, now: now).run(
                 standardInput: standardInput

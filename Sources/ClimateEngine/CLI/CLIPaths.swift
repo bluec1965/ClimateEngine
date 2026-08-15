@@ -53,6 +53,18 @@ public struct ClimateEnginePaths: Sendable {
             .appendingPathComponent("history")
     }
 
+    public var additionalSensorSnapshotURL: URL {
+        dataDirectory
+            .appendingPathComponent("additional-sensors")
+            .appendingPathComponent("current.json")
+    }
+
+    public var additionalSensorHistoryDirectory: URL {
+        dataDirectory
+            .appendingPathComponent("additional-sensors")
+            .appendingPathComponent("history")
+    }
+
     public var sensorInputStateURL: URL {
         stateDirectory
             .appendingPathComponent("sensor-input")
@@ -86,6 +98,12 @@ public enum CLIPaths {
     public static var windowStateURL: URL { ClimateEnginePaths.current.windowStateURL }
     public static var weatherSnapshotURL: URL { ClimateEnginePaths.current.weatherSnapshotURL }
     public static var weatherHistoryDirectory: URL { ClimateEnginePaths.current.weatherHistoryDirectory }
+    public static var additionalSensorSnapshotURL: URL {
+        ClimateEnginePaths.current.additionalSensorSnapshotURL
+    }
+    public static var additionalSensorHistoryDirectory: URL {
+        ClimateEnginePaths.current.additionalSensorHistoryDirectory
+    }
     public static var sensorInputStateURL: URL { ClimateEnginePaths.current.sensorInputStateURL }
     public static var recommendationStateURL: URL { ClimateEnginePaths.current.recommendationStateURL }
     public static var recommendationSnapshotURL: URL { ClimateEnginePaths.current.recommendationSnapshotURL }

@@ -32,10 +32,72 @@ Standardeingabe entgegennehmen. Die Reihenfolge ist:
 11. HomePod Terrasse Temperatur
 12. HomePod Terrasse Luftfeuchtigkeit
 
-Die ersten vier Werte bleiben vollständig rückwärtskompatibel. SMS werden
-weiterhin ausschliesslich anhand von Stube und Eve Degree ausgelöst. Die
-zusätzlichen Sensoren werden gespeichert, im Dashboard dargestellt und dort
-pro Raum bewertet.
+Die ersten vier Werte bleiben vollständig rückwärtskompatibel. Die Stube bleibt
+die Innenreferenz für SMS; aussen verwendet die Empfehlung den Mittelwert aus
+Eve Degree und HomePod Terrasse. Die zusätzlichen Sensoren werden gespeichert,
+im Dashboard dargestellt und dort pro Raum bewertet.
+
+## Separater Additional Sensor Connector
+
+Der Kurzbefehl `ClimateEngine Additional Sensor Connector` sammelt weitere
+HomePod-Sensoren unabhängig vom Haupt-Connector. Diese Beobachtungsdaten haben
+zunächst keinen Einfluss auf Dashboard, SMS oder Empfehlungen.
+
+Das Textfeld des Kurzbefehls übergibt genau diese vierzehn Werte über `stdin`:
+
+1. Küche Temperatur
+2. Küche Luftfeuchtigkeit
+3. Bad Peter Temperatur
+4. Bad Peter Luftfeuchtigkeit
+5. Schlafzimmer HomePod Temperatur
+6. Schlafzimmer HomePod Luftfeuchtigkeit
+7. Büro Alois zweiter HomePod Temperatur
+8. Büro Alois zweiter HomePod Luftfeuchtigkeit
+9. Sauna zweiter HomePod Temperatur
+10. Sauna zweiter HomePod Luftfeuchtigkeit
+11. Büro Peter Temperatur
+12. Büro Peter Luftfeuchtigkeit
+13. Bad Alois Temperatur
+14. Bad Alois Luftfeuchtigkeit
+
+Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
+
+```bash
+/Users/aloiscarnier/Developer/ClimateEngine/.build/debug/ClimateEngineCLI additional-sensors
+```
+
+Als Eingabe wird das Textfeld ausgewählt und über `stdin` übergeben. Ein
+erfolgreicher manueller Lauf gibt `ADDITIONAL_SENSORS_SAVED` zurück. Der
+aktuelle Snapshot liegt danach unter
+`~/Library/Application Support/ClimateEngine/additional-sensors/current.json`;
+die unveränderten Rohmessungen werden zusätzlich unter
+`additional-sensors/history/YYYY-MM-DD.jsonl` gesammelt. Unvollständige oder
+unplausible Eingaben ersetzen den letzten gültigen Snapshot nicht.
+
+Die Hauptmessung wird zu den Minuten `00, 05, 10, …` gestartet. Der zusätzliche
+Connector folgt jeweils zwei Minuten später zu `02, 07, 12, …`. Beide Dienste
+verwenden dieselbe Prozesssperre. Dauert die wichtige Hauptmessung wegen eines
+Wiederholungsversuchs länger, wird die betreffende Zusatzmessung übersprungen,
+statt gleichzeitig auf HomeKit zuzugreifen.
+
+Die beiden LaunchAgents werden nach einem Build so installiert:
+
+```bash
+swift build
+chmod +x Scripts/run-sensor-connector.sh
+
+cp Support/ch.climateengine.poller.plist ~/Library/LaunchAgents/
+cp Support/ch.climateengine.additional-sensor-poller.plist ~/Library/LaunchAgents/
+
+launchctl bootout gui/$(id -u)/ch.climateengine.poller 2>/dev/null || true
+launchctl bootout gui/$(id -u)/ch.climateengine.additional-sensor-poller 2>/dev/null || true
+
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ch.climateengine.poller.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ch.climateengine.additional-sensor-poller.plist
+```
+
+Der Zusatzdienst protokolliert seine Versuche in
+`/tmp/climateengine-additional-sensor-retry.log`.
 
 ## Qualität der Sensoreingänge
 

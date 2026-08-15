@@ -14,6 +14,12 @@ func defaultPathsUseApplicationSupport() {
     #expect(paths.snapshotURL == expectedDirectory.appendingPathComponent("current.json"))
     #expect(paths.weatherSnapshotURL == expectedDirectory.appendingPathComponent("weather/current.json"))
     #expect(paths.weatherHistoryDirectory == expectedDirectory.appendingPathComponent("weather/history"))
+    #expect(paths.additionalSensorSnapshotURL == expectedDirectory.appendingPathComponent(
+        "additional-sensors/current.json"
+    ))
+    #expect(paths.additionalSensorHistoryDirectory == expectedDirectory.appendingPathComponent(
+        "additional-sensors/history"
+    ))
     #expect(paths.sensorInputStateURL == expectedDirectory.appendingPathComponent(
         "sensor-input/validation-state.json"
     ))
@@ -1192,4 +1198,99 @@ func weatherWarningIsOnlyEmittedOnceDuringOpenWindow() throws {
 
     #expect(first == "OPEN_WITH_RAIN_AND_WIND_WARNING")
     #expect(second == "NONE")
+}
+
+private let additionalSensorTestInput = """
+24,1 °C
+48 %
+23.8 °C
+51 %
+24.4 °C
+0.46
+25.2 °C
+45 %
+25.8 °C
+43 %
+24.9 °C
+47 %
+24.6 °C
+49 %
+"""
+
+@Test
+func additionalSensorInputParserMapsAllSevenSensors() throws {
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-15T10:02:00Z")!
+    let snapshot = try AdditionalSensorInputParser().parse(
+        additionalSensorTestInput,
+        now: runDate
+    )
+
+    #expect(snapshot.timestamp == runDate)
+    #expect(snapshot.sensors.count == 7)
+    #expect(snapshot.sensors.map(\.roomName) == [
+        "Küche", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois"
+    ])
+    #expect(snapshot.sensors[0].measurement.temperature == 24.1)
+    #expect(snapshot.sensors[2].measurement.humidity == 46)
+    #expect(snapshot.sensors[3].id == "homepod-buero-alois-rechts")
+}
+
+@Test
+func completeAdditionalSensorRunWritesSnapshotAndDailyHistory() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-15T10:02:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+
+    let output = try ClimateEngineCommand(paths: paths, now: { runDate }).run(
+        arguments: ["additional-sensors"],
+        standardInput: additionalSensorTestInput
+    )
+
+    #expect(output == "ADDITIONAL_SENSORS_SAVED")
+    #expect(FileManager.default.fileExists(atPath: paths.additionalSensorSnapshotURL.path))
+    let snapshot = try AdditionalSensorSnapshotStore().load(
+        from: paths.additionalSensorSnapshotURL
+    )
+    #expect(snapshot.sensors.count == 7)
+
+    let historyFiles = try FileManager.default.contentsOfDirectory(
+        at: paths.additionalSensorHistoryDirectory,
+        includingPropertiesForKeys: nil
+    )
+    #expect(historyFiles.count == 1)
+    let historyLines = try String(contentsOf: historyFiles[0], encoding: .utf8)
+        .split(whereSeparator: \.isNewline)
+    #expect(historyLines.count == 1)
+}
+
+@Test
+func malformedAdditionalInputDoesNotReplaceExistingSnapshot() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let runDate = ISO8601DateFormatter().date(from: "2026-08-15T10:02:00Z")!
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+    let command = ClimateEngineCommand(paths: paths, now: { runDate })
+
+    _ = try command.run(
+        arguments: ["additional-sensors"],
+        standardInput: additionalSensorTestInput
+    )
+    let originalData = try Data(contentsOf: paths.additionalSensorSnapshotURL)
+
+    #expect(throws: (any Error).self) {
+        try command.run(
+            arguments: ["additional-sensors"],
+            standardInput: "24.0\n50"
+        )
+    }
+    #expect(try Data(contentsOf: paths.additionalSensorSnapshotURL) == originalData)
 }
