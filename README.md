@@ -43,7 +43,7 @@ Der Kurzbefehl `ClimateEngine Additional Sensor Connector` sammelt weitere
 HomePod-Sensoren unabhängig vom Haupt-Connector. Diese Beobachtungsdaten haben
 zunächst keinen Einfluss auf Dashboard, SMS oder Empfehlungen.
 
-Das Textfeld des Kurzbefehls übergibt genau diese vierzehn Werte über `stdin`:
+Das Textfeld des Kurzbefehls übergibt genau diese sechzehn Werte über `stdin`:
 
 1. Küche Temperatur
 2. Küche Luftfeuchtigkeit
@@ -59,6 +59,8 @@ Das Textfeld des Kurzbefehls übergibt genau diese vierzehn Werte über `stdin`:
 12. Büro Peter Luftfeuchtigkeit
 13. Bad Alois Temperatur
 14. Bad Alois Luftfeuchtigkeit
+15. Dachzimmer Temperatur
+16. Dachzimmer Luftfeuchtigkeit
 
 Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
 

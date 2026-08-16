@@ -1215,10 +1215,12 @@ private let additionalSensorTestInput = """
 47 %
 24.6 °C
 49 %
+26.2 °C
+42 %
 """
 
 @Test
-func additionalSensorInputParserMapsAllSevenSensors() throws {
+func additionalSensorInputParserMapsAllEightSensors() throws {
     let runDate = ISO8601DateFormatter().date(from: "2026-08-15T10:02:00Z")!
     let snapshot = try AdditionalSensorInputParser().parse(
         additionalSensorTestInput,
@@ -1226,13 +1228,16 @@ func additionalSensorInputParserMapsAllSevenSensors() throws {
     )
 
     #expect(snapshot.timestamp == runDate)
-    #expect(snapshot.sensors.count == 7)
+    #expect(snapshot.sensors.count == 8)
     #expect(snapshot.sensors.map(\.roomName) == [
-        "Küche", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois"
+        "Küche", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois",
+        "Dachzimmer"
     ])
     #expect(snapshot.sensors[0].measurement.temperature == 24.1)
     #expect(snapshot.sensors[2].measurement.humidity == 46)
     #expect(snapshot.sensors[3].id == "homepod-buero-alois-rechts")
+    #expect(snapshot.sensors[7].id == "dachzimmer-sensor")
+    #expect(snapshot.sensors[7].measurement.temperature == 26.2)
 }
 
 @Test
@@ -1256,7 +1261,7 @@ func completeAdditionalSensorRunWritesSnapshotAndDailyHistory() throws {
     let snapshot = try AdditionalSensorSnapshotStore().load(
         from: paths.additionalSensorSnapshotURL
     )
-    #expect(snapshot.sensors.count == 7)
+    #expect(snapshot.sensors.count == 8)
 
     let historyFiles = try FileManager.default.contentsOfDirectory(
         at: paths.additionalSensorHistoryDirectory,
