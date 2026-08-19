@@ -20,7 +20,7 @@ public struct RoomSensorGrouper {
                 sensors: [
                     RoomSensorObservation(
                         id: reading.id,
-                        name: reading.name,
+                        name: displayName(forPrimarySensor: reading),
                         measurement: reading.measurement,
                         origin: .mainConnector,
                         isReferenceSensor: reading.isPrimary
@@ -53,6 +53,17 @@ public struct RoomSensorGrouper {
 
         return builders.map {
             RoomSensorGroup(id: $0.id, name: $0.name, sensors: $0.sensors)
+        }
+    }
+
+    private func displayName(forPrimarySensor sensor: SensorReading) -> String {
+        switch sensor.id {
+        case "buero-alois":
+            return "HomePod Büro Alois Links"
+        case "sauna":
+            return "HomePod Sauna Rechts"
+        default:
+            return sensor.name
         }
     }
 

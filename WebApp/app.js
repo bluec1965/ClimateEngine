@@ -159,11 +159,22 @@ const canonicalAdditionalRoom = (sensor) => {
   }
 };
 
+const primarySensorDisplayName = (sensor) => {
+  switch (sensor.id) {
+    case "buero-alois":
+      return "HomePod Büro Alois Links";
+    case "sauna":
+      return "HomePod Sauna Rechts";
+    default:
+      return sensor.name;
+  }
+};
+
 const groupedRoomReadings = (primaryRooms, additionalSnapshot) => {
   const groups = primaryRooms.map((sensor) => ({
     id: sensor.id,
     name: sensor.name,
-    sensors: [{ ...sensor, origin: "main" }],
+    sensors: [{ ...sensor, name: primarySensorDisplayName(sensor), origin: "main" }],
   }));
 
   for (const sensor of additionalSnapshotReadings(additionalSnapshot)) {

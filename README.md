@@ -79,7 +79,9 @@ bewussten Zuordnungen für bereits vorhandene Räume:
 Bad Peter, Büro Peter, Bad Alois und Dachzimmer erscheinen als eigene Räume.
 Die beiden Messungen eines Raums werden vorerst separat gezeigt und noch nicht
 gemittelt; SMS und Lüftungsempfehlung verwenden weiterhin nur die bisherigen
-Referenzsensoren.
+Referenzsensoren. Zur eindeutigen Orientierung wird der bisherige Hauptsensor
+im Büro Alois als `HomePod Büro Alois Links` und in der Sauna als
+`HomePod Sauna Rechts` angezeigt.
 
 Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
 

@@ -1358,8 +1358,12 @@ func roomSensorGrouperCombinesSecondSensorsWithExistingRooms() throws {
         "stube", "homepod-kueche"
     ])
     #expect(groups.first(where: { $0.id == "schlafzimmer" })?.sensors.count == 2)
-    #expect(groups.first(where: { $0.id == "buero-alois" })?.sensors.count == 2)
-    #expect(groups.first(where: { $0.id == "sauna" })?.sensors.count == 2)
+    #expect(groups.first(where: { $0.id == "buero-alois" })?.sensors.map(\.name) == [
+        "HomePod Büro Alois Links", "HomePod Büro Alois Rechts"
+    ])
+    #expect(groups.first(where: { $0.id == "sauna" })?.sensors.map(\.name) == [
+        "HomePod Sauna Rechts", "HomePod Sauna Links"
+    ])
     #expect(groups.first(where: { $0.id == "stube" })?.isSMSReferenceRoom == true)
     #expect(groups.first(where: { $0.id == "dachzimmer" })?.sensors.count == 1)
 }
