@@ -44,8 +44,9 @@ im Dashboard dargestellt und dort pro Raum bewertet.
 ## Separater Additional Sensor Connector
 
 Der Kurzbefehl `ClimateEngine Additional Sensor Connector` sammelt weitere
-HomePod-Sensoren unabhängig vom Haupt-Connector. Diese Beobachtungsdaten haben
-zunächst keinen Einfluss auf Dashboard, SMS oder Empfehlungen.
+HomePod-Sensoren unabhängig vom Haupt-Connector. Mac-App und Web-Dashboard
+zeigen diese Beobachtungsdaten an; auf SMS oder Empfehlungen haben sie zunächst
+keinen Einfluss.
 
 Das Textfeld des Kurzbefehls übergibt genau diese sechzehn Werte über `stdin`:
 
@@ -65,6 +66,20 @@ Das Textfeld des Kurzbefehls übergibt genau diese sechzehn Werte über `stdin`:
 14. Bad Alois Luftfeuchtigkeit
 15. Dachzimmer Temperatur
 16. Dachzimmer Luftfeuchtigkeit
+
+In der Mac-App und im Web-Dashboard werden Zusatzsensoren raumweise gruppiert.
+Dabei gelten diese
+bewussten Zuordnungen für bereits vorhandene Räume:
+
+- `HomePod Küche` ist der zweite Sensor der **Stube**.
+- `HomePod Schlafzimmer` ist der zweite Sensor des **Schlafzimmers**.
+- `HomePod Büro Alois Rechts` ist der zweite Sensor von **Büro Alois**.
+- `HomePod Sauna Links` ist der zweite Sensor der **Sauna**.
+
+Bad Peter, Büro Peter, Bad Alois und Dachzimmer erscheinen als eigene Räume.
+Die beiden Messungen eines Raums werden vorerst separat gezeigt und noch nicht
+gemittelt; SMS und Lüftungsempfehlung verwenden weiterhin nur die bisherigen
+Referenzsensoren.
 
 Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
 

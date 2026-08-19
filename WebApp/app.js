@@ -132,6 +132,53 @@ const snapshotReadings = (snapshot) => {
   };
 };
 
+const additionalSnapshotReadings = (snapshot) =>
+  (snapshot?.sensors || []).map((sensor) => ({
+    id: sensor.id,
+    name: sensor.name,
+    roomId: sensor.roomID,
+    roomName: sensor.roomName,
+    temperature: Number(sensor.measurement?.temperature),
+    humidity: Number(sensor.measurement?.humidity),
+    isPrimary: false,
+    origin: "additional",
+  }));
+
+const canonicalAdditionalRoom = (sensor) => {
+  switch (sensor.id) {
+    case "homepod-kueche":
+      return { id: "stube", name: "Stube" };
+    case "homepod-schlafzimmer":
+      return { id: "schlafzimmer", name: "Schlafzimmer" };
+    case "homepod-buero-alois-rechts":
+      return { id: "buero-alois", name: "Büro Alois" };
+    case "homepod-sauna-links":
+      return { id: "sauna", name: "Sauna" };
+    default:
+      return { id: sensor.roomId, name: sensor.roomName };
+  }
+};
+
+const groupedRoomReadings = (primaryRooms, additionalSnapshot) => {
+  const groups = primaryRooms.map((sensor) => ({
+    id: sensor.id,
+    name: sensor.name,
+    sensors: [{ ...sensor, origin: "main" }],
+  }));
+
+  for (const sensor of additionalSnapshotReadings(additionalSnapshot)) {
+    const room = canonicalAdditionalRoom(sensor);
+    const existing = groups.find((group) => group.id === room.id);
+    if (existing) {
+      existing.sensors.push(sensor);
+    } else {
+      groups.push({ id: room.id, name: room.name, sensors: [sensor] });
+    }
+  }
+
+  return groups;
+};
+
 const renderSensorCards = (containerId, readings, iconType) => {
   const cards = readings.map((reading) => {
     const absolute = absoluteHumidity(reading.temperature, reading.humidity);
@@ -152,6 +199,63 @@ const renderSensorCards = (containerId, readings, iconType) => {
     card.querySelector("h3").textContent = reading.name;
     return card;
   });
+  byId(containerId).replaceChildren(...cards);
+};
+
+const renderRoomSensorCards = (containerId, groups) => {
+  const cards = groups.map((group) => {
+    const card = document.createElement("article");
+    card.className = "climate-card room-card";
+
+    const title = document.createElement("div");
+    title.className = "card-title";
+    title.innerHTML = `
+      <span class="card-icon card-icon--indoor" aria-hidden="true"></span>
+      <h3></h3>
+      <span class="card-badges"></span>`;
+    title.querySelector("h3").textContent = group.name;
+
+    const badges = title.querySelector(".card-badges");
+    if (group.sensors.length > 1) {
+      const countBadge = document.createElement("span");
+      countBadge.className = "sensor-count-badge";
+      countBadge.textContent = `${group.sensors.length} Sensoren`;
+      badges.append(countBadge);
+    }
+    if (group.sensors.some((sensor) => sensor.isPrimary)) {
+      const referenceBadge = document.createElement("span");
+      referenceBadge.className = "reference-badge";
+      referenceBadge.textContent = "SMS-Referenz";
+      badges.append(referenceBadge);
+    }
+
+    const sensors = document.createElement("div");
+    sensors.className = "room-sensors";
+    group.sensors.forEach((sensor, index) => {
+      const absolute = absoluteHumidity(sensor.temperature, sensor.humidity);
+      const panel = document.createElement("section");
+      panel.className = "room-sensor";
+      panel.innerHTML = `
+        <div class="room-sensor-header">
+          <strong></strong>
+          <span class="sensor-origin">${sensor.origin === "main" ? "Hauptmessung" : "Zusatzmessung"}</span>
+        </div>
+        <dl>
+          <div><dt>Temperatur</dt><dd>${temperatureText(sensor.temperature)}</dd></div>
+          <div><dt>Luftfeuchtigkeit</dt><dd>${humidityText(sensor.humidity)}</dd></div>
+          <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(sensor.temperature, sensor.humidity))}</dd></div>
+          <div><dt>Absolute Feuchte</dt><dd>${absoluteText(absolute)}</dd></div>
+        </dl>`;
+      panel.querySelector("strong").textContent = group.sensors.length > 1
+        ? `Sensor ${index + 1} · ${sensor.name}`
+        : sensor.name;
+      sensors.append(panel);
+    });
+
+    card.append(title, sensors);
+    return card;
+  });
+
   byId(containerId).replaceChildren(...cards);
 };
 
@@ -307,14 +411,25 @@ const renderHistory = (history) => {
   }));
 };
 
-const render = ({ snapshot, history, weather, weatherError, recommendation: savedRecommendation }) => {
+const render = ({
+  snapshot,
+  history,
+  weather,
+  weatherError,
+  recommendation: savedRecommendation,
+  additionalSensorSnapshot,
+  additionalSensorError,
+}) => {
   const { indoorRooms, outdoorSensors } = snapshotReadings(snapshot);
   const indoor = indoorRooms.find((reading) => reading.isPrimary) || indoorRooms[0];
   const outdoor = meanOutdoor(outdoorSensors);
   const indoorAbsolute = absoluteHumidity(indoor.temperature, indoor.humidity);
   const outdoorAbsolute = absoluteHumidity(outdoor.temperature, outdoor.humidity);
 
-  renderSensorCards("indoor-grid", indoorRooms, "indoor");
+  renderRoomSensorCards(
+    "indoor-grid",
+    groupedRoomReadings(indoorRooms, additionalSensorSnapshot),
+  );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   renderRoomObservations(indoorRooms, outdoor);
   renderOutdoorSummary(outdoorSensors);
@@ -341,6 +456,25 @@ const render = ({ snapshot, history, weather, weatherError, recommendation: save
   setText("recommendation-title", advice.title);
   setText("recommendation-explanation", advice.explanation);
   setText("measurement-time", `Sensormessung: ${formatTime(snapshot.timestamp, true)}`);
+
+  const indoorSummary = byId("indoor-summary");
+  const summaryText = "Zweitsensoren sind dem jeweiligen Raum zugeordnet · noch ohne Mittelwerte";
+  if (additionalSensorSnapshot?.timestamp) {
+    indoorSummary.textContent = `${summaryText} · Zusatzmessung ${formatTime(additionalSensorSnapshot.timestamp)}`;
+    indoorSummary.className = "section-note";
+  } else {
+    indoorSummary.textContent = additionalSensorError
+      ? `${summaryText} · Zusatzdaten nicht verfügbar`
+      : summaryText;
+    indoorSummary.className = `section-note${additionalSensorError ? " warning" : ""}`;
+  }
+
+  const additionalMeasurementTime = byId("additional-measurement-time");
+  additionalMeasurementTime.hidden = !additionalSensorSnapshot?.timestamp && !additionalSensorError;
+  additionalMeasurementTime.textContent = additionalSensorSnapshot?.timestamp
+    ? `Zusatzsensoren: ${formatTime(additionalSensorSnapshot.timestamp, true)}`
+    : additionalSensorError || "";
+  additionalMeasurementTime.className = additionalSensorError ? "warning" : "";
   renderHistory(history);
 };
 

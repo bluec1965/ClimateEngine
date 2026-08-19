@@ -29,7 +29,7 @@ struct AdditionalSensorInputParser {
     }
 
     private let definitions = [
-        Definition(id: "homepod-kueche", name: "HomePod Küche", roomID: "kueche", roomName: "Küche"),
+        Definition(id: "homepod-kueche", name: "HomePod Küche", roomID: "stube", roomName: "Stube"),
         Definition(id: "homepod-bad-peter", name: "HomePod Bad Peter", roomID: "bad-peter", roomName: "Bad Peter"),
         Definition(id: "homepod-schlafzimmer", name: "HomePod Schlafzimmer", roomID: "schlafzimmer", roomName: "Schlafzimmer"),
         Definition(id: "homepod-buero-alois-rechts", name: "HomePod Büro Alois Rechts", roomID: "buero-alois", roomName: "Büro Alois"),

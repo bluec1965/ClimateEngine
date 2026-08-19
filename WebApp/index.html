@@ -54,7 +54,9 @@
             <p class="section-label">Innen</p>
             <h2 id="indoor-heading">Räume</h2>
           </div>
-          <span class="section-note">Stube ist SMS-Referenz</span>
+          <span class="section-note" id="indoor-summary">
+            Zweitsensoren sind dem jeweiligen Raum zugeordnet · noch ohne Mittelwerte
+          </span>
         </div>
         <div class="measurement-grid" id="indoor-grid"></div>
       </section>
@@ -154,7 +156,10 @@
       </section>
 
       <footer>
-        <span id="measurement-time">Noch keine Sensormessung</span>
+        <div class="measurement-times">
+          <span id="measurement-time">Noch keine Sensormessung</span>
+          <span id="additional-measurement-time" hidden></span>
+        </div>
         <button id="refresh-button" type="button">Jetzt aktualisieren</button>
       </footer>
     </main>

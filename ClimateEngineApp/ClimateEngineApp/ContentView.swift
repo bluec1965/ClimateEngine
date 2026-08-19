@@ -21,6 +21,8 @@ struct ContentView: View {
     @State private var historyLoadError: String?
     @State private var weatherSnapshot: WeatherSnapshot?
     @State private var weatherLoadError: String?
+    @State private var additionalSensorSnapshot: AdditionalSensorSnapshot?
+    @State private var additionalSensorLoadError: String?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -91,12 +93,7 @@ struct ContentView: View {
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            sensorSection(
-                title: "Innenräume",
-                subtitle: "Stube bleibt die SMS-Referenz im Innenraum.",
-                readings: snapshot?.indoorRooms ?? [],
-                systemImage: "house.fill"
-            )
+            indoorRoomSection
 
             sensorSection(
                 title: "Aussensensoren",
@@ -154,6 +151,12 @@ struct ContentView: View {
                         .foregroundStyle(LiquidGlassTheme.secondaryText)
                 }
 
+                if let measurementTime = additionalSensorSnapshot?.timestamp {
+                    Text("Zusatzsensoren: \(measurementTime.formatted(date: .abbreviated, time: .standard))")
+                        .font(.caption)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+                }
+
                 if let loadError {
                     Text(loadError)
                         .font(.caption)
@@ -165,12 +168,60 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+
+                if let additionalSensorLoadError {
+                    Text(additionalSensorLoadError)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
             .font(.headline)
             .padding(.horizontal, 18)
             .padding(.vertical, 13)
             .liquidGlassCard(cornerRadius: 18, glowColor: LiquidGlassTheme.mint, raised: false)
         }
+    }
+
+    private var indoorRoomSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                LiquidGlassSectionLabel(text: "Innen")
+
+                Text("Innenräume")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                Text(indoorRoomSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 430), spacing: 20)],
+                spacing: 20
+            ) {
+                ForEach(indoorRoomGroups) { room in
+                    RoomSensorGroupCard(room: room)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var indoorRoomGroups: [RoomSensorGroup] {
+        RoomSensorGrouper().groups(
+            primaryRooms: snapshot?.indoorRooms ?? [],
+            additionalSensors: additionalSensorSnapshot?.sensors ?? []
+        )
+    }
+
+    private var indoorRoomSubtitle: String {
+        let explanation = "Zweitsensoren sind dem jeweiligen Raum zugeordnet; Mittelwerte sind noch nicht aktiv."
+        guard let timestamp = additionalSensorSnapshot?.timestamp else {
+            return explanation
+        }
+
+        return "\(explanation) · Zusatzmessung \(timestamp.formatted(date: .omitted, time: .shortened))"
     }
 
     private func sensorSection(
@@ -181,7 +232,7 @@ struct ContentView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                LiquidGlassSectionLabel(text: title == "Innenräume" ? "Innen" : "Aussen")
+                LiquidGlassSectionLabel(text: "Aussen")
 
                 Text(title)
                     .font(.title2)
@@ -244,6 +295,24 @@ struct ContentView: View {
             loadError = nil
         } catch {
             loadError = "Sensordaten konnten nicht geladen werden: \(error)"
+        }
+
+        do {
+            additionalSensorSnapshot = try AdditionalSensorSnapshotStore().load(
+                from: paths.additionalSensorSnapshotURL
+            )
+            additionalSensorLoadError = nil
+        } catch let error as AdditionalSensorSnapshotStoreError {
+            additionalSensorSnapshot = nil
+            switch error {
+            case .fileNotFound:
+                additionalSensorLoadError = "Noch keine Zusatzsensordaten verfügbar."
+            default:
+                additionalSensorLoadError = error.description
+            }
+        } catch {
+            additionalSensorSnapshot = nil
+            additionalSensorLoadError = String(describing: error)
         }
 
         do {

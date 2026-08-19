@@ -1296,14 +1296,72 @@ func additionalSensorInputParserMapsAllEightSensors() throws {
     #expect(snapshot.timestamp == runDate)
     #expect(snapshot.sensors.count == 8)
     #expect(snapshot.sensors.map(\.roomName) == [
-        "Küche", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois",
+        "Stube", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois",
         "Dachzimmer"
     ])
+    #expect(snapshot.sensors[0].roomID == "stube")
     #expect(snapshot.sensors[0].measurement.temperature == 24.1)
     #expect(snapshot.sensors[2].measurement.humidity == 46)
     #expect(snapshot.sensors[3].id == "homepod-buero-alois-rechts")
     #expect(snapshot.sensors[7].id == "dachzimmer-sensor")
     #expect(snapshot.sensors[7].measurement.temperature == 26.2)
+}
+
+@Test
+func roomSensorGrouperCombinesSecondSensorsWithExistingRooms() throws {
+    let primaryRooms = [
+        SensorReading(
+            id: "stube",
+            name: "Stube",
+            measurement: ClimateMeasurement(temperature: 25.0, humidity: 50),
+            isPrimary: true
+        ),
+        SensorReading(
+            id: "schlafzimmer",
+            name: "Schlafzimmer",
+            measurement: ClimateMeasurement(temperature: 24.5, humidity: 52)
+        ),
+        SensorReading(
+            id: "buero-alois",
+            name: "Büro Alois",
+            measurement: ClimateMeasurement(temperature: 25.2, humidity: 49)
+        ),
+        SensorReading(
+            id: "sauna",
+            name: "Sauna",
+            measurement: ClimateMeasurement(temperature: 25.8, humidity: 48)
+        )
+    ]
+    let parsed = try AdditionalSensorInputParser().parse(
+        additionalSensorTestInput,
+        now: ISO8601DateFormatter().date(from: "2026-08-19T19:07:00Z")!
+    )
+    let legacyKitchenSensor = AdditionalSensorReading(
+        id: parsed.sensors[0].id,
+        name: parsed.sensors[0].name,
+        roomID: "kueche",
+        roomName: "Küche",
+        measurement: parsed.sensors[0].measurement
+    )
+    let additionalSensors = [legacyKitchenSensor] + parsed.sensors.dropFirst()
+
+    let groups = RoomSensorGrouper().groups(
+        primaryRooms: primaryRooms,
+        additionalSensors: Array(additionalSensors)
+    )
+
+    #expect(groups.map(\.id) == [
+        "stube", "schlafzimmer", "buero-alois", "sauna",
+        "bad-peter", "buero-peter", "bad-alois", "dachzimmer"
+    ])
+    #expect(groups.first(where: { $0.id == "stube" })?.sensors.map(\.id) == [
+        "stube", "homepod-kueche"
+    ])
+    #expect(groups.first(where: { $0.id == "schlafzimmer" })?.sensors.count == 2)
+    #expect(groups.first(where: { $0.id == "buero-alois" })?.sensors.count == 2)
+    #expect(groups.first(where: { $0.id == "sauna" })?.sensors.count == 2)
+    #expect(groups.first(where: { $0.id == "stube" })?.isSMSReferenceRoom == true)
+    #expect(groups.first(where: { $0.id == "dachzimmer" })?.sensors.count == 1)
 }
 
 @Test

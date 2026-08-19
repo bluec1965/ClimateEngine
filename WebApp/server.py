@@ -61,12 +61,31 @@ def read_dashboard_data():
         except Exception:
             recommendation = None
 
+    additional_sensor_snapshot = None
+    additional_sensor_error = None
+    additional_sensor_path = DATA_ROOT / "additional-sensors" / "current.json"
+    if additional_sensor_path.exists():
+        try:
+            with additional_sensor_path.open(encoding="utf-8") as file:
+                additional_sensor_snapshot = json.load(file)
+            if not isinstance(additional_sensor_snapshot, dict) or not isinstance(
+                additional_sensor_snapshot.get("sensors"), list
+            ):
+                raise ValueError("Liste der Zusatzsensoren fehlt")
+        except Exception as error:
+            additional_sensor_snapshot = None
+            additional_sensor_error = (
+                f"Zusatzsensordaten konnten nicht geladen werden: {error}"
+            )
+
     return {
         "snapshot": snapshot,
         "history": history,
         "weather": weather,
         "weatherError": weather_error,
         "recommendation": recommendation,
+        "additionalSensorSnapshot": additional_sensor_snapshot,
+        "additionalSensorError": additional_sensor_error,
         "servedAt": datetime.now().astimezone().isoformat(),
     }
 
