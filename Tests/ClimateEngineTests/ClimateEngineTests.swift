@@ -189,6 +189,47 @@ func historyReaderKeepsValidEntriesWhenOneLineIsMalformed() throws {
     #expect(result.entries.first?.timestamp == timestamp)
     #expect(result.skippedLineCount == 1)
 }
+
+@Test
+func additionalSensorHistoryReaderReturnsDailySummaryAndSkipsMalformedLines() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    let firstTimestamp = ISO8601DateFormatter().date(
+        from: "2026-08-19T06:02:00Z"
+    )!
+    let lastTimestamp = ISO8601DateFormatter().date(
+        from: "2026-08-19T20:57:00Z"
+    )!
+    let writer = AdditionalSensorHistoryWriter(directory: temporaryDirectory)
+    try writer.append(AdditionalSensorSnapshot(timestamp: lastTimestamp, sensors: []))
+    try writer.append(AdditionalSensorSnapshot(timestamp: firstTimestamp, sensors: []))
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let historyURL = temporaryDirectory.appendingPathComponent(
+        formatter.string(from: firstTimestamp) + ".jsonl"
+    )
+    do {
+        let handle = try FileHandle(forWritingTo: historyURL)
+        defer { handle.closeFile() }
+        handle.seekToEndOfFile()
+        handle.write(Data("{\"timestamp\":\n".utf8))
+    }
+
+    let reader = AdditionalSensorHistoryReader(directory: temporaryDirectory)
+    let result = try reader.loadTodayWithDiagnostics(now: firstTimestamp)
+    let summary = reader.summary(from: result.timestamps)
+
+    #expect(result.timestamps == [firstTimestamp, lastTimestamp])
+    #expect(result.skippedLineCount == 1)
+    #expect(summary.measurementCount == 2)
+    #expect(summary.firstMeasurement == firstTimestamp)
+    #expect(summary.lastMeasurement == lastTimestamp)
+}
 @Test
 func historyPolicyStoresEveryNewMeasurementAndSkipsExactSnapshotDuplicates() throws {
     let policy = HistoryPolicy()

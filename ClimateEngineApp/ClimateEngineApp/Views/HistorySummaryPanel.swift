@@ -4,6 +4,7 @@ import ClimateEngine
 struct HistorySummaryPanel: View {
     let summary: HistorySummary
     let statistics: HistoryStatistics
+    let additionalSummary: HistorySummary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -23,15 +24,38 @@ struct HistorySummaryPanel: View {
                 }
             }
 
+            historySectionTitle("Hauptsensoren")
             ClimateRow(label: "Messungen", value: "\(statistics.measurementCount)")
             ClimateRow(label: "Empfehlungswechsel", value: "\(statistics.recommendationChanges)")
             ClimateRow(label: "Lüftungsfenster", value: "\(statistics.ventilationPeriods)")
             ClimateRow(label: "Erste Messung", value: formatTime(summary.firstMeasurement))
             ClimateRow(label: "Letzte Messung", value: formatTime(summary.lastMeasurement))
+
+            LiquidGlassDivider()
+                .padding(.vertical, 4)
+
+            historySectionTitle("Zusatzsensoren")
+            ClimateRow(label: "Messungen", value: "\(additionalSummary.measurementCount)")
+            ClimateRow(
+                label: "Erste Messung",
+                value: formatTime(additionalSummary.firstMeasurement)
+            )
+            ClimateRow(
+                label: "Letzte Messung",
+                value: formatTime(additionalSummary.lastMeasurement)
+            )
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.cyan)
+    }
+
+    private func historySectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .foregroundStyle(LiquidGlassTheme.cyan)
+            .padding(.top, 2)
     }
 
     private func formatTime(_ date: Date?) -> String {

@@ -373,10 +373,28 @@ const renderWeather = (weather, weatherError) => {
   content.replaceChildren(currentCard, forecast);
 };
 
-const renderHistory = (history) => {
+const renderHistory = (history, additionalSummary, additionalHistoryError) => {
   setText("measurement-count", `${history.length} ${history.length === 1 ? "Messung" : "Messungen"}`);
   setText("first-measurement", formatTime(history[0]?.timestamp));
   setText("last-measurement", formatTime(history.at(-1)?.timestamp));
+
+  const additionalCount = Number(additionalSummary?.measurementCount || 0);
+  setText(
+    "additional-measurement-count",
+    `${additionalCount} ${additionalCount === 1 ? "Messung" : "Messungen"}`,
+  );
+  setText(
+    "additional-first-measurement",
+    formatTime(additionalSummary?.firstMeasurement),
+  );
+  setText(
+    "additional-last-measurement",
+    formatTime(additionalSummary?.lastMeasurement),
+  );
+
+  const additionalHistoryStatus = byId("additional-history-status");
+  additionalHistoryStatus.hidden = !additionalHistoryError;
+  additionalHistoryStatus.textContent = additionalHistoryError || "";
 
   let changes = 0;
   let periods = 0;
@@ -430,6 +448,8 @@ const render = ({
   recommendation: savedRecommendation,
   additionalSensorSnapshot,
   additionalSensorError,
+  additionalHistorySummary,
+  additionalHistoryError,
 }) => {
   const { indoorRooms, outdoorSensors } = snapshotReadings(snapshot);
   const indoor = indoorRooms.find((reading) => reading.isPrimary) || indoorRooms[0];
@@ -486,7 +506,7 @@ const render = ({
     ? `Zusatzsensoren: ${formatTime(additionalSensorSnapshot.timestamp, true)}`
     : additionalSensorError || "";
   additionalMeasurementTime.className = additionalSensorError ? "warning" : "";
-  renderHistory(history);
+  renderHistory(history, additionalHistorySummary, additionalHistoryError);
 };
 
 const refresh = async () => {

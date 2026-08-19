@@ -133,13 +133,31 @@
             <p class="section-label">Heute</p>
             <h2>Historie</h2>
           </div>
-          <span class="count-badge" id="measurement-count">0 Messungen</span>
         </div>
-        <div class="history-stats">
-          <div><strong id="recommendation-changes">0</strong><span>Empfehlungswechsel</span></div>
-          <div><strong id="ventilation-periods">0</strong><span>Lüftungsfenster</span></div>
-          <div><strong id="first-measurement">–</strong><span>Erste Messung</span></div>
-          <div><strong id="last-measurement">–</strong><span>Letzte Messung</span></div>
+        <div class="history-groups">
+          <section class="history-group" aria-labelledby="main-history-heading">
+            <div class="history-group-heading">
+              <h3 id="main-history-heading">Hauptsensoren</h3>
+              <span class="count-badge" id="measurement-count">0 Messungen</span>
+            </div>
+            <div class="history-stats">
+              <div><strong id="recommendation-changes">0</strong><span>Empfehlungswechsel</span></div>
+              <div><strong id="ventilation-periods">0</strong><span>Lüftungsfenster</span></div>
+              <div><strong id="first-measurement">–</strong><span>Erste Messung</span></div>
+              <div><strong id="last-measurement">–</strong><span>Letzte Messung</span></div>
+            </div>
+          </section>
+          <section class="history-group" aria-labelledby="additional-history-heading">
+            <div class="history-group-heading">
+              <h3 id="additional-history-heading">Zusatzsensoren</h3>
+              <span class="count-badge" id="additional-measurement-count">0 Messungen</span>
+            </div>
+            <div class="history-stats history-stats--additional">
+              <div><strong id="additional-first-measurement">–</strong><span>Erste Messung</span></div>
+              <div><strong id="additional-last-measurement">–</strong><span>Letzte Messung</span></div>
+            </div>
+            <p class="history-load-warning" id="additional-history-status" hidden></p>
+          </section>
         </div>
       </section>
 

@@ -11,6 +11,11 @@ struct ContentView: View {
         firstMeasurement: nil,
         lastMeasurement: nil
     )
+    @State private var additionalHistorySummary = HistorySummary(
+        measurementCount: 0,
+        firstMeasurement: nil,
+        lastMeasurement: nil
+    )
     @State private var loadError: String?
     @State private var historyStatistics = HistoryStatistics(
         measurementCount: 0,
@@ -23,6 +28,7 @@ struct ContentView: View {
     @State private var weatherLoadError: String?
     @State private var additionalSensorSnapshot: AdditionalSensorSnapshot?
     @State private var additionalSensorLoadError: String?
+    @State private var additionalSensorHistoryLoadError: String?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -120,7 +126,8 @@ struct ContentView: View {
 
             HistorySummaryPanel(
                 summary: historySummary,
-                statistics: historyStatistics
+                statistics: historyStatistics,
+                additionalSummary: additionalHistorySummary
             )
 
             HistoryTimelinePanel(events: historyEvents)
@@ -171,6 +178,12 @@ struct ContentView: View {
 
                 if let additionalSensorLoadError {
                     Text(additionalSensorLoadError)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                if let additionalSensorHistoryLoadError {
+                    Text(additionalSensorHistoryLoadError)
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -340,6 +353,26 @@ struct ContentView: View {
                 ventilationPeriods: 0
             )
             historyLoadError = "Historie konnte nicht geladen werden: \(error)"
+        }
+
+        do {
+            let reader = AdditionalSensorHistoryReader(
+                directory: paths.additionalSensorHistoryDirectory
+            )
+            let result = try reader.loadTodayWithDiagnostics()
+            additionalHistorySummary = reader.summary(from: result.timestamps)
+            if result.skippedLineCount > 0 {
+                additionalSensorHistoryLoadError = "Zusatzhistorie teilweise geladen: \(result.skippedLineCount) beschädigte Einträge wurden ignoriert."
+            } else {
+                additionalSensorHistoryLoadError = nil
+            }
+        } catch {
+            additionalHistorySummary = HistorySummary(
+                measurementCount: 0,
+                firstMeasurement: nil,
+                lastMeasurement: nil
+            )
+            additionalSensorHistoryLoadError = "Zusatzhistorie konnte nicht geladen werden: \(error)"
         }
 
         do {

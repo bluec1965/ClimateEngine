@@ -95,7 +95,9 @@ aktuelle Snapshot liegt danach unter
 `~/Library/Application Support/ClimateEngine/additional-sensors/current.json`;
 die unveränderten Rohmessungen werden zusätzlich unter
 `additional-sensors/history/YYYY-MM-DD.jsonl` gesammelt. Unvollständige oder
-unplausible Eingaben ersetzen den letzten gültigen Snapshot nicht.
+unplausible Eingaben ersetzen den letzten gültigen Snapshot nicht. Mac-App und
+Web-Dashboard zeigen für diese Zusatzhistorie die Anzahl sowie die erste und
+letzte Messung des aktuellen Tages separat von der Hauptsensor-Historie an.
 
 Die Hauptmessung wird zu den Minuten `00, 05, 10, …` gestartet. Der zusätzliche
 Connector folgt jeweils zwei Minuten später zu `02, 07, 12, …`. Beide Dienste

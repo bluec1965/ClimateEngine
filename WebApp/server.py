@@ -14,6 +14,36 @@ WEB_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
 
 
+def read_daily_history_summary(history_path):
+    entries = []
+    skipped_line_count = 0
+
+    if history_path.exists():
+        with history_path.open(encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    timestamp_value = entry["timestamp"]
+                    timestamp = datetime.fromisoformat(
+                        timestamp_value.replace("Z", "+00:00")
+                    )
+                    if timestamp.tzinfo is None:
+                        timestamp = timestamp.astimezone()
+                    entries.append((timestamp, timestamp_value))
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                    skipped_line_count += 1
+
+    entries.sort(key=lambda entry: entry[0])
+    return {
+        "measurementCount": len(entries),
+        "firstMeasurement": entries[0][1] if entries else None,
+        "lastMeasurement": entries[-1][1] if entries else None,
+        "skippedLineCount": skipped_line_count,
+    }
+
+
 def read_dashboard_data():
     snapshot_path = DATA_ROOT / "current.json"
     if not snapshot_path.exists():
@@ -78,6 +108,30 @@ def read_dashboard_data():
                 f"Zusatzsensordaten konnten nicht geladen werden: {error}"
             )
 
+    additional_history_error = None
+    additional_history_path = (
+        DATA_ROOT / "additional-sensors" / "history" / f"{history_date}.jsonl"
+    )
+    try:
+        additional_history_summary = read_daily_history_summary(
+            additional_history_path
+        )
+        skipped_line_count = additional_history_summary.pop("skippedLineCount")
+        if skipped_line_count:
+            additional_history_error = (
+                "Zusatzhistorie teilweise geladen: "
+                f"{skipped_line_count} beschädigte Einträge wurden ignoriert."
+            )
+    except Exception as error:
+        additional_history_summary = {
+            "measurementCount": 0,
+            "firstMeasurement": None,
+            "lastMeasurement": None,
+        }
+        additional_history_error = (
+            f"Zusatzhistorie konnte nicht geladen werden: {error}"
+        )
+
     return {
         "snapshot": snapshot,
         "history": history,
@@ -86,6 +140,8 @@ def read_dashboard_data():
         "recommendation": recommendation,
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorError": additional_sensor_error,
+        "additionalHistorySummary": additional_history_summary,
+        "additionalHistoryError": additional_history_error,
         "servedAt": datetime.now().astimezone().isoformat(),
     }
 
