@@ -28,25 +28,26 @@ public final class HistoryWriter {
 
         let fileURL = directory.appendingPathComponent(filename)
 
-        let data = try encoder.encode(entry)
+        var output = try encoder.encode(entry)
+        output.append(Data("\n".utf8))
 
         if FileManager.default.fileExists(atPath: fileURL.path) {
 
             let handle = try FileHandle(forWritingTo: fileURL)
-            defer { handle.closeFile() }
-
-            handle.seekToEndOfFile()
-
-            handle.write(data)
-            handle.write(Data("\n".utf8))
+            if #available(macOS 10.15.4, *) {
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: output)
+                try handle.synchronize()
+            } else {
+                defer { handle.closeFile() }
+                handle.seekToEndOfFile()
+                handle.write(output)
+                handle.synchronizeFile()
+            }
 
         } else {
-
-            var output = Data()
-            output.append(data)
-            output.append(Data("\n".utf8))
-
-            try output.write(to: fileURL)
+            try output.write(to: fileURL, options: .atomic)
         }
     }
 }

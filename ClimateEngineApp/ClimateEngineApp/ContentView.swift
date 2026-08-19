@@ -18,6 +18,7 @@ struct ContentView: View {
         ventilationPeriods: 0
     )
     @State private var historyEvents: [HistoryEvent] = []
+    @State private var historyLoadError: String?
     @State private var weatherSnapshot: WeatherSnapshot?
     @State private var weatherLoadError: String?
 
@@ -158,6 +159,12 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+
+                if let historyLoadError {
+                    Text(historyLoadError)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
             .font(.headline)
             .padding(.horizontal, 18)
@@ -241,10 +248,16 @@ struct ContentView: View {
 
         do {
             let reader = HistoryReader(directory: paths.historyDirectory)
-            let entries = try reader.loadToday()
-            historySummary = try reader.todaySummary()
-            historyEvents = try reader.todayEvents()
+            let result = try reader.loadTodayWithDiagnostics()
+            let entries = result.entries
+            historySummary = reader.summary(from: entries)
+            historyEvents = reader.events(from: entries)
             historyStatistics = HistoryAnalyzer().statistics(from: entries)
+            if result.skippedLineCount > 0 {
+                historyLoadError = "Historie teilweise geladen: \(result.skippedLineCount) beschädigte Einträge wurden ignoriert."
+            } else {
+                historyLoadError = nil
+            }
         } catch {
             historySummary = HistorySummary(
                 measurementCount: 0,
@@ -257,6 +270,7 @@ struct ContentView: View {
                 recommendationChanges: 0,
                 ventilationPeriods: 0
             )
+            historyLoadError = "Historie konnte nicht geladen werden: \(error)"
         }
 
         do {

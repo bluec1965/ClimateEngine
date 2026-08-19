@@ -5,6 +5,10 @@
 Das Dashboard liest dieselben Sensor- und Verlaufsdateien wie die macOS-App.
 Sie liegen unter `~/Library/Application Support/ClimateEngine`, damit der
 lokale Webdienst ohne Zugriff auf den geschützten Dokumente-Ordner auskommt.
+CLI und App lösen diesen Pfad über das echte Benutzerkonto auf, sodass ein
+eventueller App-Container nicht versehentlich eine zweite Datenablage erzeugt.
+Für Tests oder bewusst abweichende Installationen kann ein absoluter gemeinsamer
+Pfad über `CLIMATEENGINE_DATA_DIRECTORY` vorgegeben werden.
 
 ```bash
 python3 WebApp/server.py

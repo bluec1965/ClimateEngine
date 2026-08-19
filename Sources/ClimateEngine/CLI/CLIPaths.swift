@@ -1,6 +1,12 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
 public struct ClimateEnginePaths: Sendable {
+    public static let dataDirectoryEnvironmentKey = "CLIMATEENGINE_DATA_DIRECTORY"
+
     public let dataDirectory: URL
     public let stateDirectory: URL
 
@@ -12,7 +18,7 @@ public struct ClimateEnginePaths: Sendable {
         self.stateDirectory = stateDirectory
     }
 
-    public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(homeDirectory: URL) {
         let applicationSupportDirectory = homeDirectory
             .appendingPathComponent("Library")
             .appendingPathComponent("Application Support")
@@ -21,6 +27,37 @@ public struct ClimateEnginePaths: Sendable {
         self.init(
             dataDirectory: applicationSupportDirectory,
             stateDirectory: applicationSupportDirectory
+        )
+    }
+
+    /// Resolves the one data root shared by the LaunchAgent CLI and the macOS app.
+    ///
+    /// App Sandbox can replace Foundation's process home directory with an app
+    /// container. The login account home directory remains stable across both
+    /// processes, so it is preferred here. An absolute environment override is
+    /// useful for tests and deliberately configured installations.
+    public static func shared(
+        environment: [String: String],
+        accountHomeDirectory: URL? = nil,
+        processHomeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> ClimateEnginePaths {
+        if let configuredPath = environment[dataDirectoryEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           configuredPath.hasPrefix("/") {
+            let directory = URL(
+                fileURLWithPath: configuredPath,
+                isDirectory: true
+            ).standardizedFileURL
+            return ClimateEnginePaths(
+                dataDirectory: directory,
+                stateDirectory: directory
+            )
+        }
+
+        return ClimateEnginePaths(
+            homeDirectory: accountHomeDirectory
+                ?? loginAccountHomeDirectory
+                ?? processHomeDirectory
         )
     }
 
@@ -87,7 +124,25 @@ public struct ClimateEnginePaths: Sendable {
         dataDirectory.appendingPathComponent("current-recommendation.json")
     }
 
-    public static let current = ClimateEnginePaths()
+    public static let current = ClimateEnginePaths.shared(
+        environment: ProcessInfo.processInfo.environment
+    )
+
+    private static var loginAccountHomeDirectory: URL? {
+        #if canImport(Darwin)
+        guard let passwordEntry = getpwuid(getuid()),
+              let homePath = passwordEntry.pointee.pw_dir else {
+            return nil
+        }
+
+        return URL(
+            fileURLWithPath: String(cString: homePath),
+            isDirectory: true
+        ).standardizedFileURL
+        #else
+        return nil
+        #endif
+    }
 }
 
 public enum CLIPaths {

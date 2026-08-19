@@ -34,15 +34,47 @@ func defaultPathsUseApplicationSupport() {
     ))
 }
 
+@Test
+func sharedPathsUseLoginHomeInsteadOfSandboxContainer() {
+    let accountHome = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
+    let sandboxHome = accountHome.appendingPathComponent(
+        "Library/Containers/io.example.ClimateEngine/Data",
+        isDirectory: true
+    )
+
+    let paths = ClimateEnginePaths.shared(
+        environment: [:],
+        accountHomeDirectory: accountHome,
+        processHomeDirectory: sandboxHome
+    )
+
+    #expect(paths.dataDirectory.path == accountHome.appendingPathComponent(
+        "Library/Application Support/ClimateEngine",
+        isDirectory: true
+    ).path)
+}
+
+@Test
+func sharedPathsHonorAbsoluteDataDirectoryOverride() {
+    let configuredDirectory = "/Users/Shared/ClimateEngine-Test"
+    let paths = ClimateEnginePaths.shared(
+        environment: [
+            ClimateEnginePaths.dataDirectoryEnvironmentKey: configuredDirectory
+        ],
+        accountHomeDirectory: URL(fileURLWithPath: "/Users/tester")
+    )
+
+    #expect(paths.dataDirectory.path == configuredDirectory)
+    #expect(paths.stateDirectory == paths.dataDirectory)
+}
+
 @Test func loadCurrentSensorSnapshot() throws {
-    let url = FileManager.default
-        .homeDirectoryForCurrentUser
-        .appendingPathComponent("Documents/ClimateEngine/current.json")
+    let url = ClimateEnginePaths.current.snapshotURL
 
     let loader = SensorSnapshotLoader()
     let snapshot = try loader.load(from: url)
 
-    #expect(snapshot.version == 1)
+    #expect(snapshot.version == 2)
     #expect(snapshot.source == "ClimateEngineCLI")
 
     #expect(snapshot.indoor.temperature > 0)
@@ -73,9 +105,7 @@ func absoluteHumidityCalculation() {
 }
 @Test
 func ventilationRecommendationForCurrentSnapshot() throws {
-    let url = FileManager.default
-        .homeDirectoryForCurrentUser
-        .appendingPathComponent("Documents/ClimateEngine/current.json")
+    let url = ClimateEnginePaths.current.snapshotURL
 
     let snapshot = try SensorSnapshotLoader().load(from: url)
     let recommendation = VentilationAdvisor.recommendation(for: snapshot)
@@ -115,13 +145,53 @@ func historyWriterAndReaderRoundTrip() throws {
     #expect(entries.first?.recommendation == "ventilate")
     #expect(entries.first?.notificationSent == false)
 }
+
 @Test
-func historyPolicyStoresRelevantChanges() throws {
-    let policy = HistoryPolicy(
-        temperatureThreshold: 0.2,
-        absoluteHumidityThreshold: 0.2,
-        heartbeatInterval: 10 * 60
+func historyReaderKeepsValidEntriesWhenOneLineIsMalformed() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+    let timestamp = ISO8601DateFormatter().date(
+        from: "2026-08-19T18:42:00Z"
+    )!
+    let entry = HistoryEntry(
+        timestamp: timestamp,
+        indoorTemperature: 24.3,
+        indoorHumidity: 49.0,
+        indoorAbsoluteHumidity: 10.7,
+        indoorDewPoint: 12.9,
+        outdoorTemperature: 20.1,
+        outdoorHumidity: 60.0,
+        outdoorAbsoluteHumidity: 10.4,
+        outdoorDewPoint: 12.0,
+        recommendation: "ventilate",
+        notificationSent: false,
+        explanation: "Valid entry"
     )
+    try HistoryWriter(directory: temporaryDirectory).append(entry)
+
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let historyURL = temporaryDirectory.appendingPathComponent(
+        formatter.string(from: timestamp) + ".jsonl"
+    )
+    let handle = try FileHandle(forWritingTo: historyURL)
+    defer { handle.closeFile() }
+    handle.seekToEndOfFile()
+    handle.write(Data("{\"timestamp\":\n".utf8))
+
+    let result = try HistoryReader(directory: temporaryDirectory)
+        .loadTodayWithDiagnostics(now: timestamp)
+
+    #expect(result.entries.count == 1)
+    #expect(result.entries.first?.timestamp == timestamp)
+    #expect(result.skippedLineCount == 1)
+}
+@Test
+func historyPolicyStoresEveryNewMeasurementAndSkipsExactSnapshotDuplicates() throws {
+    let policy = HistoryPolicy()
 
     let now = Date()
 
@@ -140,7 +210,7 @@ func historyPolicyStoresRelevantChanges() throws {
         explanation: "Test explanation",
     )
 
-    let unchanged = HistoryEntry(
+    let nextMeasurement = HistoryEntry(
         timestamp: now.addingTimeInterval(60),
         indoorTemperature: 24.0,
         indoorHumidity: 50.0,
@@ -155,38 +225,8 @@ func historyPolicyStoresRelevantChanges() throws {
         explanation: "Test explanation",
     )
 
-    let changedRecommendation = HistoryEntry(
-        timestamp: now.addingTimeInterval(60),
-        indoorTemperature: 24.0,
-        indoorHumidity: 50.0,
-        indoorAbsoluteHumidity: 10.0,
-        indoorDewPoint: 13.0,
-        outdoorTemperature: 20.0,
-        outdoorHumidity: 60.0,
-        outdoorAbsoluteHumidity: 9.0,
-        outdoorDewPoint: 12.0,
-        recommendation: "closeWindows",
-        notificationSent: false,
-        explanation: "Test explanation",
-    )
-
-    let changedTemperature = HistoryEntry(
-        timestamp: now.addingTimeInterval(60),
-        indoorTemperature: 24.3,
-        indoorHumidity: 50.0,
-        indoorAbsoluteHumidity: 10.0,
-        indoorDewPoint: 13.0,
-        outdoorTemperature: 20.0,
-        outdoorHumidity: 60.0,
-        outdoorAbsoluteHumidity: 9.0,
-        outdoorDewPoint: 12.0,
-        recommendation: "ventilate",
-        notificationSent: false,
-        explanation: "Test explanation",
-    )
-
-    let heartbeat = HistoryEntry(
-        timestamp: now.addingTimeInterval(10 * 60),
+    let duplicateSnapshot = HistoryEntry(
+        timestamp: now,
         indoorTemperature: 24.0,
         indoorHumidity: 50.0,
         indoorAbsoluteHumidity: 10.0,
@@ -201,10 +241,8 @@ func historyPolicyStoresRelevantChanges() throws {
     )
 
     #expect(policy.shouldStore(previous: nil, current: previous))
-    #expect(policy.shouldStore(previous: previous, current: unchanged) == false)
-    #expect(policy.shouldStore(previous: previous, current: changedRecommendation))
-    #expect(policy.shouldStore(previous: previous, current: changedTemperature))
-    #expect(policy.shouldStore(previous: previous, current: heartbeat))
+    #expect(policy.shouldStore(previous: previous, current: nextMeasurement))
+    #expect(policy.shouldStore(previous: previous, current: duplicateSnapshot) == false)
 }
 @Test
 func historyReaderReturnsRecommendationEvents() throws {
@@ -497,6 +535,34 @@ func completeCLIRunCreatesDailyHistoryFile() throws {
     #expect(entries.first?.timestamp == runDate)
     #expect(entries.first?.indoorTemperature == 24.0)
     #expect(entries.first?.outdoorTemperature == 18.0)
+}
+
+@Test
+func consecutiveAcceptedCLIRunsEachCreateOneHistoryMeasurement() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+    let firstDate = ISO8601DateFormatter().date(from: "2026-08-19T18:50:00Z")!
+    let secondDate = firstDate.addingTimeInterval(5 * 60)
+    let paths = ClimateEnginePaths(
+        dataDirectory: temporaryRoot.appendingPathComponent("data"),
+        stateDirectory: temporaryRoot.appendingPathComponent("state")
+    )
+
+    _ = try ClimateEngineCommand(paths: paths, now: { firstDate }).run(
+        arguments: ["24.0", "50", "20.0", "60"]
+    )
+    _ = try ClimateEngineCommand(paths: paths, now: { secondDate }).run(
+        arguments: ["24.0", "50", "20.0", "60"]
+    )
+    _ = try ClimateEngineCommand(
+        paths: paths,
+        now: { secondDate.addingTimeInterval(60) }
+    ).run(arguments: [])
+
+    let entries = try HistoryReader(directory: paths.historyDirectory)
+        .loadToday(now: secondDate)
+    #expect(entries.map(\.timestamp) == [firstDate, secondDate])
 }
 
 @Test
