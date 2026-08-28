@@ -48,6 +48,40 @@
         </div>
       </header>
 
+      <section class="panel operating-mode-panel" aria-labelledby="operating-mode-heading">
+        <div class="operating-mode-heading">
+          <div class="operating-mode-title">
+            <span class="operating-mode-icon" aria-hidden="true"></span>
+            <div>
+              <p class="section-label">Saisonsteuerung · Nur Anzeige</p>
+              <h2 id="operating-mode-heading">Betriebsart</h2>
+              <p class="section-description" id="operating-mode-description">
+                Einstellung wird von der Mac-App geladen
+              </p>
+            </div>
+          </div>
+          <span class="operating-mode-badge" id="effective-mode">–</span>
+        </div>
+        <div class="mode-segments" aria-label="Gewählte Betriebsart">
+          <span data-mode="automatic">Auto</span>
+          <span data-mode="summer">Sommer</span>
+          <span data-mode="transition">Übergang</span>
+          <span data-mode="heating">Heizen</span>
+        </div>
+        <div class="operating-mode-details">
+          <div>
+            <span>Heizung</span>
+            <strong id="heating-state">Aus</strong>
+          </div>
+          <div>
+            <span>Schattenmodus · keine SMS</span>
+            <strong id="seasonal-candidate">Nächste Messung abwarten</strong>
+            <small id="seasonal-explanation">Die produktive Sommerlogik bleibt unverändert aktiv.</small>
+          </div>
+        </div>
+        <p class="history-load-warning" id="operating-mode-error" hidden></p>
+      </section>
+
       <section class="sensor-section" aria-labelledby="indoor-heading">
         <div class="section-heading sensor-heading">
           <div>

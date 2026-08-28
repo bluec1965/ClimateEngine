@@ -140,6 +140,13 @@ public struct ClimateEngineCommand {
             try HistoryWriter(directory: paths.historyDirectory).append(entry)
         }
 
+        persistSeasonalShadow(
+            snapshot: snapshot,
+            weather: weatherSnapshot,
+            productionAnalysis: analysis,
+            executionDate: executionDate
+        )
+
         switch notification.action {
         case .openWindows:
             return outputToken(advisory: stableResult.snapshot.weatherAdvisory)
@@ -274,6 +281,42 @@ public struct ClimateEngineCommand {
         case .wind: return "OPEN_WITH_WIND_WARNING"
         case .rainAndWind: return "OPEN_WITH_RAIN_AND_WIND_WARNING"
         case nil: return "OPEN_WINDOWS"
+        }
+    }
+
+    /// The seasonal strategy remains observational in this rollout. Its state
+    /// and history must never prevent the proven production recommendation or
+    /// its existing Shortcuts output token from completing.
+    private func persistSeasonalShadow(
+        snapshot: SensorSnapshot,
+        weather: WeatherSnapshot?,
+        productionAnalysis: VentilationAnalysis,
+        executionDate: Date
+    ) {
+        let operatingState = (try? OperatingModeStore().load(
+            from: paths.operatingModeURL,
+            now: executionDate
+        )) ?? .defaultState(now: executionDate)
+        let seasonalSnapshot = SeasonalVentilationAdvisor().evaluate(
+            snapshot: snapshot,
+            weather: weather,
+            operatingState: operatingState,
+            productionAnalysis: productionAnalysis,
+            now: executionDate
+        )
+
+        do {
+            try SeasonalRecommendationStore().write(
+                seasonalSnapshot,
+                to: paths.seasonalRecommendationSnapshotURL
+            )
+            if abs(snapshot.timestamp.timeIntervalSince(executionDate)) < 1 {
+                try SeasonalRecommendationHistoryWriter(
+                    directory: paths.seasonalRecommendationHistoryDirectory
+                ).append(seasonalSnapshot)
+            }
+        } catch {
+            // Deliberately non-fatal while the strategy runs in shadow mode.
         }
     }
 }

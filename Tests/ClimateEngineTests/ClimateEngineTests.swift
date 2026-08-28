@@ -32,6 +32,159 @@ func defaultPathsUseApplicationSupport() {
     #expect(paths.recommendationSnapshotURL == expectedDirectory.appendingPathComponent(
         "current-recommendation.json"
     ))
+    #expect(paths.operatingModeURL == expectedDirectory.appendingPathComponent(
+        "operating-mode.json"
+    ))
+    #expect(paths.seasonalRecommendationSnapshotURL == expectedDirectory.appendingPathComponent(
+        "seasonal-recommendation/current.json"
+    ))
+    #expect(paths.seasonalRecommendationHistoryDirectory == expectedDirectory.appendingPathComponent(
+        "seasonal-recommendation/history"
+    ))
+}
+
+@Test
+func operatingModeStoreRoundTripAndHeatingTakesPrecedence() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+    let url = temporaryDirectory.appendingPathComponent("operating-mode.json")
+    let timestamp = ISO8601DateFormatter().date(from: "2026-10-12T07:00:00Z")!
+    let state = OperatingModeState(
+        heatingEnabled: true,
+        selection: .summer,
+        updatedAt: timestamp
+    )
+
+    let store = OperatingModeStore()
+    #expect(try store.load(from: url, now: timestamp) == .defaultState(now: timestamp))
+    try store.write(state, to: url)
+
+    #expect(try store.load(from: url) == state)
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: nil,
+        weather: nil,
+        now: timestamp
+    ) == .heating)
+}
+
+@Test
+func automaticOperatingModeUsesIndoorAndForecastWarmth() {
+    let now = ISO8601DateFormatter().date(from: "2026-09-20T08:00:00Z")!
+    let state = OperatingModeState(
+        heatingEnabled: false,
+        selection: .automatic,
+        updatedAt: now
+    )
+    let warmIndoor = seasonalTestSnapshot(
+        now: now,
+        indoor: ClimateMeasurement(temperature: 23.1, humidity: 50),
+        outdoor: ClimateMeasurement(temperature: 12, humidity: 60)
+    )
+    let coolIndoor = seasonalTestSnapshot(
+        now: now,
+        indoor: ClimateMeasurement(temperature: 22, humidity: 50),
+        outdoor: ClimateMeasurement(temperature: 12, humidity: 60)
+    )
+    let warmForecast = WeatherSnapshot(
+        timestamp: now,
+        location: "Test",
+        current: WeatherReading(
+            timestamp: now,
+            temperature: 14,
+            humidity: 60,
+            condition: "Klar"
+        ),
+        hourlyForecast: [
+            WeatherReading(
+                timestamp: now.addingTimeInterval(2 * 60 * 60),
+                temperature: 20.5,
+                humidity: 45,
+                condition: "Klar"
+            )
+        ]
+    )
+
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: warmIndoor,
+        weather: nil,
+        now: now
+    ) == .summer)
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: coolIndoor,
+        weather: warmForecast,
+        now: now
+    ) == .summer)
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: coolIndoor,
+        weather: nil,
+        now: now
+    ) == .transition)
+}
+
+@Test
+func seasonalAdvisorUsesBriefVentilationAndWarmerHeatingWindow() {
+    let now = ISO8601DateFormatter().date(from: "2026-10-12T07:00:00Z")!
+    let snapshot = seasonalTestSnapshot(
+        now: now,
+        indoor: ClimateMeasurement(temperature: 22.5, humidity: 55),
+        outdoor: ClimateMeasurement(temperature: 12, humidity: 50)
+    )
+    let production = VentilationAdvisor.analyze(snapshot: snapshot)
+    let transition = SeasonalVentilationAdvisor().evaluate(
+        snapshot: snapshot,
+        weather: nil,
+        operatingState: OperatingModeState(
+            heatingEnabled: false,
+            selection: .transition,
+            updatedAt: now
+        ),
+        productionAnalysis: production,
+        now: now
+    )
+
+    #expect(transition.effectiveMode == .transition)
+    #expect(transition.recommendation == .briefVentilation)
+    #expect(transition.suggestedDurationMinutes == 10)
+
+    let warmerTime = now.addingTimeInterval(2 * 60 * 60)
+    let weather = WeatherSnapshot(
+        timestamp: now,
+        location: "Test",
+        current: WeatherReading(
+            timestamp: now,
+            temperature: 12,
+            humidity: 50,
+            condition: "Klar"
+        ),
+        hourlyForecast: [
+            WeatherReading(
+                timestamp: warmerTime,
+                temperature: 15,
+                humidity: 45,
+                condition: "Klar"
+            )
+        ]
+    )
+    let heating = SeasonalVentilationAdvisor().evaluate(
+        snapshot: snapshot,
+        weather: weather,
+        operatingState: OperatingModeState(
+            heatingEnabled: true,
+            selection: .automatic,
+            updatedAt: now
+        ),
+        productionAnalysis: production,
+        now: now
+    )
+
+    #expect(heating.effectiveMode == .heating)
+    #expect(heating.recommendation == .wait)
+    #expect(heating.suggestedStartAt == warmerTime)
 }
 
 @Test
@@ -569,6 +722,9 @@ func completeCLIRunCreatesDailyHistoryFile() throws {
     #expect(["OPEN_WINDOWS", "NONE"].contains(output))
     #expect(FileManager.default.fileExists(atPath: paths.snapshotURL.path))
     #expect(FileManager.default.fileExists(atPath: historyURL.path))
+    #expect(FileManager.default.fileExists(
+        atPath: paths.seasonalRecommendationSnapshotURL.path
+    ))
 
     let entries = try HistoryReader(directory: paths.historyDirectory)
         .loadToday(now: runDate)
@@ -576,6 +732,19 @@ func completeCLIRunCreatesDailyHistoryFile() throws {
     #expect(entries.first?.timestamp == runDate)
     #expect(entries.first?.indoorTemperature == 24.0)
     #expect(entries.first?.outdoorTemperature == 18.0)
+
+    let seasonal = try SeasonalRecommendationStore().load(
+        from: paths.seasonalRecommendationSnapshotURL
+    )
+    let production = try RecommendationSnapshotStore().load(
+        from: paths.recommendationSnapshotURL
+    )
+    #expect(seasonal.sensorTimestamp == runDate)
+    #expect(seasonal.productionRecommendation == production.analysis.recommendation)
+
+    let seasonalHistoryURL = paths.seasonalRecommendationHistoryDirectory
+        .appendingPathComponent(formatter.string(from: runDate) + ".jsonl")
+    #expect(FileManager.default.fileExists(atPath: seasonalHistoryURL.path))
 }
 
 @Test
@@ -1500,4 +1669,34 @@ func malformedAdditionalInputDoesNotReplaceExistingSnapshot() throws {
         )
     }
     #expect(try Data(contentsOf: paths.additionalSensorSnapshotURL) == originalData)
+}
+
+private func seasonalTestSnapshot(
+    now: Date,
+    indoor: ClimateMeasurement,
+    outdoor: ClimateMeasurement
+) -> SensorSnapshot {
+    SensorSnapshot(
+        version: 2,
+        timestamp: now,
+        source: "Test",
+        indoor: indoor,
+        outdoor: outdoor,
+        indoorRooms: [
+            SensorReading(
+                id: "stube",
+                name: "Stube",
+                measurement: indoor,
+                isPrimary: true
+            )
+        ],
+        outdoorSensors: [
+            SensorReading(
+                id: "eve-degree",
+                name: "Eve Degree",
+                measurement: outdoor,
+                isPrimary: true
+            )
+        ]
+    )
 }

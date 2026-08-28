@@ -18,6 +18,43 @@ Danach zeigt der Server zwei Adressen an: eine für den Mac und eine für Gerät
 im gleichen WLAN. Die zweite Adresse auf dem iPhone in Safari öffnen. Der
 Server läuft nur, solange dieses Terminalfenster geöffnet bleibt.
 
+## Betriebsart und Heizschalter
+
+Mac-App und Web-Dashboard zeigen die aktive Betriebsart jederzeit als
+`Sommer`, `Übergang` oder `Heizen`. Die Einstellung wird gemeinsam unter
+`~/Library/Application Support/ClimateEngine/operating-mode.json` gespeichert.
+Der Heizschalter und die Auswahl `Auto`, `Sommer` oder `Übergang` lassen sich
+bewusst nur in der Mac-App ändern; das Web-Dashboard ist dafür eine reine
+Statusanzeige.
+
+Der eingeschaltete Heizschalter hat immer Vorrang und aktiviert `Heizen`. Beim
+Ausschalten wechselt die Auswahl aus Sicherheitsgründen zurück auf `Auto`.
+Ohne Heizung folgt eine manuelle Auswahl direkt der gewünschten Betriebsart.
+In `Auto` gilt vorläufig `Sommer`, wenn die Stube mindestens 23 °C warm ist
+oder die aktuelle beziehungsweise in den nächsten sechs Stunden erwartete
+Aussentemperatur mindestens 20 °C erreicht; andernfalls gilt `Übergang`.
+Diese Schwellen werden mit den gesammelten Daten später überprüft.
+
+Die bestehende Sommerempfehlung einschliesslich SMS bleibt in diesem ersten
+Einführungsblock unverändert produktiv. Parallel berechnet ClimateEngine bei
+jeder neuen Hauptmessung eine saisonale Kandidatenempfehlung:
+
+- `Sommer` spiegelt die bestehende Empfehlung.
+- `Übergang` prüft einen zehnminütigen Luftaustausch gegen eine vorläufige
+  Komfortgrenze von 21 °C und wartet nach Möglichkeit auf wärmere, weiterhin
+  trockene Aussenluft.
+- `Heizen` empfiehlt nur kurzes Stosslüften von drei bis fünf Minuten und wartet
+  bei nicht dringender Feuchte auf das wärmste ausreichend trockene Fenster der
+  nächsten sechs Stunden.
+
+Die aktuelle Schattenauswertung liegt unter
+`seasonal-recommendation/current.json`; alle Kandidaten werden zusätzlich in
+`seasonal-recommendation/history/YYYY-MM-DD.jsonl` protokolliert. Beide
+Oberflächen kennzeichnen diese Empfehlung ausdrücklich als Schattenmodus ohne
+Auswirkung auf SMS. Da ClimateEngine noch keinen CO₂-Sensor auswertet, basiert
+dieser Kandidat vorläufig nur auf Temperatur sowie relativer und absoluter
+Luftfeuchtigkeit.
+
 ## Mehrere Räume und Aussensensoren
 
 ClimateEngine kann in der Beobachtungsphase zwölf Werte über die

@@ -99,6 +99,77 @@ const precipitationText = (value) =>
 const windText = (value) =>
   value == null ? "–" : `${Number(value).toFixed(1)} km/h`;
 
+const modeTitle = (mode) => ({
+  summer: "Sommer",
+  transition: "Übergang",
+  heating: "Heizen",
+}[mode] || "–");
+
+const renderOperatingMode = (
+  operatingMode,
+  operatingModeError,
+  seasonalRecommendation,
+  seasonalRecommendationError,
+) => {
+  const state = operatingMode || {
+    heatingEnabled: false,
+    selection: "automatic",
+    effectiveMode: "transition",
+  };
+  const effectiveMode = state.effectiveMode || "transition";
+  const selectedSegment = state.heatingEnabled
+    ? "heating"
+    : state.selection || "automatic";
+
+  setText("effective-mode", modeTitle(effectiveMode));
+  setText("heating-state", state.heatingEnabled ? "Ein" : "Aus");
+  setText(
+    "operating-mode-description",
+    state.heatingEnabled
+      ? "Heizschalter ein · Stosslüftung wird beobachtet"
+      : state.selection === "automatic"
+        ? `Auto folgt aktuell der Betriebsart ${modeTitle(effectiveMode)}`
+        : `Manuell auf ${modeTitle(effectiveMode)} gesetzt`,
+  );
+
+  document.querySelectorAll(".mode-segments [data-mode]").forEach((segment) => {
+    segment.classList.toggle("active", segment.dataset.mode === selectedSegment);
+  });
+  const panel = document.querySelector(".operating-mode-panel");
+  panel.classList.toggle("heating", effectiveMode === "heating");
+
+  let candidate = "Nächste Hauptmessung abwarten";
+  if (seasonalRecommendation) {
+    const duration = seasonalRecommendation.suggestedDurationMinutes;
+    const start = seasonalRecommendation.suggestedStartAt;
+    switch (seasonalRecommendation.recommendation) {
+      case "extendedVentilation":
+        candidate = "Dauerlüften";
+        break;
+      case "briefVentilation":
+        candidate = duration ? `${duration} Minuten Stosslüften` : "Stosslüften";
+        break;
+      case "wait":
+        candidate = start ? `Bis ${formatTime(start)} warten` : "Abwarten";
+        break;
+      case "keepClosed":
+        candidate = "Fenster geschlossen halten";
+        break;
+    }
+  }
+  setText("seasonal-candidate", candidate);
+  setText(
+    "seasonal-explanation",
+    seasonalRecommendation?.explanation
+      || "Die produktive Sommerlogik bleibt unverändert aktiv.",
+  );
+
+  const error = operatingModeError || seasonalRecommendationError;
+  const errorElement = byId("operating-mode-error");
+  errorElement.hidden = !error;
+  errorElement.textContent = error || "";
+};
+
 const sensorReading = (raw, fallback) => ({
   id: raw?.id || fallback.id,
   name: raw?.name || fallback.name,
@@ -568,6 +639,10 @@ const render = ({
   weather,
   weatherError,
   recommendation: savedRecommendation,
+  operatingMode,
+  operatingModeError,
+  seasonalRecommendation,
+  seasonalRecommendationError,
   additionalSensorSnapshot,
   additionalSensorError,
   additionalHistorySummary,
@@ -581,6 +656,13 @@ const render = ({
   const alignedSensorSnapshots = sensorSnapshotsAreAligned(
     snapshot.timestamp,
     additionalSensorSnapshot?.timestamp,
+  );
+
+  renderOperatingMode(
+    operatingMode,
+    operatingModeError,
+    seasonalRecommendation,
+    seasonalRecommendationError,
   );
 
   renderRoomSensorCards(

@@ -124,6 +124,22 @@ public struct ClimateEnginePaths: Sendable {
         dataDirectory.appendingPathComponent("current-recommendation.json")
     }
 
+    public var operatingModeURL: URL {
+        stateDirectory.appendingPathComponent("operating-mode.json")
+    }
+
+    public var seasonalRecommendationSnapshotURL: URL {
+        dataDirectory
+            .appendingPathComponent("seasonal-recommendation")
+            .appendingPathComponent("current.json")
+    }
+
+    public var seasonalRecommendationHistoryDirectory: URL {
+        dataDirectory
+            .appendingPathComponent("seasonal-recommendation")
+            .appendingPathComponent("history")
+    }
+
     public static let current = ClimateEnginePaths.shared(
         environment: ProcessInfo.processInfo.environment
     )
@@ -162,6 +178,13 @@ public enum CLIPaths {
     public static var sensorInputStateURL: URL { ClimateEnginePaths.current.sensorInputStateURL }
     public static var recommendationStateURL: URL { ClimateEnginePaths.current.recommendationStateURL }
     public static var recommendationSnapshotURL: URL { ClimateEnginePaths.current.recommendationSnapshotURL }
+    public static var operatingModeURL: URL { ClimateEnginePaths.current.operatingModeURL }
+    public static var seasonalRecommendationSnapshotURL: URL {
+        ClimateEnginePaths.current.seasonalRecommendationSnapshotURL
+    }
+    public static var seasonalRecommendationHistoryDirectory: URL {
+        ClimateEnginePaths.current.seasonalRecommendationHistoryDirectory
+    }
     public static var sensorInputHistoryDirectory: URL {
         ClimateEnginePaths.current.sensorInputHistoryDirectory
     }

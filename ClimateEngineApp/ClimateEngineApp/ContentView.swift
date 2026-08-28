@@ -29,6 +29,9 @@ struct ContentView: View {
     @State private var additionalSensorSnapshot: AdditionalSensorSnapshot?
     @State private var additionalSensorLoadError: String?
     @State private var additionalSensorHistoryLoadError: String?
+    @State private var operatingModeState = OperatingModeState.defaultState()
+    @State private var seasonalRecommendation: SeasonalRecommendationSnapshot?
+    @State private var operatingModeLoadError: String?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -98,6 +101,19 @@ struct ContentView: View {
             }
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            OperatingModePanel(
+                state: operatingModeState,
+                effectiveMode: OperatingModeResolver.resolve(
+                    state: operatingModeState,
+                    snapshot: snapshot,
+                    weather: weatherSnapshot
+                ),
+                shadowRecommendation: seasonalRecommendation,
+                errorMessage: operatingModeLoadError,
+                onHeatingChanged: updateHeatingState,
+                onSelectionChanged: updateOperatingModeSelection
+            )
 
             indoorRoomSection
 
@@ -406,6 +422,62 @@ struct ContentView: View {
         } catch {
             weatherSnapshot = nil
             weatherLoadError = String(describing: error)
+        }
+
+        do {
+            operatingModeState = try OperatingModeStore().load(
+                from: paths.operatingModeURL
+            )
+            operatingModeLoadError = nil
+        } catch {
+            operatingModeState = .defaultState()
+            operatingModeLoadError = "Betriebsart konnte nicht geladen werden: \(error)"
+        }
+
+        if FileManager.default.fileExists(
+            atPath: paths.seasonalRecommendationSnapshotURL.path
+        ) {
+            do {
+                seasonalRecommendation = try SeasonalRecommendationStore().load(
+                    from: paths.seasonalRecommendationSnapshotURL
+                )
+            } catch {
+                seasonalRecommendation = nil
+                operatingModeLoadError = "Schattenauswertung konnte nicht geladen werden: \(error)"
+            }
+        } else {
+            seasonalRecommendation = nil
+        }
+    }
+
+    private func updateHeatingState(_ isEnabled: Bool) {
+        saveOperatingMode(
+            OperatingModeState(
+                heatingEnabled: isEnabled,
+                selection: isEnabled ? operatingModeState.selection : .automatic,
+                updatedAt: Date()
+            )
+        )
+    }
+
+    private func updateOperatingModeSelection(_ selection: OperatingModeSelection) {
+        guard !operatingModeState.heatingEnabled else { return }
+        saveOperatingMode(
+            OperatingModeState(
+                heatingEnabled: false,
+                selection: selection,
+                updatedAt: Date()
+            )
+        )
+    }
+
+    private func saveOperatingMode(_ state: OperatingModeState) {
+        do {
+            try OperatingModeStore().write(state, to: paths.operatingModeURL)
+            operatingModeState = state
+            operatingModeLoadError = nil
+        } catch {
+            operatingModeLoadError = "Betriebsart konnte nicht gespeichert werden: \(error)"
         }
     }
 

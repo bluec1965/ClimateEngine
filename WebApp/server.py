@@ -14,6 +14,77 @@ WEB_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
 
 
+def read_optional_json(path):
+    if not path.exists():
+        return None
+    with path.open(encoding="utf-8") as file:
+        return json.load(file)
+
+
+def parse_temperature(value):
+    if isinstance(value, (int, float)):
+        return float(value)
+    return float(str(value).replace(",", ".").split()[0])
+
+
+def resolve_effective_mode(state, snapshot, weather):
+    if state.get("heatingEnabled") is True:
+        return "heating"
+
+    selection = state.get("selection", "automatic")
+    if selection in ("summer", "transition"):
+        return selection
+
+    try:
+        if parse_temperature(snapshot["indoor"]["temperature"]) >= 23:
+            return "summer"
+    except (KeyError, TypeError, ValueError):
+        pass
+
+    try:
+        weather_timestamp = datetime.fromisoformat(
+            weather["timestamp"].replace("Z", "+00:00")
+        )
+        if weather_timestamp.tzinfo is None:
+            weather_timestamp = weather_timestamp.astimezone()
+        age = abs((datetime.now().astimezone() - weather_timestamp).total_seconds())
+        if age <= 90 * 60:
+            readings = [weather["current"]] + weather.get("hourlyForecast", [])
+            temperatures = [parse_temperature(item["temperature"]) for item in readings]
+            if max(temperatures, default=float("-inf")) >= 20:
+                return "summer"
+    except (KeyError, TypeError, ValueError):
+        pass
+
+    return "transition"
+
+
+def read_operating_mode(snapshot, weather):
+    state = {
+        "version": 1,
+        "heatingEnabled": False,
+        "selection": "automatic",
+        "updatedAt": None,
+    }
+    error = None
+    path = DATA_ROOT / "operating-mode.json"
+    try:
+        saved_state = read_optional_json(path)
+        if saved_state is not None:
+            if saved_state.get("selection") not in (
+                "automatic",
+                "summer",
+                "transition",
+            ) or not isinstance(saved_state.get("heatingEnabled"), bool):
+                raise ValueError("unbekannte Einstellung")
+            state.update(saved_state)
+    except Exception as read_error:
+        error = f"Betriebsart konnte nicht geladen werden: {read_error}"
+
+    state["effectiveMode"] = resolve_effective_mode(state, snapshot, weather)
+    return state, error
+
+
 def read_daily_history_summary(history_path):
     entries = []
     skipped_line_count = 0
@@ -91,6 +162,17 @@ def read_dashboard_data():
         except Exception:
             recommendation = None
 
+    operating_mode, operating_mode_error = read_operating_mode(snapshot, weather)
+    seasonal_recommendation = None
+    seasonal_recommendation_error = None
+    seasonal_path = DATA_ROOT / "seasonal-recommendation" / "current.json"
+    try:
+        seasonal_recommendation = read_optional_json(seasonal_path)
+    except Exception as error:
+        seasonal_recommendation_error = (
+            f"Schattenauswertung konnte nicht geladen werden: {error}"
+        )
+
     additional_sensor_snapshot = None
     additional_sensor_error = None
     additional_sensor_path = DATA_ROOT / "additional-sensors" / "current.json"
@@ -138,6 +220,10 @@ def read_dashboard_data():
         "weather": weather,
         "weatherError": weather_error,
         "recommendation": recommendation,
+        "operatingMode": operating_mode,
+        "operatingModeError": operating_mode_error,
+        "seasonalRecommendation": seasonal_recommendation,
+        "seasonalRecommendationError": seasonal_recommendation_error,
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorError": additional_sensor_error,
         "additionalHistorySummary": additional_history_summary,
