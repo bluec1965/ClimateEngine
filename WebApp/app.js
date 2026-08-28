@@ -170,7 +170,75 @@ const primarySensorDisplayName = (sensor) => {
   }
 };
 
-const groupedRoomReadings = (primaryRooms, additionalSnapshot) => {
+const roomBiasCorrections = Object.freeze({
+  stube: {
+    additionalSensorId: "homepod-kueche",
+    temperatureAdjustment: -0.403,
+    humidityAdjustment: 5.0625915527344,
+    sampleCount: 3142,
+    analysisPeriod: "15.–28. August 2026",
+  },
+  schlafzimmer: {
+    additionalSensorId: "homepod-schlafzimmer",
+    temperatureAdjustment: -0.12,
+    humidityAdjustment: 3.5944519042969,
+    sampleCount: 3142,
+    analysisPeriod: "15.–28. August 2026",
+  },
+  "buero-alois": {
+    additionalSensorId: "homepod-buero-alois-rechts",
+    temperatureAdjustment: 0.9,
+    humidityAdjustment: -1,
+    sampleCount: 3142,
+    analysisPeriod: "15.–28. August 2026",
+    isProvisional: true,
+    caveat: "Temperaturabweichung abhängig vom Messbereich (ca. −0,3 bis −1,1 °C).",
+  },
+  sauna: {
+    additionalSensorId: "homepod-sauna-links",
+    temperatureAdjustment: -0.5,
+    humidityAdjustment: 1,
+    sampleCount: 3142,
+    analysisPeriod: "15.–28. August 2026",
+    isProvisional: true,
+    caveat: "Feuchteabweichung abhängig von der Temperatur (ca. −4 bis +1 %-Pkt. rF).",
+  },
+});
+
+const biasCorrectedMeasurement = (group) => {
+  const correction = roomBiasCorrections[group.id];
+  if (!correction) return null;
+
+  const reference = group.sensors.find(
+    (sensor) => sensor.origin === "main" && sensor.id === group.id,
+  );
+  const additional = group.sensors.find(
+    (sensor) => sensor.origin === "additional"
+      && sensor.id === correction.additionalSensorId,
+  );
+  if (!reference || !additional) return null;
+
+  const correctedTemperature = additional.temperature
+    + correction.temperatureAdjustment;
+  const correctedHumidity = Math.min(
+    100,
+    Math.max(0, additional.humidity + correction.humidityAdjustment),
+  );
+
+  return {
+    temperature: (reference.temperature + correctedTemperature) / 2,
+    humidity: (reference.humidity + correctedHumidity) / 2,
+    correction,
+    baselineSensorName: reference.name,
+    adjustedSensorName: additional.name,
+  };
+};
+
+const groupedRoomReadings = (
+  primaryRooms,
+  additionalSnapshot,
+  includeBiasCorrectedMeasurements = true,
+) => {
   const groups = primaryRooms.map((sensor) => ({
     id: sensor.id,
     name: sensor.name,
@@ -187,8 +255,24 @@ const groupedRoomReadings = (primaryRooms, additionalSnapshot) => {
     }
   }
 
+  if (includeBiasCorrectedMeasurements) {
+    for (const group of groups) {
+      group.biasCorrectedMeasurement = biasCorrectedMeasurement(group);
+    }
+  }
+
   return groups;
 };
+
+const sensorSnapshotsAreAligned = (primaryTimestamp, additionalTimestamp) => {
+  const primaryTime = new Date(primaryTimestamp).getTime();
+  const additionalTime = new Date(additionalTimestamp).getTime();
+  return Number.isFinite(primaryTime)
+    && Number.isFinite(additionalTime)
+    && Math.abs(primaryTime - additionalTime) <= 3 * 60 * 1000;
+};
+
+const signedNumber = (value) => `${value >= 0 ? "+" : ""}${value.toFixed(1)}`;
 
 const renderSensorCards = (containerId, readings, iconType) => {
   const cards = readings.map((reading) => {
@@ -242,6 +326,44 @@ const renderRoomSensorCards = (containerId, groups) => {
 
     const sensors = document.createElement("div");
     sensors.className = "room-sensors";
+    if (group.biasCorrectedMeasurement) {
+      const combined = group.biasCorrectedMeasurement;
+      const correction = combined.correction;
+      const absolute = absoluteHumidity(combined.temperature, combined.humidity);
+      const panel = document.createElement("section");
+      panel.className = `room-sensor room-combined${correction.isProvisional ? " provisional" : ""}`;
+      panel.innerHTML = `
+        <div class="room-sensor-header">
+          <strong>Kombinierter Raumwert</strong>
+          <span class="bias-badge">${correction.isProvisional ? "Bias-korrigiert · vorläufig" : "Bias-korrigiert"}</span>
+        </div>
+        <dl>
+          <div><dt>Temperatur</dt><dd>${temperatureText(combined.temperature)}</dd></div>
+          <div><dt>Luftfeuchtigkeit</dt><dd>${humidityText(combined.humidity)}</dd></div>
+          <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(combined.temperature, combined.humidity))}</dd></div>
+          <div><dt>Absolute Feuchte</dt><dd>${absoluteText(absolute)}</dd></div>
+        </dl>
+        <p class="bias-correction"></p>
+        <p class="bias-caveat"></p>
+        <p class="bias-basis"></p>`;
+      panel.querySelector(".bias-correction").textContent =
+        `Korrektur ${combined.adjustedSensorName}: `
+        + `${signedNumber(correction.temperatureAdjustment)} °C · `
+        + `${signedNumber(correction.humidityAdjustment)} %-Pkt. rF`;
+      panel.querySelector(".bias-caveat").textContent = correction.caveat || "";
+      panel.querySelector(".bias-basis").textContent =
+        `Sensor 1 (${combined.baselineSensorName}) dient als Vergleichsbasis; `
+        + `danach 1:1 gemittelt. Basis: Median aus `
+        + `${correction.sampleCount} Messpaaren, `
+        + `${correction.analysisPeriod}.`;
+      sensors.append(panel);
+
+      const rawLabel = document.createElement("p");
+      rawLabel.className = "room-raw-label";
+      rawLabel.textContent = "Unveränderte Rohwerte";
+      sensors.append(rawLabel);
+    }
+
     group.sensors.forEach((sensor, index) => {
       const absolute = absoluteHumidity(sensor.temperature, sensor.humidity);
       const panel = document.createElement("section");
@@ -456,10 +578,18 @@ const render = ({
   const outdoor = meanOutdoor(outdoorSensors);
   const indoorAbsolute = absoluteHumidity(indoor.temperature, indoor.humidity);
   const outdoorAbsolute = absoluteHumidity(outdoor.temperature, outdoor.humidity);
+  const alignedSensorSnapshots = sensorSnapshotsAreAligned(
+    snapshot.timestamp,
+    additionalSensorSnapshot?.timestamp,
+  );
 
   renderRoomSensorCards(
     "indoor-grid",
-    groupedRoomReadings(indoorRooms, additionalSensorSnapshot),
+    groupedRoomReadings(
+      indoorRooms,
+      additionalSensorSnapshot,
+      alignedSensorSnapshots,
+    ),
   );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   renderRoomObservations(indoorRooms, outdoor);
@@ -489,7 +619,9 @@ const render = ({
   setText("measurement-time", `Sensormessung: ${formatTime(snapshot.timestamp, true)}`);
 
   const indoorSummary = byId("indoor-summary");
-  const summaryText = "Zweitsensoren sind dem jeweiligen Raum zugeordnet · noch ohne Mittelwerte";
+  const summaryText = additionalSensorSnapshot && !alignedSensorSnapshots
+    ? "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen"
+    : "Vier Räume mit ausgewiesener Bias-Korrektur · Büro Alois und Sauna vorläufig";
   if (additionalSensorSnapshot?.timestamp) {
     indoorSummary.textContent = `${summaryText} · Zusatzmessung ${formatTime(additionalSensorSnapshot.timestamp)}`;
     indoorSummary.className = "section-note";

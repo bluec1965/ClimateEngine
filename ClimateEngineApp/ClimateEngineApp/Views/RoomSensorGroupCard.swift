@@ -29,6 +29,15 @@ struct RoomSensorGroupCard: View {
                 }
             }
 
+            if let combined = room.biasCorrectedMeasurement {
+                biasCorrectedPanel(combined)
+
+                Text("Unveränderte Rohwerte")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
+            }
+
             ForEach(Array(room.sensors.enumerated()), id: \.element.id) { index, sensor in
                 sensorPanel(sensor, index: index)
             }
@@ -36,6 +45,86 @@ struct RoomSensorGroupCard: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.cyan)
+    }
+
+    private func biasCorrectedPanel(
+        _ combined: BiasCorrectedRoomMeasurement
+    ) -> some View {
+        let measurement = combined.measurement
+        let correction = combined.correction
+        let statusColor: Color = correction.isProvisional
+            ? .orange
+            : LiquidGlassTheme.mint
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Kombinierter Raumwert")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Text(correction.isProvisional ? "Bias-korrigiert · vorläufig" : "Bias-korrigiert")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(statusColor)
+            }
+
+            ClimateRow(
+                label: "Temperatur",
+                value: String(format: "%.1f °C", measurement.temperature)
+            )
+            ClimateRow(
+                label: "Luftfeuchtigkeit",
+                value: String(format: "%.0f %%", measurement.humidity)
+            )
+            ClimateRow(
+                label: "Taupunkt",
+                value: String(
+                    format: "%.1f °C",
+                    ClimateCalculator.dewPoint(
+                        temperatureCelsius: measurement.temperature,
+                        relativeHumidity: measurement.humidity
+                    )
+                )
+            )
+            ClimateRow(
+                label: "Absolute Luftfeuchtigkeit",
+                value: String(
+                    format: "%.1f g/m³",
+                    ClimateCalculator.absoluteHumidity(
+                        temperatureCelsius: measurement.temperature,
+                        relativeHumidity: measurement.humidity
+                    )
+                )
+            )
+
+            Text(
+                "Korrektur \(combined.adjustedSensorName): "
+                    + "\(signed(correction.temperatureAdjustment)) °C · "
+                    + "\(signed(correction.relativeHumidityAdjustment)) %-Pkt. rF"
+            )
+            .font(.caption2)
+            .foregroundStyle(statusColor)
+
+            if let caveat = correction.caveat {
+                Text(caveat)
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+
+            Text(
+                "Sensor 1 (\(combined.baselineSensorName)) dient als Vergleichsbasis; "
+                    + "danach 1:1 gemittelt. Basis: Median aus "
+                    + "\(correction.sampleCount) Messpaaren, "
+                    + correction.analysisPeriod + "."
+            )
+            .font(.caption2)
+            .foregroundStyle(LiquidGlassTheme.tertiaryText)
+        }
+        .padding(15)
+        .liquidGlassInset(cornerRadius: 17)
     }
 
     private func sensorPanel(
@@ -95,6 +184,10 @@ struct RoomSensorGroupCard: View {
     ) -> String {
         guard room.sensors.count > 1 else { return sensor.name }
         return "Sensor \(index + 1) · \(sensor.name)"
+    }
+
+    private func signed(_ value: Double) -> String {
+        String(format: "%+.1f", value)
     }
 
     private func badge(_ text: String, color: Color) -> some View {

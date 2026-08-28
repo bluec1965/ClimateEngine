@@ -443,6 +443,46 @@ button {
 }
 .room-sensor-header strong { color: var(--ice); font-size: 0.86rem; }
 .sensor-origin { color: var(--muted-soft); font-size: 0.68rem; white-space: nowrap; }
+.room-combined {
+  border-color: rgba(44, 242, 139, 0.24);
+  background:
+    linear-gradient(145deg, rgba(44, 242, 139, 0.10), transparent 48%),
+    var(--glass-deep);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.12),
+    0 9px 26px rgba(22, 242, 165, 0.08);
+}
+.bias-badge {
+  color: var(--green);
+  font-size: 0.68rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.room-combined.provisional {
+  border-color: rgba(255, 209, 102, 0.25);
+  background:
+    linear-gradient(145deg, rgba(255, 209, 102, 0.08), transparent 48%),
+    var(--glass-deep);
+}
+.room-combined.provisional .bias-badge,
+.room-combined.provisional .bias-correction,
+.bias-caveat { color: var(--amber); }
+.bias-correction,
+.bias-caveat,
+.bias-basis,
+.room-raw-label {
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+.bias-correction { color: var(--green); }
+.bias-caveat:empty { display: none; }
+.bias-basis { color: var(--muted-soft); }
+.room-raw-label {
+  margin: 1px 2px -3px;
+  color: var(--muted);
+  font-weight: 720;
+}
 
 h2 { margin: 0; color: var(--ice); font-size: 1.08rem; }
 dl { margin: 0; }

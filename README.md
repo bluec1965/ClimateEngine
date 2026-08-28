@@ -77,11 +77,26 @@ bewussten Zuordnungen für bereits vorhandene Räume:
 - `HomePod Sauna Links` ist der zweite Sensor der **Sauna**.
 
 Bad Peter, Büro Peter, Bad Alois und Dachzimmer erscheinen als eigene Räume.
-Die beiden Messungen eines Raums werden vorerst separat gezeigt und noch nicht
-gemittelt; SMS und Lüftungsempfehlung verwenden weiterhin nur die bisherigen
-Referenzsensoren. Zur eindeutigen Orientierung wird der bisherige Hauptsensor
-im Büro Alois als `HomePod Büro Alois Links` und in der Sauna als
-`HomePod Sauna Rechts` angezeigt.
+Für **Stube** und **Schlafzimmer** zeigen Mac-App und Web-Dashboard zusätzlich
+einen bias-korrigierten, gleich gewichteten Raumwert. Dafür wird der
+Zusatzsensor zunächst auf die Skala des Hauptsensors angeglichen und danach 1:1
+mit ihm gemittelt. Die Korrekturen stammen aus 3'142 zeitlich zugeordneten
+Messpaaren vom 15. bis 28. August 2026:
+
+- Stube / HomePod Küche: `-0.4 °C`, `+5.1 Prozentpunkte rF`
+- Schlafzimmer / HomePod Schlafzimmer: `-0.1 °C`, `+3.6 Prozentpunkte rF`
+- Büro Alois / HomePod Büro Alois Rechts: `+0.9 °C`, `-1.0 Prozentpunkte rF`
+- Sauna / HomePod Sauna Links: `-0.5 °C`, `+1.0 Prozentpunkte rF`
+
+Die Oberflächen weisen Korrektur, Gewichtung und Datengrundlage direkt beim
+Raumwert aus; darunter bleiben die unveränderten Rohwerte beider Sensoren
+sichtbar. Eine Kombination erfolgt nur, wenn Haupt- und Zusatzsnapshot höchstens
+drei Minuten auseinanderliegen. Die Korrekturen für **Büro Alois** und **Sauna**
+sind wegen ihrer temperaturabhängigen Abweichungen ausdrücklich als vorläufig
+gekennzeichnet; der jeweilige Hinweis steht direkt beim Raumwert. SMS und
+Lüftungsempfehlung verwenden weiterhin nur die bisherigen Referenzsensoren. Zur
+eindeutigen Orientierung wird der bisherige Hauptsensor im Büro Alois als
+`HomePod Büro Alois Links` und in der Sauna als `HomePod Sauna Rechts` angezeigt.
 
 Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
 

@@ -1407,6 +1407,39 @@ func roomSensorGrouperCombinesSecondSensorsWithExistingRooms() throws {
     ])
     #expect(groups.first(where: { $0.id == "stube" })?.isSMSReferenceRoom == true)
     #expect(groups.first(where: { $0.id == "dachzimmer" })?.sensors.count == 1)
+
+    let stube = try #require(groups.first(where: { $0.id == "stube" }))
+    let stubeCombined = try #require(stube.biasCorrectedMeasurement)
+    #expect(abs(stubeCombined.measurement.temperature - 24.3485) < 0.0001)
+    #expect(abs(stubeCombined.measurement.humidity - 51.5312957763672) < 0.0001)
+    #expect(stubeCombined.correction.sampleCount == 3_142)
+    #expect(stubeCombined.adjustedSensorName == "HomePod Küche")
+
+    let bedroom = try #require(groups.first(where: { $0.id == "schlafzimmer" }))
+    let bedroomCombined = try #require(bedroom.biasCorrectedMeasurement)
+    #expect(abs(bedroomCombined.measurement.temperature - 24.39) < 0.0001)
+    #expect(abs(bedroomCombined.measurement.humidity - 50.79722595214845) < 0.0001)
+
+    let office = try #require(groups.first(where: { $0.id == "buero-alois" }))
+    let officeCombined = try #require(office.biasCorrectedMeasurement)
+    #expect(abs(officeCombined.measurement.temperature - 25.65) < 0.0001)
+    #expect(abs(officeCombined.measurement.humidity - 46.5) < 0.0001)
+    #expect(officeCombined.correction.isProvisional)
+    #expect(officeCombined.correction.caveat != nil)
+
+    let sauna = try #require(groups.first(where: { $0.id == "sauna" }))
+    let saunaCombined = try #require(sauna.biasCorrectedMeasurement)
+    #expect(abs(saunaCombined.measurement.temperature - 25.55) < 0.0001)
+    #expect(abs(saunaCombined.measurement.humidity - 46) < 0.0001)
+    #expect(saunaCombined.correction.isProvisional)
+    #expect(saunaCombined.correction.caveat != nil)
+
+    let uncombinedGroups = RoomSensorGrouper().groups(
+        primaryRooms: primaryRooms,
+        additionalSensors: Array(additionalSensors),
+        includeBiasCorrectedMeasurements: false
+    )
+    #expect(uncombinedGroups.allSatisfy { $0.biasCorrectedMeasurement == nil })
 }
 
 @Test

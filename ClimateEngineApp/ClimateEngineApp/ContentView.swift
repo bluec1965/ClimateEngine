@@ -224,17 +224,32 @@ struct ContentView: View {
     private var indoorRoomGroups: [RoomSensorGroup] {
         RoomSensorGrouper().groups(
             primaryRooms: snapshot?.indoorRooms ?? [],
-            additionalSensors: additionalSensorSnapshot?.sensors ?? []
+            additionalSensors: additionalSensorSnapshot?.sensors ?? [],
+            includeBiasCorrectedMeasurements: sensorSnapshotsAreAligned
         )
     }
 
     private var indoorRoomSubtitle: String {
-        let explanation = "Zweitsensoren sind dem jeweiligen Raum zugeordnet; Mittelwerte sind noch nicht aktiv."
+        let explanation: String
+        if additionalSensorSnapshot == nil || sensorSnapshotsAreAligned {
+            explanation = "Vier Räume mit ausgewiesener Bias-Korrektur; Büro Alois und Sauna vorläufig."
+        } else {
+            explanation = "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen."
+        }
         guard let timestamp = additionalSensorSnapshot?.timestamp else {
             return explanation
         }
 
         return "\(explanation) · Zusatzmessung \(timestamp.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private var sensorSnapshotsAreAligned: Bool {
+        guard let primaryTimestamp = snapshot?.timestamp,
+              let additionalTimestamp = additionalSensorSnapshot?.timestamp else {
+            return false
+        }
+
+        return abs(primaryTimestamp.timeIntervalSince(additionalTimestamp)) <= 3 * 60
     }
 
     private func sensorSection(
