@@ -227,7 +227,7 @@ func sharedPathsHonorAbsoluteDataDirectoryOverride() {
     let loader = SensorSnapshotLoader()
     let snapshot = try loader.load(from: url)
 
-    #expect(snapshot.version == 2)
+    #expect(snapshot.version == 2 || snapshot.version == 3)
     #expect(snapshot.source == "ClimateEngineCLI")
 
     #expect(snapshot.indoor.temperature > 0)

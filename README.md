@@ -57,6 +57,16 @@ Luftfeuchtigkeit.
 
 ## Mehrere Räume und Aussensensoren
 
+Der optionale [Terrasse-Ersatzbetrieb](Docs/Terrasse-Ersatzbetrieb.md) liest
+Eve Degree und HomePod Terrasse unabhängig. Er unterstützt ausdrücklich
+gemeldete Sensorausfälle, zeigt die aktive Ersatzquelle in beiden Oberflächen
+und verhindert doppelte oder unter falschem Namen gespeicherte Messungen.
+Die Aktivierung erfolgt erst nach Einrichtung der dort beschriebenen Kurzbefehle.
+
+Die [unabhängige Erfassung der Zusatzsensoren](Docs/Zusatzsensoren-Ausfallsicherheit.md)
+isoliert die acht Zusatzabfragen. Fehlende Sensoren werden gekennzeichnet und
+nicht durch kopierte Werte ersetzt; gültige Teilmessungen werden weiter gespeichert.
+
 ClimateEngine kann in der Beobachtungsphase zwölf Werte über die
 Standardeingabe entgegennehmen. Die Reihenfolge ist:
 

@@ -45,6 +45,7 @@ public final class SensorSnapshotWriter {
         indoorRooms: [SensorReading],
         outdoorSensors: [SensorReading],
         timestamp: Date = Date(),
+        acquisition: SensorAcquisitionStatus? = nil,
         to url: URL
     ) throws {
         guard let primaryIndoor = indoorRooms.first(where: \.isPrimary) ?? indoorRooms.first,
@@ -58,15 +59,17 @@ public final class SensorSnapshotWriter {
         )
 
         let file = SnapshotFile(
-            version: 2,
+            version: acquisition == nil ? 2 : 3,
             timestamp: ISO8601DateFormatter().string(from: timestamp),
             source: "ClimateEngineCLI",
             indoor: SnapshotMeasurement(primaryIndoor.measurement),
             outdoor: SnapshotMeasurement(primaryOutdoor.measurement),
             indoorRooms: indoorRooms.map(SnapshotSensorReading.init),
-            outdoorSensors: outdoorSensors.map(SnapshotSensorReading.init)
+            outdoorSensors: outdoorSensors.map(SnapshotSensorReading.init),
+            acquisition: acquisition
         )
         let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(file).write(to: url, options: .atomic)
     }
@@ -84,6 +87,7 @@ private struct SnapshotFile: Encodable {
     let outdoor: SnapshotMeasurement
     let indoorRooms: [SnapshotSensorReading]
     let outdoorSensors: [SnapshotSensorReading]
+    let acquisition: SensorAcquisitionStatus?
 }
 
 private struct SnapshotMeasurement: Encodable {

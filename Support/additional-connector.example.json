@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "shortcuts": {
+    "homepod-kueche": "ClimateEngine Read Küche",
+    "homepod-bad-peter": "ClimateEngine Read Bad Peter",
+    "homepod-schlafzimmer": "ClimateEngine Read Schlafzimmer",
+    "homepod-buero-alois-rechts": "ClimateEngine Read Büro Alois Rechts",
+    "homepod-sauna-links": "ClimateEngine Read Sauna Links",
+    "homepod-buero-peter": "ClimateEngine Read Büro Peter",
+    "homepod-bad-alois": "ClimateEngine Read Bad Alois",
+    "dachzimmer-sensor": "ClimateEngine Read Dachzimmer"
+  }
+}

@@ -46,6 +46,7 @@ public final class SensorSnapshotLoader {
     func decode(_ text: String) throws -> RawSensorSnapshot {
         let data = Data(text.utf8)
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
 
         do {
             return try decoder.decode(RawSensorSnapshot.self, from: data)

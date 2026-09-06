@@ -8,6 +8,7 @@ public struct SensorSnapshot: Equatable, Sendable {
     public let outdoor: ClimateMeasurement
     public let indoorRooms: [SensorReading]
     public let outdoorSensors: [SensorReading]
+    public let acquisition: SensorAcquisitionStatus?
 
     public init(
         version: Int,
@@ -16,11 +17,13 @@ public struct SensorSnapshot: Equatable, Sendable {
         indoor: ClimateMeasurement,
         outdoor: ClimateMeasurement,
         indoorRooms: [SensorReading] = [],
-        outdoorSensors: [SensorReading] = []
+        outdoorSensors: [SensorReading] = [],
+        acquisition: SensorAcquisitionStatus? = nil
     ) {
         self.version = version
         self.timestamp = timestamp
         self.source = source
+        self.acquisition = acquisition
         self.indoor = indoor
         self.outdoor = outdoor
         self.indoorRooms = indoorRooms.isEmpty

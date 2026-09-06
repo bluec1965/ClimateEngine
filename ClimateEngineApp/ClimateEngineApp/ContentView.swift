@@ -6,6 +6,8 @@ import ClimateEngine
 struct ContentView: View {
     @State private var snapshot: SensorSnapshot?
     @State private var analysis: VentilationAnalysis?
+    @State private var acquisitionStatus: SensorAcquisitionStatus?
+    @State private var acquisitionLoadError: String?
     @State private var historySummary = HistorySummary(
         measurementCount: 0,
         firstMeasurement: nil,
@@ -27,6 +29,7 @@ struct ContentView: View {
     @State private var weatherSnapshot: WeatherSnapshot?
     @State private var weatherLoadError: String?
     @State private var additionalSensorSnapshot: AdditionalSensorSnapshot?
+    @State private var additionalAcquisitionStatus: SensorAcquisitionStatus?
     @State private var additionalSensorLoadError: String?
     @State private var additionalSensorHistoryLoadError: String?
     @State private var operatingModeState = OperatingModeState.defaultState()
@@ -109,13 +112,25 @@ struct ContentView: View {
                     snapshot: snapshot,
                     weather: weatherSnapshot
                 ),
-                shadowRecommendation: seasonalRecommendation,
+                shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 errorMessage: operatingModeLoadError,
                 onHeatingChanged: updateHeatingState,
                 onSelectionChanged: updateOperatingModeSelection
             )
 
             indoorRoomSection
+
+            if let message = measurementUnavailableReason ?? acquisitionStatus?.outdoorSummary {
+                Label(message, systemImage: measurementUnavailableReason == nil
+                    ? "antenna.radiowaves.left.and.right" : "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(measurementUnavailableReason != nil
+                        || !(acquisitionStatus?.unavailableOutdoorIDs.isEmpty ?? true)
+                        ? Color.orange : LiquidGlassTheme.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+                    .liquidGlassCard(cornerRadius: 18, glowColor: .orange, raised: false)
+            }
 
             sensorSection(
                 title: "Aussensensoren",
@@ -129,7 +144,7 @@ struct ContentView: View {
                 loadError: weatherLoadError
             )
 
-            if let snapshot {
+            if let snapshot, measurementUnavailableReason == nil {
                 RoomObservationPanel(
                     rooms: snapshot.indoorRooms,
                     referenceOutdoor: StableVentilationAdvisor.outdoorMean(
@@ -156,15 +171,17 @@ struct ContentView: View {
                 } else {
                     HStack(spacing: 10) {
                         LiquidGlassIndicatorIcon(
-                            systemName: "checkmark",
-                            tint: .green,
+                            systemName: measurementUnavailableReason == nil ? "checkmark" : "exclamationmark",
+                            tint: measurementUnavailableReason == nil ? .green : .orange,
                             size: 26,
                             symbolSize: 10,
                             vibrant: true
                         )
 
-                        Text("Sensordaten geladen")
-                            .foregroundStyle(LiquidGlassTheme.mint)
+                        Text(measurementUnavailableReason == nil
+                            ? "Sensordaten geladen" : "Letzte erfolgreiche Sensormessung")
+                            .foregroundStyle(measurementUnavailableReason == nil
+                                ? LiquidGlassTheme.mint : .orange)
                     }
                 }
 
@@ -223,6 +240,12 @@ struct ContentView: View {
                 Text(indoorRoomSubtitle)
                     .font(.subheadline)
                     .foregroundStyle(LiquidGlassTheme.secondaryText)
+                if let warning = additionalSensorSnapshot?.availabilityMessage(status: additionalAcquisitionStatus)
+                    ?? (additionalAcquisitionStatus?.accepted == false ? additionalAcquisitionStatus?.message : nil) {
+                    Text(warning)
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                }
             }
 
             LazyVGrid(
@@ -240,7 +263,7 @@ struct ContentView: View {
     private var indoorRoomGroups: [RoomSensorGroup] {
         RoomSensorGrouper().groups(
             primaryRooms: snapshot?.indoorRooms ?? [],
-            additionalSensors: additionalSensorSnapshot?.sensors ?? [],
+            additionalSensors: additionalSensorSnapshot?.currentSensors(status: additionalAcquisitionStatus) ?? [],
             includeBiasCorrectedMeasurements: sensorSnapshotsAreAligned
         )
     }
@@ -248,7 +271,7 @@ struct ContentView: View {
     private var indoorRoomSubtitle: String {
         let explanation: String
         if additionalSensorSnapshot == nil || sensorSnapshotsAreAligned {
-            explanation = "Vier Räume mit ausgewiesener Bias-Korrektur; Büro Alois und Sauna vorläufig."
+            explanation = "Bias-Korrektur nur mit zwei aktuellen Sensoren; Büro Alois und Sauna vorläufig."
         } else {
             explanation = "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen."
         }
@@ -310,6 +333,12 @@ struct ContentView: View {
     }
 
     private var outdoorSensorSubtitle: String {
+        if measurementUnavailableReason != nil {
+            return "Zuletzt verfügbare Messwerte · aktuell keine neue Empfehlung."
+        }
+        if let status = acquisitionStatus ?? snapshot?.acquisition {
+            return status.outdoorSummary
+        }
         guard let readings = snapshot?.outdoorSensors, readings.count > 1 else {
             return "Der vorhandene Aussensensor wird für die Empfehlung verwendet."
         }
@@ -324,6 +353,13 @@ struct ContentView: View {
 
     private func loadSnapshot() {
         do {
+            acquisitionStatus = try SensorAcquisitionStore().load(from: paths.sensorAcquisitionURL)
+            acquisitionLoadError = nil
+        } catch {
+            acquisitionStatus = nil
+            acquisitionLoadError = "Sensorstatus konnte nicht gelesen werden · keine aktuelle Empfehlung."
+        }
+        do {
             let loadedSnapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
             let loadedAnalysis = (try? RecommendationSnapshotStore().load(
                 from: paths.recommendationSnapshotURL
@@ -335,13 +371,17 @@ struct ContentView: View {
             )
 
             snapshot = loadedSnapshot
-            analysis = loadedAnalysis
+            analysis = acquisitionLoadError == nil && SensorAcquisitionStatus.unavailableReason(
+                snapshot: loadedSnapshot, status: acquisitionStatus
+            ) == nil ? loadedAnalysis : nil
             loadError = nil
         } catch {
+            analysis = nil
             loadError = "Sensordaten konnten nicht geladen werden: \(error)"
         }
 
         do {
+            additionalAcquisitionStatus = try SensorAcquisitionStore().load(from: paths.additionalSensorAcquisitionURL)
             additionalSensorSnapshot = try AdditionalSensorSnapshotStore().load(
                 from: paths.additionalSensorSnapshotURL
             )
@@ -448,6 +488,10 @@ struct ContentView: View {
         } else {
             seasonalRecommendation = nil
         }
+    }
+
+    private var measurementUnavailableReason: String? {
+        acquisitionLoadError ?? SensorAcquisitionStatus.unavailableReason(snapshot: snapshot, status: acquisitionStatus)
     }
 
     private func updateHeatingState(_ isEnabled: Bool) {

@@ -1,5 +1,24 @@
 const byId = (id) => document.getElementById(id);
 
+const additionalAcquisitionState = (snapshot, status, now = Date.now()) => {
+  if (!snapshot) return { sensors: [], message: status?.message || "" };
+  if (!status || new Date(status.timestamp) < new Date(snapshot.timestamp)) status = snapshot.acquisition;
+  if (status?.accepted === false) return { sensors: [], message: status.message };
+  const age = now - new Date(snapshot.timestamp).getTime();
+  if (!Number.isFinite(age) || age < -30_000 || age > 12 * 60_000) {
+    return { sensors: [], message: "Zusatzmessung veraltet · keine aktuellen Zusatzsensorwerte." };
+  }
+  const names = {
+    "homepod-kueche": "HomePod Küche", "homepod-bad-peter": "HomePod Bad Peter",
+    "homepod-schlafzimmer": "HomePod Schlafzimmer", "homepod-buero-alois-rechts": "HomePod Büro Alois Rechts",
+    "homepod-sauna-links": "HomePod Sauna Links", "homepod-buero-peter": "HomePod Büro Peter",
+    "homepod-bad-alois": "HomePod Bad Alois", "dachzimmer-sensor": "Dachzimmer",
+  };
+  const missing = (status?.sensors || []).filter((sensor) => !sensor.measurement);
+  return { sensors: snapshot.sensors || [],
+    message: missing.length ? `Nicht verfügbar: ${missing.map((sensor) => names[sensor.id] || sensor.id).join(", ")}` : "" };
+};
+
 const parseTemperature = (value) =>
   Number.parseFloat(String(value).replace("°C", "").trim());
 
@@ -88,6 +107,28 @@ const meanOutdoor = (readings) => {
   const saturation = 6.112 * Math.exp((17.62 * temperature) / (temperature + 243.12));
   const humidity = meanAbsolute * (temperature + 273.15) / (2.167 * saturation);
   return { id: "outdoor-mean", name: "Aussenmittel", temperature, humidity, isPrimary: false };
+};
+
+const acquisitionState = (snapshot, acquisition, now = Date.now()) => {
+  const status = acquisition || snapshot.acquisition;
+  const age = now - new Date(snapshot.timestamp).getTime();
+  const rejected = status?.accepted === false
+    && new Date(status.timestamp).getTime() >= new Date(snapshot.timestamp).getTime();
+  if (rejected || !Number.isFinite(age) || age < -30_000 || age > 12 * 60_000) {
+    return {
+      unavailable: true,
+      message: rejected ? status.message : "Sensormessung veraltet · keine aktuelle Lüftungsempfehlung.",
+    };
+  }
+  const outdoor = status?.sensors?.filter((s) => ["eve-degree", "homepod-terrasse"].includes(s.id)) || [];
+  const names = { "eve-degree": "Eve Degree", "homepod-terrasse": "HomePod Terrasse" };
+  const missing = outdoor.filter((s) => !s.measurement);
+  return {
+    unavailable: false,
+    message: missing.length
+      ? `Ersatzbetrieb · ${outdoor.filter((s) => s.measurement).map((s) => names[s.id]).join(", ")} aktiv · ${missing.map((s) => names[s.id]).join(", ")} nicht verfügbar`
+      : "",
+  };
 };
 
 const setText = (id, value) => { byId(id).textContent = value; };
@@ -635,6 +676,7 @@ const renderHistory = (history, additionalSummary, additionalHistoryError) => {
 
 const render = ({
   snapshot,
+  sensorAcquisition,
   history,
   weather,
   weatherError,
@@ -644,10 +686,18 @@ const render = ({
   seasonalRecommendation,
   seasonalRecommendationError,
   additionalSensorSnapshot,
+  additionalSensorAcquisition,
   additionalSensorError,
   additionalHistorySummary,
   additionalHistoryError,
 }) => {
+  const additionalState = additionalAcquisitionState(additionalSensorSnapshot, additionalSensorAcquisition);
+  const activeAdditionalSnapshot = additionalSensorSnapshot
+    ? { ...additionalSensorSnapshot, sensors: additionalState.sensors } : null;
+  const acquisition = acquisitionState(snapshot, sensorAcquisition);
+  const acquisitionElement = byId("sensor-acquisition-status");
+  acquisitionElement.hidden = !acquisition.message;
+  acquisitionElement.textContent = acquisition.message;
   const { indoorRooms, outdoorSensors } = snapshotReadings(snapshot);
   const indoor = indoorRooms.find((reading) => reading.isPrimary) || indoorRooms[0];
   const outdoor = meanOutdoor(outdoorSensors);
@@ -661,7 +711,7 @@ const render = ({
   renderOperatingMode(
     operatingMode,
     operatingModeError,
-    seasonalRecommendation,
+    acquisition.unavailable ? null : seasonalRecommendation,
     seasonalRecommendationError,
   );
 
@@ -669,13 +719,23 @@ const render = ({
     "indoor-grid",
     groupedRoomReadings(
       indoorRooms,
-      additionalSensorSnapshot,
+      activeAdditionalSnapshot,
       alignedSensorSnapshots,
     ),
   );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
-  renderRoomObservations(indoorRooms, outdoor);
+  if (acquisition.unavailable) {
+    const note = document.createElement("p");
+    note.className = "section-note warning";
+    note.textContent = "Raumempfehlungen warten auf aktuelle Innen- und Aussenmessungen.";
+    byId("room-observations").replaceChildren(note);
+  } else {
+    renderRoomObservations(indoorRooms, outdoor);
+  }
   renderOutdoorSummary(outdoorSensors);
+  if (acquisition.unavailable) {
+    setText("outdoor-summary", "Zuletzt verfügbare Messwerte");
+  }
   try {
     renderWeather(weather, weatherError);
   } catch (error) {
@@ -689,7 +749,9 @@ const render = ({
   setText("compare-humidity-outdoor", absoluteText(outdoorAbsolute));
   setText("compare-humidity-difference", absoluteText(outdoorAbsolute - indoorAbsolute));
 
-  const advice = analysisAdvice(savedRecommendation?.analysis) || recommendation(indoor, outdoor);
+  const advice = acquisition.unavailable
+    ? { key: "neutral", title: "Warte auf aktuelle Sensordaten", explanation: acquisition.message }
+    : analysisAdvice(savedRecommendation?.analysis) || recommendation(indoor, outdoor);
   const heroRecommendation = byId("hero-recommendation");
   heroRecommendation.className = `hero-recommendation ${advice.key}`;
   setText("hero-recommendation-title", advice.title);
@@ -703,7 +765,7 @@ const render = ({
   const indoorSummary = byId("indoor-summary");
   const summaryText = additionalSensorSnapshot && !alignedSensorSnapshots
     ? "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen"
-    : "Vier Räume mit ausgewiesener Bias-Korrektur · Büro Alois und Sauna vorläufig";
+    : "Bias-Korrektur nur mit zwei aktuellen Sensoren · Büro Alois und Sauna vorläufig";
   if (additionalSensorSnapshot?.timestamp) {
     indoorSummary.textContent = `${summaryText} · Zusatzmessung ${formatTime(additionalSensorSnapshot.timestamp)}`;
     indoorSummary.className = "section-note";
@@ -720,6 +782,13 @@ const render = ({
     ? `Zusatzsensoren: ${formatTime(additionalSensorSnapshot.timestamp, true)}`
     : additionalSensorError || "";
   additionalMeasurementTime.className = additionalSensorError ? "warning" : "";
+  if (additionalState.message) {
+    indoorSummary.textContent += ` · ${additionalState.message}`;
+    indoorSummary.className = "section-note warning";
+    additionalMeasurementTime.hidden = false;
+    additionalMeasurementTime.textContent += ` · ${additionalState.message}`;
+    additionalMeasurementTime.className = "warning";
+  }
   renderHistory(history, additionalHistorySummary, additionalHistoryError);
 };
 

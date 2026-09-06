@@ -108,6 +108,14 @@ public struct ClimateEnginePaths: Sendable {
             .appendingPathComponent("validation-state.json")
     }
 
+    public var sensorAcquisitionURL: URL {
+        dataDirectory.appendingPathComponent("sensor-input/current-status.json")
+    }
+
+    public var additionalSensorAcquisitionURL: URL {
+        dataDirectory.appendingPathComponent("additional-sensors/current-status.json")
+    }
+
     public var sensorInputHistoryDirectory: URL {
         dataDirectory
             .appendingPathComponent("sensor-input")

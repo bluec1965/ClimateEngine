@@ -216,6 +216,7 @@ def read_dashboard_data():
 
     return {
         "snapshot": snapshot,
+        "sensorAcquisition": read_optional_json(DATA_ROOT / "sensor-input" / "current-status.json"),
         "history": history,
         "weather": weather,
         "weatherError": weather_error,
@@ -225,6 +226,7 @@ def read_dashboard_data():
         "seasonalRecommendation": seasonal_recommendation,
         "seasonalRecommendationError": seasonal_recommendation_error,
         "additionalSensorSnapshot": additional_sensor_snapshot,
+        "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),
         "additionalSensorError": additional_sensor_error,
         "additionalHistorySummary": additional_history_summary,
         "additionalHistoryError": additional_history_error,

@@ -14,6 +14,9 @@ public struct ClimateEngineCommand {
 
     @discardableResult
     public func run(arguments: [String], standardInput: String = "") throws -> String {
+        if arguments.first == "additional-readings" {
+            return try AdditionalSensorConnectorCommand(paths: paths, now: now).runCollected(standardInput)
+        }
         if arguments.first?.lowercased() == "additional-sensors" {
             return try AdditionalSensorConnectorCommand(paths: paths, now: now).run(
                 standardInput: standardInput
@@ -27,6 +30,25 @@ public struct ClimateEngineCommand {
         }
 
         let executionDate = now()
+        let collection: SensorCollection?
+        if arguments.first == "sensor-readings" {
+            do {
+                collection = try SensorCollection.decode(standardInput, now: executionDate)
+            } catch {
+                try SensorAcquisitionStore().write(
+                    SensorAcquisitionStatus(
+                        timestamp: executionDate, accepted: false,
+                        message: "Sensorlauf ungültig · keine aktuelle Lüftungsempfehlung.",
+                        sensors: []
+                    ),
+                    to: paths.sensorAcquisitionURL
+                )
+                throw error
+            }
+        } else {
+            collection = nil
+        }
+        var outdoorSourceChanged = false
         var numericValues = arguments.compactMap {
             try? MeasurementParser.double(from: $0)
         }
@@ -37,21 +59,51 @@ public struct ClimateEngineCommand {
                 .compactMap { try? MeasurementParser.double(from: String($0)) }
         }
 
-        if numericValues.count >= 4 {
-            let readings = makeSensorReadings(from: numericValues)
+        if numericValues.count >= 4 || collection != nil {
+            let readings = collection.map { ($0.indoorRooms, $0.outdoorSensors) }
+                ?? makeSensorReadings(from: numericValues)
+            let indoorRooms = readings.0
+            let outdoorSensors = readings.1
             let previousSnapshot: SensorSnapshot?
             if FileManager.default.fileExists(atPath: paths.snapshotURL.path) {
                 previousSnapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
             } else {
                 previousSnapshot = nil
             }
+            if let collection {
+                if let previousSnapshot, collection.timestamp <= previousSnapshot.timestamp {
+                    // Replayed or out-of-order input must not produce another
+                    // history entry, transition, notification or source change.
+                    return "NONE"
+                }
+                let missingIndoor = collection.sensors.filter {
+                    !SensorAcquisitionStatus.outdoorIDs.contains($0.id) && $0.measurement == nil
+                }
+                if !missingIndoor.isEmpty || outdoorSensors.isEmpty {
+                    let message = outdoorSensors.isEmpty
+                        ? "Beide Aussensensoren nicht verfügbar · keine aktuelle Lüftungsempfehlung."
+                        : "Innenmessung unvollständig: " + missingIndoor.map(\.name).joined(separator: ", ")
+                            + " · keine aktuelle Lüftungsempfehlung."
+                    try SensorAcquisitionStore().write(
+                        collection.status(at: executionDate, accepted: false, message: message),
+                        to: paths.sensorAcquisitionURL
+                    )
+                    return "NONE"
+                }
+            }
+            outdoorSourceChanged = previousSnapshot.map {
+                Set($0.outdoorSensors.map(\.id)) != Set(outdoorSensors.map(\.id))
+            } ?? false
             let qualityDecision = try SensorInputQualityController(
                 stateURL: paths.sensorInputStateURL
             ).evaluate(
-                indoorRooms: readings.indoorRooms,
-                outdoorSensors: readings.outdoorSensors,
+                indoorRooms: indoorRooms,
+                outdoorSensors: outdoorSensors,
                 previousSnapshot: previousSnapshot,
-                now: executionDate
+                now: executionDate,
+                reportedUnavailableOutdoorIDs: collection.map {
+                    $0.status(at: executionDate, accepted: false, message: "").unavailableOutdoorIDs
+                } ?? []
             )
             try SensorInputAuditWriter(
                 directory: paths.sensorInputHistoryDirectory
@@ -60,11 +112,18 @@ public struct ClimateEngineCommand {
                     timestamp: executionDate,
                     accepted: qualityDecision.isAccepted,
                     reason: qualityDecision.reason,
-                    indoorRooms: readings.indoorRooms,
-                    outdoorSensors: readings.outdoorSensors
+                    indoorRooms: indoorRooms,
+                    outdoorSensors: outdoorSensors
                 )
             )
             guard qualityDecision.isAccepted else {
+                if let collection {
+                    try SensorAcquisitionStore().write(
+                        collection.status(
+                            at: executionDate, accepted: false, message: qualityDecision.reason
+                        ), to: paths.sensorAcquisitionURL
+                    )
+                }
                 switch qualityDecision.rejectionKind {
                 case .incompleteSensorSet:
                     throw SensorInputValidationError.incompleteSensorSet(
@@ -76,15 +135,29 @@ public struct ClimateEngineCommand {
                     )
                 }
             }
+            let acquisition = collection?.status(
+                at: executionDate, accepted: true, message: "Aktuelle Messung akzeptiert."
+            )
             try SensorSnapshotWriter().write(
-                indoorRooms: readings.indoorRooms,
-                outdoorSensors: readings.outdoorSensors,
-                timestamp: executionDate,
+                indoorRooms: indoorRooms,
+                outdoorSensors: outdoorSensors,
+                timestamp: collection?.timestamp ?? executionDate,
+                acquisition: acquisition,
                 to: paths.snapshotURL
             )
+            if let acquisition {
+                try SensorAcquisitionStore().write(acquisition, to: paths.sensorAcquisitionURL)
+            }
         }
 
         let snapshot = try SensorSnapshotLoader().load(from: paths.snapshotURL)
+        if SensorAcquisitionStatus.unavailableReason(
+            snapshot: snapshot,
+            status: try SensorAcquisitionStore().load(from: paths.sensorAcquisitionURL),
+            now: executionDate
+        ) != nil {
+            return "NONE"
+        }
         let stateStore = WindowStateStore(fileURL: paths.windowStateURL)
         let currentState = try stateStore.load(now: executionDate)
         let recommendationStore = RecommendationSnapshotStore()
@@ -97,6 +170,13 @@ public struct ClimateEngineCommand {
                 effectiveRecommendation: currentState == .waitingForClosing
                     ? .ventilate
                     : .neutral
+            )
+        }
+        if outdoorSourceChanged, let previous = previousRecommendationState {
+            previousRecommendationState = RecommendationStabilityState(
+                samples: [],
+                effectiveRecommendation: previous.effectiveRecommendation,
+                notifiedWeatherAdvisory: previous.notifiedWeatherAdvisory
             )
         }
         let weatherSnapshot = try? WeatherSnapshotStore().load(
@@ -191,7 +271,8 @@ public struct ClimateEngineCommand {
             notificationSent: notificationSent,
             explanation: analysis.explanation,
             indoorRooms: snapshot.indoorRooms,
-            outdoorSensors: snapshot.outdoorSensors
+            outdoorSensors: snapshot.outdoorSensors,
+            acquisition: snapshot.acquisition
         )
     }
 

@@ -27,6 +27,23 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
+terrace_config="${CLIMATEENGINE_TERRACE_CONFIG:-${CLIMATEENGINE_DATA_DIRECTORY:-$HOME/Library/Application Support/ClimateEngine}/sensor-input/terrace-connector.json}"
+additional_config="${CLIMATEENGINE_ADDITIONAL_CONFIG:-${CLIMATEENGINE_DATA_DIRECTORY:-$HOME/Library/Application Support/ClimateEngine}/additional-sensors/connector.json}"
+if [[ "$shortcut_name" == "ClimateEngine Additional Sensor Connector" && -f "$additional_config" ]]; then
+    log_message "START isolated additional connector"
+    "${CLIMATEENGINE_PYTHON_COMMAND:-/usr/bin/python3}" -B "${0:A:h}/run-additional-connector.py" --config "$additional_config"
+    exit_code=$?
+    log_message "FINISH isolated additional connector exit=${exit_code}"
+    exit "$exit_code"
+fi
+if [[ "$shortcut_name" == "ClimateEngine Sensor Connector" && -f "$terrace_config" ]]; then
+    log_message "START terrace connector"
+    "${CLIMATEENGINE_PYTHON_COMMAND:-/usr/bin/python3}" -B "${0:A:h}/run-terrace-connector.py" --config "$terrace_config"
+    exit_code=$?
+    log_message "FINISH terrace connector exit=${exit_code}"
+    exit "$exit_code"
+fi
+
 attempt=1
 while (( attempt <= max_attempts )); do
     error_file="${TMPDIR:-/tmp}/climateengine-sensor-attempt-$$-${attempt}.err"

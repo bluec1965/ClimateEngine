@@ -18,6 +18,7 @@ public struct HistoryEntry: Codable {
     public let explanation: String
     public let indoorRooms: [SensorReading]
     public let outdoorSensors: [SensorReading]
+    public let acquisition: SensorAcquisitionStatus?
 
     public init(
         timestamp: Date,
@@ -33,7 +34,8 @@ public struct HistoryEntry: Codable {
         notificationSent: Bool,
         explanation: String,
         indoorRooms: [SensorReading] = [],
-        outdoorSensors: [SensorReading] = []
+        outdoorSensors: [SensorReading] = [],
+        acquisition: SensorAcquisitionStatus? = nil
     ) {
         self.timestamp = timestamp
         self.indoorTemperature = indoorTemperature
@@ -49,6 +51,7 @@ public struct HistoryEntry: Codable {
         self.explanation = explanation
         self.indoorRooms = indoorRooms
         self.outdoorSensors = outdoorSensors
+        self.acquisition = acquisition
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -66,6 +69,7 @@ public struct HistoryEntry: Codable {
         case explanation
         case indoorRooms
         case outdoorSensors
+        case acquisition
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,5 +96,6 @@ public struct HistoryEntry: Codable {
             ?? []
         outdoorSensors = try container.decodeIfPresent([SensorReading].self, forKey: .outdoorSensors)
             ?? []
+        acquisition = try container.decodeIfPresent(SensorAcquisitionStatus.self, forKey: .acquisition)
     }
 }

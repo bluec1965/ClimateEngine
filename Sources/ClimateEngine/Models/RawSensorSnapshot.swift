@@ -8,6 +8,7 @@ struct RawSensorSnapshot: Decodable {
     let outdoor: RawClimateMeasurement
     let indoorRooms: [RawSensorReading]?
     let outdoorSensors: [RawSensorReading]?
+    let acquisition: SensorAcquisitionStatus?
 }
 
 struct RawClimateMeasurement: Decodable {
@@ -47,7 +48,8 @@ extension RawSensorSnapshot {
             indoor: primaryIndoor,
             outdoor: primaryOutdoor,
             indoorRooms: try indoorRooms?.map { try $0.toSensorReading() } ?? [],
-            outdoorSensors: try outdoorSensors?.map { try $0.toSensorReading() } ?? []
+            outdoorSensors: try outdoorSensors?.map { try $0.toSensorReading() } ?? [],
+            acquisition: acquisition
         )
     }
 }

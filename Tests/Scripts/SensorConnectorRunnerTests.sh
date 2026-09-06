@@ -46,6 +46,8 @@ run_helper() {
     FAKE_MODE="$mode" \
     FAKE_COUNT_FILE="$count_file" \
     CLIMATEENGINE_SHORTCUTS_COMMAND="$fake_shortcuts" \
+    CLIMATEENGINE_TERRACE_CONFIG="$test_directory/missing-terrace.json" \
+    CLIMATEENGINE_ADDITIONAL_CONFIG="$test_directory/missing-additional.json" \
     CLIMATEENGINE_RETRY_DELAY_SECONDS=0 \
     CLIMATEENGINE_RETRY_LOG="$log_file" \
     CLIMATEENGINE_RETRY_LOCK="$lock_file" \
@@ -72,6 +74,8 @@ held_lock="$test_directory/held.lock"
 FAKE_MODE=success \
 FAKE_COUNT_FILE="$test_directory/locked.count" \
 CLIMATEENGINE_SHORTCUTS_COMMAND="$fake_shortcuts" \
+CLIMATEENGINE_TERRACE_CONFIG="$test_directory/missing-terrace.json" \
+CLIMATEENGINE_ADDITIONAL_CONFIG="$test_directory/missing-additional.json" \
 CLIMATEENGINE_RETRY_LOG="$test_directory/locked.log" \
 CLIMATEENGINE_RETRY_LOCK="$held_lock" \
 "$runner"

@@ -66,7 +66,8 @@ struct SensorInputQualityController {
         indoorRooms: [SensorReading],
         outdoorSensors: [SensorReading],
         previousSnapshot: SensorSnapshot?,
-        now: Date
+        now: Date,
+        reportedUnavailableOutdoorIDs: Set<String> = []
     ) throws -> SensorInputQualityDecision {
         if let previousSnapshot {
             let currentIndoorIDs = Set(indoorRooms.map(\.id))
@@ -76,6 +77,9 @@ struct SensorInputQualityController {
             }
             let missingOutdoor = previousSnapshot.outdoorSensors.filter {
                 !currentOutdoorIDs.contains($0.id)
+                    && !(reportedUnavailableOutdoorIDs.contains($0.id)
+                        && SensorAcquisitionStatus.outdoorIDs.contains($0.id)
+                        && !outdoorSensors.isEmpty)
             }
 
             if !missingIndoor.isEmpty || !missingOutdoor.isEmpty {

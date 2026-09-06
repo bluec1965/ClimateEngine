@@ -21,14 +21,14 @@ enum AdditionalSensorInputError: Error, CustomStringConvertible {
 }
 
 struct AdditionalSensorInputParser {
-    private struct Definition {
+    struct Definition {
         let id: String
         let name: String
         let roomID: String
         let roomName: String
     }
 
-    private let definitions = [
+    static let definitions = [
         Definition(id: "homepod-kueche", name: "HomePod Küche", roomID: "stube", roomName: "Stube"),
         Definition(id: "homepod-bad-peter", name: "HomePod Bad Peter", roomID: "bad-peter", roomName: "Bad Peter"),
         Definition(id: "homepod-schlafzimmer", name: "HomePod Schlafzimmer", roomID: "schlafzimmer", roomName: "Schlafzimmer"),
@@ -40,6 +40,7 @@ struct AdditionalSensorInputParser {
     ]
 
     func parse(_ input: String, now: Date) throws -> AdditionalSensorSnapshot {
+        let definitions = Self.definitions
         let lines = input
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
