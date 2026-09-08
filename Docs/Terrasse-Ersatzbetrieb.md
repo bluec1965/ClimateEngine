@@ -1,6 +1,6 @@
 # Terrasse: Einrichtung des Ersatzbetriebs
 
-Der neue Ablauf liest Innenräume, HomePod Terrasse und Eve Degree unabhängig.
+Der neue Ablauf liest jeden Innenraum, HomePod Terrasse und Eve Degree unabhängig.
 Nur der abschliessende Verarbeitungskurzbefehl wertet die Messung aus und führt
 die vorhandenen SMS-Verzweigungen aus. Ein ausgefallener Eve wird nie durch
 HomePod-Werte unter falschem Sensornamen ersetzt.
@@ -11,13 +11,16 @@ Den bestehenden `ClimateEngine Sensor Connector` zunächst unverändert behalten
 Für die neue Verarbeitung ein Duplikat namens `ClimateEngine Process Sensors`
 anlegen. Die darin enthaltene SMS-Verzweigung samt Empfängern beibehalten.
 
-Drei neue **reine Lese-Kurzbefehle** erstellen. Sie dürfen keine CLI-Aufrufe,
+Sechs neue **reine Lese-Kurzbefehle** erstellen. Sie dürfen keine CLI-Aufrufe,
 SMS-Aktionen oder HomeKit-Schreibaktionen enthalten. Jeder gibt am Ende einen
 Text zurück, mit genau einem Messwert je Zeile (ohne Beschriftungen):
 
 | Kurzbefehl | Ausgabe in dieser Reihenfolge |
 | --- | --- |
-| `ClimateEngine Read Indoor` | Stube Temperatur, Stube Feuchtigkeit, Schlafzimmer Temperatur, Schlafzimmer Feuchtigkeit, Büro Alois Temperatur, Büro Alois Feuchtigkeit, Sauna Temperatur, Sauna Feuchtigkeit |
+| `ClimateEngine Read Main Stube` | Stube Temperatur, Stube Feuchtigkeit |
+| `ClimateEngine Read Main Schlafzimmer` | Hauptsensor Schlafzimmer Temperatur, Hauptsensor Schlafzimmer Feuchtigkeit |
+| `ClimateEngine Read Büro Alois Links` | HomePod Büro Alois Links Temperatur, Feuchtigkeit |
+| `ClimateEngine Read Sauna Rechts` | HomePod Sauna Rechts Temperatur, Feuchtigkeit |
 | `ClimateEngine Read HomePod Terrasse` | HomePod Terrasse Temperatur, HomePod Terrasse Feuchtigkeit |
 | `ClimateEngine Read Eve Degree` | Eve Degree Temperatur, Eve Degree Feuchtigkeit |
 
@@ -64,14 +67,13 @@ liefert jetzt zusätzlich den Status des letzten Sensorlaufs.
 
 ## Aktivierung
 
-Erst wenn die vier Kurzbefehle fertig geprüft sind, die Beispieldatei nach
+Erst wenn die sieben Kurzbefehle inklusive Verarbeitung fertig geprüft sind, die Beispieldatei nach
 `~/Library/Application Support/ClimateEngine/sensor-input/terrace-connector.json`
 kopieren. Diese Datei schaltet den vorhandenen Fünf-Minuten-Starter auf die
 neue Verarbeitung um. Der LaunchAgent benötigt keine Änderung.
 
 Der Starter behält seine Sperre gegen überlappende Läufe. Er liest die drei
-Quellen einzeln mit höchstens 60 Sekunden für die vier Innenräume und je
-25 Sekunden für die Aussensensoren und ruft die Verarbeitung
+Quellen einzeln mit höchstens 25 Sekunden pro Sensor und ruft die Verarbeitung
 genau einmal auf. Eine fehlgeschlagene Verarbeitung wird nicht automatisch
 wiederholt, da eine SMS bereits versendet worden sein könnte.
 
@@ -80,7 +82,10 @@ Beim Quellenwechsel beginnt die zeitliche Mittelung neu, damit keine Werte des
 ausgefallenen Sensors weiter im Aussenmittel stecken. Die bestehende Stabilisierung
 von Empfehlungswechseln bleibt wirksam.
 
-Wenn beide Aussensensoren oder eine notwendige Innenmessung ausfallen, bleibt
+Fällt ein Haupt-Innensensor aus, verwendet ClimateEngine den aktuellen, bias-korrigierten
+Zweitsensor desselben Raumes und kennzeichnet den Ersatzbetrieb in App, WebUI und
+Historie. Sobald der Hauptsensor zurückkehrt, wird automatisch zurückgeschaltet.
+Nur wenn Haupt- und Zweitsensor desselben Raumes oder beide Aussensensoren ausfallen, bleibt
 die letzte erfolgreiche Messung erhalten, aber die Oberflächen kennzeichnen
 sie und zeigen keine aktuelle Empfehlung. Es entstehen weder neue
 Messhistorieneinträge noch SMS. Auch ohne ausdrückliche Fehlermeldung gilt eine

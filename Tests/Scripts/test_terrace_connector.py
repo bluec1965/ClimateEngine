@@ -15,7 +15,12 @@ spec = importlib.util.spec_from_file_location("terrace", ROOT / "Scripts/run-ter
 terrace = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(terrace)
 CONFIG = {
-    "version": 1, "indoorShortcut": "indoor", "eveShortcut": "eve",
+    "version": 2,
+    "indoorShortcuts": {
+        "stube": "stube", "schlafzimmer": "bedroom",
+        "buero-alois": "office", "sauna": "sauna",
+    },
+    "eveShortcut": "eve",
     "homepodShortcut": "homepod", "processingShortcut": "process",
 }
 
@@ -42,7 +47,7 @@ class TerraceConnectorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.strip(), "ClimateEngine Additional Sensor Connector")
 
-    def test_read_time_budget_scales_for_indoor_group(self):
+    def test_read_time_budget_supports_legacy_group_and_individual_sensors(self):
         with tempfile.TemporaryDirectory(prefix="climateengine-budget-test-") as temp:
             with patch.object(terrace.subprocess, "run", return_value=types.SimpleNamespace(returncode=1)) as run:
                 terrace.read_sensors("indoor", ["stube", "schlafzimmer", "buero-alois", "sauna"], "shortcuts", Path(temp), 0)
@@ -63,7 +68,11 @@ class TerraceConnectorTests(unittest.TestCase):
                 return types.SimpleNamespace(returncode=process_code)
             if name in failing:
                 return types.SimpleNamespace(returncode=1)
-            text = "24\n55\n23\n50\n24\n51\n24\n52" if name == "indoor" else "20,2 °C\n56 %"
+            values = {
+                "stube": "24\n55", "bedroom": "23\n50",
+                "office": "24\n51", "sauna": "24\n52",
+            }
+            text = values.get(name, "20,2 °C\n56 %")
             if name in invalid:
                 text = "20\n\n56"
             Path(args[4]).write_text(text)
@@ -76,7 +85,7 @@ class TerraceConnectorTests(unittest.TestCase):
     def test_eve_failure_keeps_homepod_and_processes_once(self):
         code, calls, inputs, _ = self.simulate(failing={"eve"})
         self.assertEqual(code, 0)
-        self.assertEqual(calls, ["indoor", "homepod", "eve", "process"])
+        self.assertEqual(calls, ["stube", "bedroom", "office", "sauna", "homepod", "eve", "process"])
         readings = {s["id"]: s for s in inputs[0]["sensors"]}
         self.assertEqual(readings["eve-degree"]["failure"], "unavailable")
         self.assertIsNone(readings["eve-degree"]["measurement"])
@@ -93,9 +102,18 @@ class TerraceConnectorTests(unittest.TestCase):
         _, _, inputs, _ = self.simulate(failing={"eve", "homepod"})
         self.assertEqual(sum(s["measurement"] is None for s in inputs[0]["sensors"]), 2)
 
+    def test_one_indoor_failure_does_not_hide_other_rooms(self):
+        _, _, inputs, _ = self.simulate(failing={"bedroom"})
+        readings = {sensor["id"]: sensor for sensor in inputs[0]["sensors"]}
+        self.assertEqual(readings["schlafzimmer"]["failure"], "unavailable")
+        self.assertIsNone(readings["schlafzimmer"]["measurement"])
+        self.assertIsNotNone(readings["stube"]["measurement"])
+        self.assertIsNotNone(readings["buero-alois"]["measurement"])
+        self.assertIsNotNone(readings["sauna"]["measurement"])
+
     def test_invalid_pair_does_not_shift_following_sensors(self):
-        _, _, inputs, _ = self.simulate(invalid={"indoor", "eve"})
-        self.assertEqual(sum(s["failure"] == "invalid" for s in inputs[0]["sensors"]), 5)
+        _, _, inputs, _ = self.simulate(invalid={"bedroom", "eve"})
+        self.assertEqual(sum(s["failure"] == "invalid" for s in inputs[0]["sensors"]), 2)
 
     def test_collect_only_never_processes_or_sends(self):
         _, calls, inputs, output = self.simulate(collect_only=True)
@@ -130,7 +148,10 @@ class TerraceConnectorTests(unittest.TestCase):
                     return result
                 if name == "eve":
                     return types.SimpleNamespace(returncode=1)
-                values = "24\n55\n23\n50\n24\n51\n24\n52" if name == "indoor" else "20\n55"
+                values = {
+                    "stube": "24\n55", "bedroom": "23\n50",
+                    "office": "24\n51", "sauna": "24\n52",
+                }.get(name, "20\n55")
                 Path(args[4]).write_text(values)
                 return types.SimpleNamespace(returncode=0)
 

@@ -57,9 +57,11 @@ Luftfeuchtigkeit.
 
 ## Mehrere Räume und Aussensensoren
 
-Der optionale [Terrasse-Ersatzbetrieb](Docs/Terrasse-Ersatzbetrieb.md) liest
-Eve Degree und HomePod Terrasse unabhängig. Er unterstützt ausdrücklich
-gemeldete Sensorausfälle, zeigt die aktive Ersatzquelle in beiden Oberflächen
+Der optionale [Sensor-Ersatzbetrieb](Docs/Terrasse-Ersatzbetrieb.md) liest
+alle vier Haupt-Innensensoren sowie Eve Degree und HomePod Terrasse unabhängig.
+Bei einem ausgefallenen Innen-Hauptsensor übernimmt der frische, bias-korrigierte
+Zweitsensor desselben Raumes. Er unterstützt ausdrücklich gemeldete Sensorausfälle,
+zeigt die aktive physische Ersatzquelle in beiden Oberflächen und der Historie
 und verhindert doppelte oder unter falschem Namen gespeicherte Messungen.
 Die Aktivierung erfolgt erst nach Einrichtung der dort beschriebenen Kurzbefehle.
 

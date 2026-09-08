@@ -140,7 +140,7 @@ struct RoomSensorGroupCard: View {
 
                 Spacer()
 
-                Text(sensor.origin == .mainConnector ? "Hauptmessung" : "Zusatzmessung")
+                Text(originLabel(sensor.origin))
                     .font(.caption2)
                     .foregroundStyle(LiquidGlassTheme.tertiaryText)
             }
@@ -188,6 +188,14 @@ struct RoomSensorGroupCard: View {
 
     private func signed(_ value: Double) -> String {
         String(format: "%+.1f", value)
+    }
+
+    private func originLabel(_ origin: RoomSensorOrigin) -> String {
+        switch origin {
+        case .mainConnector: return "Hauptmessung"
+        case .additionalConnector: return "Zusatzmessung"
+        case .fallback: return "Ersatzmessung · bias-korrigiert"
+        }
     }
 
     private func badge(_ text: String, color: Color) -> some View {

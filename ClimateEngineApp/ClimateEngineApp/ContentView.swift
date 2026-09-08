@@ -275,11 +275,14 @@ struct ContentView: View {
         } else {
             explanation = "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen."
         }
-        guard let timestamp = additionalSensorSnapshot?.timestamp else {
-            return explanation
+        var parts = [explanation]
+        if let timestamp = additionalSensorSnapshot?.timestamp {
+            parts.append("Zusatzmessung \(timestamp.formatted(date: .omitted, time: .shortened))")
         }
-
-        return "\(explanation) · Zusatzmessung \(timestamp.formatted(date: .omitted, time: .shortened))"
+        if let fallback = (acquisitionStatus ?? snapshot?.acquisition)?.indoorFallbackSummary {
+            parts.append(fallback)
+        }
+        return parts.joined(separator: " · ")
     }
 
     private var sensorSnapshotsAreAligned: Bool {

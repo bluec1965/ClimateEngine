@@ -48,7 +48,7 @@ public struct ClimateEngineCommand {
         } else {
             collection = nil
         }
-        var outdoorSourceChanged = false
+        var sensorSourceChanged = false
         var numericValues = arguments.compactMap {
             try? MeasurementParser.double(from: $0)
         }
@@ -60,7 +60,15 @@ public struct ClimateEngineCommand {
         }
 
         if numericValues.count >= 4 || collection != nil {
-            let readings = collection.map { ($0.indoorRooms, $0.outdoorSensors) }
+            let indoorResolution = collection.map {
+                IndoorSensorFallbackResolver(paths: paths).resolve(
+                    collection: $0,
+                    now: executionDate
+                )
+            }
+            let readings = collection.map {
+                (indoorResolution?.rooms ?? $0.indoorRooms, $0.outdoorSensors)
+            }
                 ?? makeSensorReadings(from: numericValues)
             let indoorRooms = readings.0
             let outdoorSensors = readings.1
@@ -76,23 +84,32 @@ public struct ClimateEngineCommand {
                     // history entry, transition, notification or source change.
                     return "NONE"
                 }
-                let missingIndoor = collection.sensors.filter {
-                    !SensorAcquisitionStatus.outdoorIDs.contains($0.id) && $0.measurement == nil
-                }
+                let missingIndoor = indoorResolution?.unresolved ?? []
                 if !missingIndoor.isEmpty || outdoorSensors.isEmpty {
                     let message = outdoorSensors.isEmpty
                         ? "Beide Aussensensoren nicht verfügbar · keine aktuelle Lüftungsempfehlung."
                         : "Innenmessung unvollständig: " + missingIndoor.map(\.name).joined(separator: ", ")
                             + " · keine aktuelle Lüftungsempfehlung."
                     try SensorAcquisitionStore().write(
-                        collection.status(at: executionDate, accepted: false, message: message),
+                        collection.status(
+                            at: executionDate,
+                            accepted: false,
+                            message: message,
+                            indoorFallbacks: indoorResolution?.fallbacks
+                        ),
                         to: paths.sensorAcquisitionURL
                     )
                     return "NONE"
                 }
             }
-            outdoorSourceChanged = previousSnapshot.map {
-                Set($0.outdoorSensors.map(\.id)) != Set(outdoorSensors.map(\.id))
+            sensorSourceChanged = previousSnapshot.map {
+                Set($0.outdoorSensors.map(\.effectiveSensorID))
+                    != Set(outdoorSensors.map(\.effectiveSensorID))
+                    || Dictionary(uniqueKeysWithValues: $0.indoorRooms.map {
+                        ($0.id, $0.effectiveSensorID)
+                    }) != Dictionary(uniqueKeysWithValues: indoorRooms.map {
+                        ($0.id, $0.effectiveSensorID)
+                    })
             } ?? false
             let qualityDecision = try SensorInputQualityController(
                 stateURL: paths.sensorInputStateURL
@@ -120,7 +137,10 @@ public struct ClimateEngineCommand {
                 if let collection {
                     try SensorAcquisitionStore().write(
                         collection.status(
-                            at: executionDate, accepted: false, message: qualityDecision.reason
+                            at: executionDate,
+                            accepted: false,
+                            message: qualityDecision.reason,
+                            indoorFallbacks: indoorResolution?.fallbacks
                         ), to: paths.sensorAcquisitionURL
                     )
                 }
@@ -136,7 +156,10 @@ public struct ClimateEngineCommand {
                 }
             }
             let acquisition = collection?.status(
-                at: executionDate, accepted: true, message: "Aktuelle Messung akzeptiert."
+                at: executionDate,
+                accepted: true,
+                message: "Aktuelle Messung akzeptiert.",
+                indoorFallbacks: indoorResolution?.fallbacks
             )
             try SensorSnapshotWriter().write(
                 indoorRooms: indoorRooms,
@@ -172,7 +195,7 @@ public struct ClimateEngineCommand {
                     : .neutral
             )
         }
-        if outdoorSourceChanged, let previous = previousRecommendationState {
+        if sensorSourceChanged, let previous = previousRecommendationState {
             previousRecommendationState = RecommendationStabilityState(
                 samples: [],
                 effectiveRecommendation: previous.effectiveRecommendation,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only HomeKit helpers followed by exactly one processing/SMS shortcut.
 
-The three helpers must only return measurements. They must not call the CLI,
+Each helper returns exactly one measurement pair. It must not call the CLI,
 send messages or modify HomeKit. Failure of one helper never cancels the others.
 """
 
@@ -69,21 +69,32 @@ def read_sensors(shortcut, ids, command, directory, sequence, timeout=None):
 
 
 def run(config, command="/usr/bin/shortcuts", collect_only=False):
-    keys = ["indoorShortcut", "eveShortcut", "homepodShortcut", "processingShortcut"]
-    if config.get("version") != 1 or any(
-        not isinstance(config.get(key), str) or not config[key].strip() for key in keys
-    ) or len({config[key] for key in keys}) != 4:
-        raise ValueError("Vier unterschiedliche Kurzbefehle und version=1 erforderlich")
+    indoor_ids = ["stube", "schlafzimmer", "buero-alois", "sauna"]
+    common_keys = ["eveShortcut", "homepodShortcut", "processingShortcut"]
+    if config.get("version") == 2:
+        indoor_shortcuts = config.get("indoorShortcuts")
+        if not isinstance(indoor_shortcuts, dict) or set(indoor_shortcuts) != set(indoor_ids):
+            raise ValueError("version=2 benötigt genau vier Innenraum-Kurzbefehle")
+        sources = [(indoor_shortcuts[sensor_id], [sensor_id]) for sensor_id in indoor_ids]
+        configured = list(indoor_shortcuts.values()) + [config.get(key) for key in common_keys]
+    elif config.get("version") == 1:
+        sources = [(config.get("indoorShortcut"), indoor_ids)]
+        configured = [config.get("indoorShortcut")] + [config.get(key) for key in common_keys]
+    else:
+        raise ValueError("Unterstützt werden Konfigurationsversion 1 und 2")
+    if any(not isinstance(value, str) or not value.strip() for value in configured) \
+            or len(set(configured)) != len(configured):
+        raise ValueError("Alle Lese- und Verarbeitungskurzbefehle müssen unterschiedlich sein")
+    sources += [
+        (config["homepodShortcut"], ["homepod-terrasse"]),
+        (config["eveShortcut"], ["eve-degree"]),
+    ]
 
     with tempfile.TemporaryDirectory(prefix="climateengine-terrace-") as temp:
         directory = Path(temp)
         sensors = []
-        for sequence, (key, ids) in enumerate([
-            ("indoorShortcut", ["stube", "schlafzimmer", "buero-alois", "sauna"]),
-            ("homepodShortcut", ["homepod-terrasse"]),
-            ("eveShortcut", ["eve-degree"]),
-        ]):
-            sensors.extend(read_sensors(config[key], ids, command, directory, sequence))
+        for sequence, (shortcut, ids) in enumerate(sources):
+            sensors.extend(read_sensors(shortcut, ids, command, directory, sequence))
         payload = {"version": 1, "timestamp": timestamp(), "sensors": sensors}
         if collect_only:
             print(json.dumps(payload, ensure_ascii=False, allow_nan=False))

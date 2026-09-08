@@ -106,6 +106,9 @@ private struct SnapshotSensorReading: Encodable {
     let temperature: String
     let humidity: Double
     let isPrimary: Bool
+    let sourceSensorID: String?
+    let sourceSensorName: String?
+    let isFallback: Bool
 
     init(_ reading: SensorReading) {
         id = reading.id
@@ -113,5 +116,8 @@ private struct SnapshotSensorReading: Encodable {
         temperature = String(format: "%.3f °C", reading.measurement.temperature)
         humidity = reading.measurement.humidity
         isPrimary = reading.isPrimary
+        sourceSensorID = reading.sourceSensorID
+        sourceSensorName = reading.sourceSensorName
+        isFallback = reading.usesFallback
     }
 }

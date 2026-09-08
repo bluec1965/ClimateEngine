@@ -22,6 +22,9 @@ struct RawSensorReading: Decodable {
     let temperature: String
     let humidity: Double
     let isPrimary: Bool?
+    let sourceSensorID: String?
+    let sourceSensorName: String?
+    let isFallback: Bool?
 }
 extension RawSensorSnapshot {
 
@@ -85,7 +88,10 @@ extension RawSensorReading {
                 temperature: try rawMeasurement.temperatureValue(),
                 humidity: humidity
             ),
-            isPrimary: isPrimary ?? false
+            isPrimary: isPrimary ?? false,
+            sourceSensorID: sourceSensorID,
+            sourceSensorName: sourceSensorName,
+            isFallback: isFallback ?? false
         )
     }
 }

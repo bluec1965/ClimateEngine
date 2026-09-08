@@ -70,3 +70,19 @@ test("complete additional failure hides previous data and recovery restores it",
   assert.equal(context.additionalCheck(value, {timestamp: snapshot.timestamp, accepted: false, message: "Ausfall"}, now).sensors.length, 0);
   assert.equal(context.additionalCheck(value, null, now).sensors.length, 1);
 });
+
+test("active indoor fallback is labelled and not duplicated as an additional sensor", () => {
+  const primary = [{
+    id: "stube", name: "Stube", temperature: 24, humidity: 55, isPrimary: true,
+    sourceSensorId: "homepod-kueche", sourceSensorName: "HomePod Küche", isFallback: true,
+  }];
+  const additional = { sensors: [{
+    id: "homepod-kueche", name: "HomePod Küche", roomID: "stube", roomName: "Stube",
+    measurement: { temperature: 24.4, humidity: 50 },
+  }]};
+  const rooms = context.group(primary, additional, true);
+  assert.equal(rooms[0].sensors.length, 1);
+  assert.equal(rooms[0].sensors[0].origin, "fallback");
+  assert.equal(rooms[0].sensors[0].name, "HomePod Küche");
+  assert.ok(!rooms[0].biasCorrectedMeasurement);
+});

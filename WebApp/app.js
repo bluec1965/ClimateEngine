@@ -217,6 +217,9 @@ const sensorReading = (raw, fallback) => ({
   temperature: parseTemperature(raw?.temperature ?? fallback.temperature),
   humidity: Number(raw?.humidity ?? fallback.humidity),
   isPrimary: raw?.isPrimary ?? fallback.isPrimary,
+  sourceSensorId: raw?.sourceSensorID || null,
+  sourceSensorName: raw?.sourceSensorName || null,
+  isFallback: raw?.isFallback === true,
 });
 
 const snapshotReadings = (snapshot) => {
@@ -354,14 +357,23 @@ const groupedRoomReadings = (
   const groups = primaryRooms.map((sensor) => ({
     id: sensor.id,
     name: sensor.name,
-    sensors: [{ ...sensor, name: primarySensorDisplayName(sensor), origin: "main" }],
+    sensors: [{
+      ...sensor,
+      id: sensor.sourceSensorId || sensor.id,
+      name: sensor.isFallback
+        ? (sensor.sourceSensorName || sensor.name)
+        : primarySensorDisplayName(sensor),
+      origin: sensor.isFallback ? "fallback" : "main",
+    }],
   }));
 
   for (const sensor of additionalSnapshotReadings(additionalSnapshot)) {
     const room = canonicalAdditionalRoom(sensor);
     const existing = groups.find((group) => group.id === room.id);
     if (existing) {
-      existing.sensors.push(sensor);
+      if (!existing.sensors.some((item) => item.id === sensor.id)) {
+        existing.sensors.push(sensor);
+      }
     } else {
       groups.push({ id: room.id, name: room.name, sensors: [sensor] });
     }
@@ -483,7 +495,7 @@ const renderRoomSensorCards = (containerId, groups) => {
       panel.innerHTML = `
         <div class="room-sensor-header">
           <strong></strong>
-          <span class="sensor-origin">${sensor.origin === "main" ? "Hauptmessung" : "Zusatzmessung"}</span>
+          <span class="sensor-origin">${sensor.origin === "main" ? "Hauptmessung" : sensor.origin === "fallback" ? "Ersatzmessung · bias-korrigiert" : "Zusatzmessung"}</span>
         </div>
         <dl>
           <div><dt>Temperatur</dt><dd>${temperatureText(sensor.temperature)}</dd></div>
@@ -788,6 +800,14 @@ const render = ({
     additionalMeasurementTime.hidden = false;
     additionalMeasurementTime.textContent += ` · ${additionalState.message}`;
     additionalMeasurementTime.className = "warning";
+  }
+  const indoorFallbacks = (sensorAcquisition || snapshot.acquisition)?.indoorFallbacks || [];
+  if (indoorFallbacks.length) {
+    const fallbackText = "Ersatzbetrieb Innen · " + indoorFallbacks.map((fallback) =>
+      `${fallback.roomName}: ${fallback.activeSensorName} aktiv · ${fallback.unavailableSensorName} nicht verfügbar`
+    ).join(" · ");
+    indoorSummary.textContent += ` · ${fallbackText}`;
+    indoorSummary.className = "section-note warning";
   }
   renderHistory(history, additionalHistorySummary, additionalHistoryError);
 };

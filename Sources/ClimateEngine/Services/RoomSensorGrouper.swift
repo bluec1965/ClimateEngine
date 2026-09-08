@@ -68,10 +68,12 @@ public struct RoomSensorGrouper {
                 name: reading.name,
                 sensors: [
                     RoomSensorObservation(
-                        id: reading.id,
-                        name: displayName(forPrimarySensor: reading),
+                        id: reading.effectiveSensorID,
+                        name: reading.usesFallback
+                            ? reading.effectiveSensorName
+                            : displayName(forPrimarySensor: reading),
                         measurement: reading.measurement,
-                        origin: .mainConnector,
+                        origin: reading.usesFallback ? .fallback : .mainConnector,
                         isReferenceSensor: reading.isPrimary
                     )
                 ]
@@ -88,7 +90,9 @@ public struct RoomSensorGrouper {
             )
 
             if let index = builders.firstIndex(where: { $0.id == room.id }) {
-                builders[index].sensors.append(observation)
+                if !builders[index].sensors.contains(where: { $0.id == observation.id }) {
+                    builders[index].sensors.append(observation)
+                }
             } else {
                 builders.append(
                     Builder(

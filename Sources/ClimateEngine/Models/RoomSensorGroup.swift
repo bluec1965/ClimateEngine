@@ -3,6 +3,7 @@ import Foundation
 public enum RoomSensorOrigin: Equatable, Sendable {
     case mainConnector
     case additionalConnector
+    case fallback
 }
 
 public struct RoomSensorObservation: Identifiable, Equatable, Sendable {

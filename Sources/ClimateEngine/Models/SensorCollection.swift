@@ -34,6 +34,21 @@ public struct SensorAcquisitionStatus: Codable, Equatable, Sendable {
     public let accepted: Bool
     public let message: String
     public let sensors: [CollectedSensor]
+    public let indoorFallbacks: [IndoorSensorFallbackUsage]?
+
+    public init(
+        timestamp: Date,
+        accepted: Bool,
+        message: String,
+        sensors: [CollectedSensor],
+        indoorFallbacks: [IndoorSensorFallbackUsage]? = nil
+    ) {
+        self.timestamp = timestamp
+        self.accepted = accepted
+        self.message = message
+        self.sensors = sensors
+        self.indoorFallbacks = indoorFallbacks
+    }
 
     public var outdoorSensors: [CollectedSensor] {
         sensors.filter { Self.outdoorIDs.contains($0.id) }
@@ -53,6 +68,13 @@ public struct SensorAcquisitionStatus: Codable, Equatable, Sendable {
                 + " nicht verfügbar"
         }
         return "Aussenmittel aus Eve Degree und HomePod Terrasse"
+    }
+
+    public var indoorFallbackSummary: String? {
+        guard let fallbacks = indoorFallbacks, !fallbacks.isEmpty else { return nil }
+        return "Ersatzbetrieb Innen · " + fallbacks.map {
+            "\($0.roomName): \($0.activeSensorName) aktiv · \($0.unavailableSensorName) nicht verfügbar"
+        }.joined(separator: " · ")
     }
 
     static let outdoorIDs: Set<String> = ["eve-degree", "homepod-terrasse"]
@@ -162,7 +184,49 @@ struct SensorCollection: Decodable {
         }
     }
 
-    func status(at date: Date, accepted: Bool, message: String) -> SensorAcquisitionStatus {
-        SensorAcquisitionStatus(timestamp: date, accepted: accepted, message: message, sensors: sensors)
+    func status(
+        at date: Date,
+        accepted: Bool,
+        message: String,
+        indoorFallbacks: [IndoorSensorFallbackUsage]? = nil
+    ) -> SensorAcquisitionStatus {
+        SensorAcquisitionStatus(
+            timestamp: date,
+            accepted: accepted,
+            message: message,
+            sensors: sensors,
+            indoorFallbacks: indoorFallbacks
+        )
+    }
+}
+
+public struct IndoorSensorFallbackUsage: Codable, Equatable, Sendable {
+    public let roomID: String
+    public let roomName: String
+    public let unavailableSensorID: String
+    public let unavailableSensorName: String
+    public let activeSensorID: String
+    public let activeSensorName: String
+    public let measuredAt: Date
+    public let biasCorrectionApplied: Bool
+
+    public init(
+        roomID: String,
+        roomName: String,
+        unavailableSensorID: String,
+        unavailableSensorName: String,
+        activeSensorID: String,
+        activeSensorName: String,
+        measuredAt: Date,
+        biasCorrectionApplied: Bool
+    ) {
+        self.roomID = roomID
+        self.roomName = roomName
+        self.unavailableSensorID = unavailableSensorID
+        self.unavailableSensorName = unavailableSensorName
+        self.activeSensorID = activeSensorID
+        self.activeSensorName = activeSensorName
+        self.measuredAt = measuredAt
+        self.biasCorrectionApplied = biasCorrectionApplied
     }
 }

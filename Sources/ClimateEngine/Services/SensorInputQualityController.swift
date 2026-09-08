@@ -108,6 +108,14 @@ struct SensorInputQualityController {
             )
         }
 
+        if current.effectiveSensorID != previous.effectiveSensorID {
+            try stateStore.save(.empty)
+            return SensorInputQualityDecision(
+                isAccepted: true,
+                reason: "Sensorquelle für \(current.name) wurde gewechselt"
+            )
+        }
+
         var state = try stateStore.load()
         let elapsed = now.timeIntervalSince(previousSnapshot.timestamp)
         let hasRecentPendingMeasurement = state.pending.map {

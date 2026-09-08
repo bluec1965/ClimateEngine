@@ -50,16 +50,31 @@ public struct SensorReading: Codable, Equatable, Identifiable, Sendable {
     public let name: String
     public let measurement: ClimateMeasurement
     public let isPrimary: Bool
+    /// The physical sensor used for this room slot. Nil means `id`/`name`.
+    public let sourceSensorID: String?
+    public let sourceSensorName: String?
+    /// Optional for backward-compatible decoding of version 1–3 snapshots.
+    public let isFallback: Bool?
 
     public init(
         id: String,
         name: String,
         measurement: ClimateMeasurement,
-        isPrimary: Bool = false
+        isPrimary: Bool = false,
+        sourceSensorID: String? = nil,
+        sourceSensorName: String? = nil,
+        isFallback: Bool = false
     ) {
         self.id = id
         self.name = name
         self.measurement = measurement
         self.isPrimary = isPrimary
+        self.sourceSensorID = sourceSensorID
+        self.sourceSensorName = sourceSensorName
+        self.isFallback = isFallback
     }
+
+    public var effectiveSensorID: String { sourceSensorID ?? id }
+    public var effectiveSensorName: String { sourceSensorName ?? name }
+    public var usesFallback: Bool { isFallback == true }
 }

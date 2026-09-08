@@ -1,6 +1,11 @@
 {
-  "version": 1,
-  "indoorShortcut": "ClimateEngine Read Indoor",
+  "version": 2,
+  "indoorShortcuts": {
+    "stube": "ClimateEngine Read Main Stube",
+    "schlafzimmer": "ClimateEngine Read Main Schlafzimmer",
+    "buero-alois": "ClimateEngine Read Büro Alois Links",
+    "sauna": "ClimateEngine Read Sauna Rechts"
+  },
   "eveShortcut": "ClimateEngine Read Eve Degree",
   "homepodShortcut": "ClimateEngine Read HomePod Terrasse",
   "processingShortcut": "ClimateEngine Process Sensors"
