@@ -401,11 +401,15 @@ public struct ClimateEngineCommand {
             from: paths.operatingModeURL,
             now: executionDate
         )) ?? .defaultState(now: executionDate)
+        let previousMode = (try? SeasonalRecommendationStore().load(
+            from: paths.seasonalRecommendationSnapshotURL
+        ))?.effectiveMode
         let seasonalSnapshot = SeasonalVentilationAdvisor().evaluate(
             snapshot: snapshot,
             weather: weather,
             operatingState: operatingState,
             productionAnalysis: productionAnalysis,
+            previousMode: previousMode,
             now: executionDate
         )
 

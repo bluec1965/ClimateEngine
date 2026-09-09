@@ -79,7 +79,7 @@ func automaticOperatingModeUsesIndoorAndForecastWarmth() {
     )
     let warmIndoor = seasonalTestSnapshot(
         now: now,
-        indoor: ClimateMeasurement(temperature: 23.1, humidity: 50),
+        indoor: ClimateMeasurement(temperature: 23.6, humidity: 50),
         outdoor: ClimateMeasurement(temperature: 12, humidity: 60)
     )
     let coolIndoor = seasonalTestSnapshot(
@@ -124,6 +124,33 @@ func automaticOperatingModeUsesIndoorAndForecastWarmth() {
         weather: nil,
         now: now
     ) == .transition)
+
+    let hysteresisSnapshot = seasonalTestSnapshot(
+        now: now,
+        indoor: ClimateMeasurement(temperature: 23, humidity: 50),
+        outdoor: ClimateMeasurement(temperature: 12, humidity: 60)
+    )
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: hysteresisSnapshot,
+        weather: nil,
+        previousMode: .summer,
+        now: now
+    ) == .summer)
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: hysteresisSnapshot,
+        weather: nil,
+        previousMode: .transition,
+        now: now
+    ) == .transition)
+    #expect(OperatingModeResolver.resolve(
+        state: state,
+        snapshot: coolIndoor,
+        weather: nil,
+        previousMode: .summer,
+        now: now
+    ) == .transition)
 }
 
 @Test
@@ -131,7 +158,7 @@ func seasonalAdvisorUsesBriefVentilationAndWarmerHeatingWindow() {
     let now = ISO8601DateFormatter().date(from: "2026-10-12T07:00:00Z")!
     let snapshot = seasonalTestSnapshot(
         now: now,
-        indoor: ClimateMeasurement(temperature: 22.5, humidity: 55),
+        indoor: ClimateMeasurement(temperature: 23, humidity: 55),
         outdoor: ClimateMeasurement(temperature: 12, humidity: 50)
     )
     let production = VentilationAdvisor.analyze(snapshot: snapshot)
@@ -148,6 +175,7 @@ func seasonalAdvisorUsesBriefVentilationAndWarmerHeatingWindow() {
     )
 
     #expect(transition.effectiveMode == .transition)
+    #expect(transition.comfortFloorTemperature == 22)
     #expect(transition.recommendation == .briefVentilation)
     #expect(transition.suggestedDurationMinutes == 10)
 

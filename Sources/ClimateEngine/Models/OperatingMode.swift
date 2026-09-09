@@ -44,6 +44,7 @@ public enum OperatingModeResolver {
         state: OperatingModeState,
         snapshot: SensorSnapshot?,
         weather: WeatherSnapshot?,
+        previousMode: OperatingMode? = nil,
         now: Date = Date()
     ) -> OperatingMode {
         if state.heatingEnabled {
@@ -56,17 +57,29 @@ public enum OperatingModeResolver {
         case .transition:
             return .transition
         case .automatic:
-            return automaticMode(snapshot: snapshot, weather: weather, now: now)
+            return automaticMode(
+                snapshot: snapshot,
+                weather: weather,
+                previousMode: previousMode,
+                now: now
+            )
         }
     }
 
     private static func automaticMode(
         snapshot: SensorSnapshot?,
         weather: WeatherSnapshot?,
+        previousMode: OperatingMode?,
         now: Date
     ) -> OperatingMode {
         if let indoorTemperature = snapshot?.indoor.temperature,
-           indoorTemperature >= 23 {
+           indoorTemperature >= 23.5 {
+            return .summer
+        }
+
+        if previousMode == .summer,
+           let indoorTemperature = snapshot?.indoor.temperature,
+           indoorTemperature >= 22.5 {
             return .summer
         }
 

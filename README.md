@@ -41,7 +41,7 @@ jeder neuen Hauptmessung eine saisonale Kandidatenempfehlung:
 
 - `Sommer` spiegelt die bestehende Empfehlung.
 - `Übergang` prüft einen zehnminütigen Luftaustausch gegen eine vorläufige
-  Komfortgrenze von 21 °C und wartet nach Möglichkeit auf wärmere, weiterhin
+  Komfortgrenze von 22 °C und wartet nach Möglichkeit auf wärmere, weiterhin
   trockene Aussenluft.
 - `Heizen` empfiehlt nur kurzes Stosslüften von drei bis fünf Minuten und wartet
   bei nicht dringender Feuchte auf das wärmste ausreichend trockene Fenster der

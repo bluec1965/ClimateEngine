@@ -5,7 +5,7 @@ public struct SeasonalVentilationAdvisor {
     public let dryingThreshold: Double
 
     public init(
-        comfortFloorTemperature: Double = 21,
+        comfortFloorTemperature: Double = 22,
         dryingThreshold: Double = 0.3
     ) {
         self.comfortFloorTemperature = comfortFloorTemperature
@@ -17,12 +17,14 @@ public struct SeasonalVentilationAdvisor {
         weather: WeatherSnapshot?,
         operatingState: OperatingModeState,
         productionAnalysis: VentilationAnalysis,
+        previousMode: OperatingMode? = nil,
         now: Date
     ) -> SeasonalRecommendationSnapshot {
         let mode = OperatingModeResolver.resolve(
             state: operatingState,
             snapshot: snapshot,
             weather: weather,
+            previousMode: previousMode,
             now: now
         )
         let indoor = snapshot.indoor

@@ -110,7 +110,8 @@ struct ContentView: View {
                 effectiveMode: OperatingModeResolver.resolve(
                     state: operatingModeState,
                     snapshot: snapshot,
-                    weather: weatherSnapshot
+                    weather: weatherSnapshot,
+                    previousMode: seasonalRecommendation?.effectiveMode
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 errorMessage: operatingModeLoadError,

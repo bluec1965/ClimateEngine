@@ -4,7 +4,7 @@ import argparse
 import json
 import mimetypes
 import socket
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -27,7 +27,7 @@ def parse_temperature(value):
     return float(str(value).replace(",", ".").split()[0])
 
 
-def resolve_effective_mode(state, snapshot, weather):
+def resolve_effective_mode(state, snapshot, weather, previous_mode=None):
     if state.get("heatingEnabled") is True:
         return "heating"
 
@@ -36,7 +36,10 @@ def resolve_effective_mode(state, snapshot, weather):
         return selection
 
     try:
-        if parse_temperature(snapshot["indoor"]["temperature"]) >= 23:
+        indoor_temperature = parse_temperature(snapshot["indoor"]["temperature"])
+        if indoor_temperature >= 23.5:
+            return "summer"
+        if previous_mode == "summer" and indoor_temperature >= 22.5:
             return "summer"
     except (KeyError, TypeError, ValueError):
         pass
@@ -49,7 +52,17 @@ def resolve_effective_mode(state, snapshot, weather):
             weather_timestamp = weather_timestamp.astimezone()
         age = abs((datetime.now().astimezone() - weather_timestamp).total_seconds())
         if age <= 90 * 60:
-            readings = [weather["current"]] + weather.get("hourlyForecast", [])
+            now = datetime.now().astimezone()
+            horizon = now + timedelta(hours=6)
+            readings = [weather["current"]]
+            for reading in weather.get("hourlyForecast", []):
+                timestamp = datetime.fromisoformat(
+                    reading["timestamp"].replace("Z", "+00:00")
+                )
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.astimezone()
+                if now <= timestamp <= horizon:
+                    readings.append(reading)
             temperatures = [parse_temperature(item["temperature"]) for item in readings]
             if max(temperatures, default=float("-inf")) >= 20:
                 return "summer"
@@ -59,7 +72,7 @@ def resolve_effective_mode(state, snapshot, weather):
     return "transition"
 
 
-def read_operating_mode(snapshot, weather):
+def read_operating_mode(snapshot, weather, previous_mode=None):
     state = {
         "version": 1,
         "heatingEnabled": False,
@@ -81,7 +94,9 @@ def read_operating_mode(snapshot, weather):
     except Exception as read_error:
         error = f"Betriebsart konnte nicht geladen werden: {read_error}"
 
-    state["effectiveMode"] = resolve_effective_mode(state, snapshot, weather)
+    state["effectiveMode"] = resolve_effective_mode(
+        state, snapshot, weather, previous_mode
+    )
     return state, error
 
 
@@ -162,7 +177,6 @@ def read_dashboard_data():
         except Exception:
             recommendation = None
 
-    operating_mode, operating_mode_error = read_operating_mode(snapshot, weather)
     seasonal_recommendation = None
     seasonal_recommendation_error = None
     seasonal_path = DATA_ROOT / "seasonal-recommendation" / "current.json"
@@ -172,6 +186,13 @@ def read_dashboard_data():
         seasonal_recommendation_error = (
             f"Schattenauswertung konnte nicht geladen werden: {error}"
         )
+
+    previous_mode = None
+    if isinstance(seasonal_recommendation, dict):
+        previous_mode = seasonal_recommendation.get("effectiveMode")
+    operating_mode, operating_mode_error = read_operating_mode(
+        snapshot, weather, previous_mode
+    )
 
     additional_sensor_snapshot = None
     additional_sensor_error = None
