@@ -118,6 +118,9 @@ public struct ClimateEngineCommand {
                 outdoorSensors: outdoorSensors,
                 previousSnapshot: previousSnapshot,
                 now: executionDate,
+                ventilationSessionActive: (try? VentilationSessionStore()
+                    .load(from: paths.ventilationSessionURL))?
+                    .isActive(at: executionDate) ?? false,
                 reportedUnavailableOutdoorIDs: collection.map {
                     $0.status(at: executionDate, accepted: false, message: "").unavailableOutdoorIDs
                 } ?? []

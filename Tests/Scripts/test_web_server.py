@@ -1,5 +1,7 @@
 import importlib.util
+import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -51,6 +53,32 @@ class OperatingModeHysteresisTests(unittest.TestCase):
             ),
             "transition",
         )
+
+
+class VentilationSessionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.original_path = SERVER.VENTILATION_SESSION_PATH
+        SERVER.VENTILATION_SESSION_PATH = Path(self.temporary_directory.name) / "ventilation-session.json"
+
+    def tearDown(self):
+        SERVER.VENTILATION_SESSION_PATH = self.original_path
+        self.temporary_directory.cleanup()
+
+    def test_start_and_stop_are_persisted(self):
+        now = datetime(2026, 10, 1, 8, 0, tzinfo=timezone.utc)
+        started = SERVER.write_ventilation_session(True, now=now)
+        self.assertTrue(started["active"])
+        self.assertEqual(started["remainingSeconds"], 600)
+        stopped = SERVER.write_ventilation_session(False, now=now + timedelta(minutes=2))
+        self.assertFalse(stopped["active"])
+        self.assertEqual(stopped["remainingSeconds"], 0)
+
+    def test_session_expires_without_a_timer_process(self):
+        now = datetime(2026, 10, 1, 8, 0, tzinfo=timezone.utc)
+        SERVER.write_ventilation_session(True, now=now)
+        expired = SERVER.ventilation_session_payload(now=now + timedelta(minutes=10))
+        self.assertFalse(expired["active"])
 
 
 if __name__ == "__main__":

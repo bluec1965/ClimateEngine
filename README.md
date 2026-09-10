@@ -30,9 +30,10 @@ Statusanzeige.
 Der eingeschaltete Heizschalter hat immer Vorrang und aktiviert `Heizen`. Beim
 Ausschalten wechselt die Auswahl aus Sicherheitsgründen zurück auf `Auto`.
 Ohne Heizung folgt eine manuelle Auswahl direkt der gewünschten Betriebsart.
-In `Auto` gilt vorläufig `Sommer`, wenn die Stube mindestens 23 °C warm ist
+In `Auto` gilt vorläufig `Sommer`, wenn die Stube mindestens 23,5 °C warm ist
 oder die aktuelle beziehungsweise in den nächsten sechs Stunden erwartete
-Aussentemperatur mindestens 20 °C erreicht; andernfalls gilt `Übergang`.
+Aussentemperatur mindestens 20 °C erreicht. Zwischen 22,5 und 23,5 °C bleibt
+die bisherige Betriebsart bestehen; darunter gilt `Übergang`.
 Diese Schwellen werden mit den gesammelten Daten später überprüft.
 
 Die bestehende Sommerempfehlung einschliesslich SMS bleibt in diesem ersten
@@ -54,6 +55,11 @@ Oberflächen kennzeichnen diese Empfehlung ausdrücklich als Schattenmodus ohne
 Auswirkung auf SMS. Da ClimateEngine noch keinen CO₂-Sensor auswertet, basiert
 dieser Kandidat vorläufig nur auf Temperatur sowie relativer und absoluter
 Luftfeuchtigkeit.
+
+Eine wohnungsweite Stosslüftung kann in Mac-App und WebUI für zehn Minuten
+gestartet und vorzeitig beendet werden. Der persistente Ablaufzeitpunkt beendet
+sie auch nach Neustarts automatisch. Erwartbare Abkühlung wird währenddessen
+akzeptiert; die übrigen Plausibilitäts- und Vollständigkeitsprüfungen bleiben aktiv.
 
 ## Mehrere Räume und Aussensensoren
 

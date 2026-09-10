@@ -35,6 +35,8 @@ struct ContentView: View {
     @State private var operatingModeState = OperatingModeState.defaultState()
     @State private var seasonalRecommendation: SeasonalRecommendationSnapshot?
     @State private var operatingModeLoadError: String?
+    @State private var ventilationSession: VentilationSession?
+    @State private var ventilationSessionError: String?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -114,9 +116,12 @@ struct ContentView: View {
                     previousMode: seasonalRecommendation?.effectiveMode
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
-                errorMessage: operatingModeLoadError,
+                ventilationSession: ventilationSession,
+                errorMessage: operatingModeLoadError ?? ventilationSessionError,
                 onHeatingChanged: updateHeatingState,
-                onSelectionChanged: updateOperatingModeSelection
+                onSelectionChanged: updateOperatingModeSelection,
+                onVentilationStarted: startVentilationSession,
+                onVentilationStopped: stopVentilationSession
             )
 
             indoorRoomSection
@@ -478,6 +483,16 @@ struct ContentView: View {
             operatingModeLoadError = "Betriebsart konnte nicht geladen werden: \(error)"
         }
 
+        do {
+            ventilationSession = try VentilationSessionStore().load(
+                from: paths.ventilationSessionURL
+            )
+            ventilationSessionError = nil
+        } catch {
+            ventilationSession = nil
+            ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
+        }
+
         if FileManager.default.fileExists(
             atPath: paths.seasonalRecommendationSnapshotURL.path
         ) {
@@ -526,6 +541,27 @@ struct ContentView: View {
             operatingModeLoadError = nil
         } catch {
             operatingModeLoadError = "Betriebsart konnte nicht gespeichert werden: \(error)"
+        }
+    }
+
+    private func startVentilationSession() {
+        saveVentilationSession(.start())
+    }
+
+    private func stopVentilationSession() {
+        saveVentilationSession(.stopped())
+    }
+
+    private func saveVentilationSession(_ session: VentilationSession) {
+        do {
+            try VentilationSessionStore().write(
+                session,
+                to: paths.ventilationSessionURL
+            )
+            ventilationSession = session
+            ventilationSessionError = nil
+        } catch {
+            ventilationSessionError = "Stosslüftung konnte nicht gespeichert werden: \(error)"
         }
     }
 

@@ -67,6 +67,7 @@ struct SensorInputQualityController {
         outdoorSensors: [SensorReading],
         previousSnapshot: SensorSnapshot?,
         now: Date,
+        ventilationSessionActive: Bool = false,
         reportedUnavailableOutdoorIDs: Set<String> = []
     ) throws -> SensorInputQualityDecision {
         if let previousSnapshot {
@@ -113,6 +114,16 @@ struct SensorInputQualityController {
             return SensorInputQualityDecision(
                 isAccepted: true,
                 reason: "Sensorquelle für \(current.name) wurde gewechselt"
+            )
+        }
+
+        if ventilationSessionActive,
+           current.measurement.temperature
+                <= previous.measurement.temperature + temperatureConfirmationTolerance {
+            try stateStore.save(.empty)
+            return SensorInputQualityDecision(
+                isAccepted: true,
+                reason: "Messwertänderung während aktiver Stosslüftung akzeptiert"
             )
         }
 

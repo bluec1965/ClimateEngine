@@ -211,6 +211,28 @@ const renderOperatingMode = (
   errorElement.textContent = error || "";
 };
 
+const renderVentilationSession = (session) => {
+  const active = session?.active === true && session.remainingSeconds > 0;
+  const container = byId("ventilation-session");
+  const button = byId("ventilation-session-button");
+  container.classList.toggle("active", active);
+  setText("ventilation-session-title", active ? "Stosslüftung aktiv" : "Nicht aktiv");
+  if (active) {
+    const minutes = Math.max(1, Math.ceil(session.remainingSeconds / 60));
+    setText(
+      "ventilation-session-detail",
+      `Noch ca. ${minutes} Minuten · endet automatisch um ${formatTime(session.expiresAt)}`,
+    );
+  } else {
+    setText(
+      "ventilation-session-detail",
+      "Erwartbare Abkühlung wird im Normalbetrieb geprüft.",
+    );
+  }
+  button.textContent = active ? "Vorzeitig beenden" : "10 Minuten starten";
+  button.dataset.action = active ? "stop" : "start";
+};
+
 const sensorReading = (raw, fallback) => ({
   id: raw?.id || fallback.id,
   name: raw?.name || fallback.name,
@@ -697,6 +719,7 @@ const render = ({
   operatingModeError,
   seasonalRecommendation,
   seasonalRecommendationError,
+  ventilationSession,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
   additionalSensorError,
@@ -726,6 +749,7 @@ const render = ({
     acquisition.unavailable ? null : seasonalRecommendation,
     seasonalRecommendationError,
   );
+  renderVentilationSession(ventilationSession);
 
   renderRoomSensorCards(
     "indoor-grid",
@@ -832,5 +856,27 @@ const refresh = async () => {
 };
 
 byId("refresh-button").addEventListener("click", refresh);
+byId("ventilation-session-button").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const action = button.dataset.action || "start";
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/ventilation-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    renderVentilationSession(payload);
+    await refresh();
+  } catch (error) {
+    const status = byId("connection-status");
+    status.className = "status-pill error";
+    status.lastElementChild.textContent = `Stosslüftung nicht gespeichert: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
 refresh();
 setInterval(refresh, 10_000);

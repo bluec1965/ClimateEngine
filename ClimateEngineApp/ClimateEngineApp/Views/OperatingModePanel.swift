@@ -5,9 +5,12 @@ struct OperatingModePanel: View {
     let state: OperatingModeState
     let effectiveMode: OperatingMode
     let shadowRecommendation: SeasonalRecommendationSnapshot?
+    let ventilationSession: VentilationSession?
     let errorMessage: String?
     let onHeatingChanged: (Bool) -> Void
     let onSelectionChanged: (OperatingModeSelection) -> Void
+    let onVentilationStarted: () -> Void
+    let onVentilationStopped: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
@@ -91,6 +94,35 @@ struct OperatingModePanel: View {
                 }
 
                 Spacer()
+            }
+            .padding(14)
+            .liquidGlassInset(cornerRadius: 16)
+
+            HStack(spacing: 14) {
+                LiquidGlassIndicatorIcon(
+                    systemName: ventilationIsActive ? "wind" : "window.vertical.closed",
+                    tint: ventilationIsActive ? .orange : LiquidGlassTheme.mint,
+                    size: 28,
+                    symbolSize: 12,
+                    vibrant: ventilationIsActive
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(ventilationIsActive ? "Stosslüftung aktiv" : "Stosslüftung")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(ventilationStatusText)
+                        .font(.caption)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Button(ventilationIsActive ? "Vorzeitig beenden" : "10 Minuten starten") {
+                    ventilationIsActive ? onVentilationStopped() : onVentilationStarted()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ventilationIsActive ? .orange : LiquidGlassTheme.petrol)
             }
             .padding(14)
             .liquidGlassInset(cornerRadius: 16)
@@ -196,5 +228,17 @@ struct OperatingModePanel: View {
     private var shadowExplanation: String {
         shadowRecommendation?.explanation
             ?? "Die produktive Sommerlogik bleibt unverändert aktiv."
+    }
+
+    private var ventilationIsActive: Bool {
+        ventilationSession?.isActive() ?? false
+    }
+
+    private var ventilationStatusText: String {
+        guard ventilationIsActive, let ventilationSession else {
+            return "Erwartbare Abkühlung wird im Normalbetrieb geprüft."
+        }
+        let minutes = max(1, Int(ceil(Double(ventilationSession.remainingSeconds()) / 60)))
+        return "Noch ca. \(minutes) Minuten · endet automatisch um \(ventilationSession.expiresAt.formatted(date: .omitted, time: .shortened))"
     }
 }

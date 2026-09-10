@@ -136,6 +136,10 @@ public struct ClimateEnginePaths: Sendable {
         stateDirectory.appendingPathComponent("operating-mode.json")
     }
 
+    public var ventilationSessionURL: URL {
+        stateDirectory.appendingPathComponent("ventilation-session.json")
+    }
+
     public var seasonalRecommendationSnapshotURL: URL {
         dataDirectory
             .appendingPathComponent("seasonal-recommendation")

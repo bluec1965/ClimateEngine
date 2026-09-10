@@ -3,8 +3,10 @@
 import argparse
 import json
 import mimetypes
+import os
 import socket
-from datetime import datetime, timedelta
+import threading
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -12,6 +14,8 @@ from urllib.parse import urlparse
 
 WEB_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
+VENTILATION_SESSION_PATH = DATA_ROOT / "ventilation-session.json"
+VENTILATION_SESSION_LOCK = threading.Lock()
 
 
 def read_optional_json(path):
@@ -19,6 +23,43 @@ def read_optional_json(path):
         return None
     with path.open(encoding="utf-8") as file:
         return json.load(file)
+
+
+def ventilation_session_payload(now=None):
+    now = now or datetime.now().astimezone()
+    session = read_optional_json(VENTILATION_SESSION_PATH)
+    if not isinstance(session, dict):
+        return {"active": False, "remainingSeconds": 0}
+    try:
+        started_at = datetime.fromisoformat(session["startedAt"].replace("Z", "+00:00"))
+        expires_at = datetime.fromisoformat(session["expiresAt"].replace("Z", "+00:00"))
+        active = started_at <= now < expires_at
+        remaining = max(0, int((expires_at - now).total_seconds() + 0.999)) if active else 0
+        return {
+            **session,
+            "active": active,
+            "remainingSeconds": remaining,
+        }
+    except (KeyError, TypeError, ValueError):
+        return {"active": False, "remainingSeconds": 0}
+
+
+def write_ventilation_session(active, now=None):
+    now = (now or datetime.now(timezone.utc)).replace(microsecond=0)
+    expires_at = now + timedelta(minutes=10) if active else now
+    session = {
+        "version": 1,
+        "startedAt": now.isoformat().replace("+00:00", "Z"),
+        "expiresAt": expires_at.isoformat().replace("+00:00", "Z"),
+    }
+    VENTILATION_SESSION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = VENTILATION_SESSION_PATH.with_suffix(".json.tmp")
+    with VENTILATION_SESSION_LOCK:
+        with temporary_path.open("w", encoding="utf-8") as file:
+            json.dump(session, file, ensure_ascii=False, indent=2, sort_keys=True)
+            file.write("\n")
+        os.replace(temporary_path, VENTILATION_SESSION_PATH)
+    return ventilation_session_payload(now=now)
 
 
 def parse_temperature(value):
@@ -246,6 +287,7 @@ def read_dashboard_data():
         "operatingModeError": operating_mode_error,
         "seasonalRecommendation": seasonal_recommendation,
         "seasonalRecommendationError": seasonal_recommendation_error,
+        "ventilationSession": ventilation_session_payload(),
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),
         "additionalSensorError": additional_sensor_error,
@@ -278,6 +320,47 @@ class ClimateEngineHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(content)
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if path != "/api/ventilation-session":
+            self.send_error(404, "Nicht gefunden")
+            return
+
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host")
+        if not origin or not host or origin not in (f"http://{host}", f"https://{host}"):
+            self.send_json({"error": "Ungültiger Ursprung"}, status=403)
+            return
+
+        if self.headers.get_content_type() != "application/json":
+            self.send_json({"error": "JSON erwartet"}, status=415)
+            return
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 1024:
+                raise ValueError("Ungültige Anfragegrösse")
+            request = json.loads(self.rfile.read(length))
+            action = request.get("action")
+            if action not in ("start", "stop"):
+                raise ValueError("Unbekannte Aktion")
+            self.send_json(write_ventilation_session(action == "start"))
+        except (TypeError, ValueError, json.JSONDecodeError) as error:
+            self.send_json({"error": str(error)}, status=400)
+
+    def send_json(self, value, status=200):
+        payload = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(payload)
 
     def send_dashboard(self):
         try:

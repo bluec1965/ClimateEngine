@@ -281,6 +281,28 @@ button {
 .operating-mode-details small { color: var(--muted); font-size: 0.72rem; }
 .operating-mode-details strong { color: var(--ice); font-size: 0.88rem; }
 .operating-mode-details small { line-height: 1.4; }
+.ventilation-session {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 16px;
+  background: var(--glass-deep);
+}
+.ventilation-session > div { display: grid; gap: 4px; }
+.ventilation-session span,
+.ventilation-session small { color: var(--muted); font-size: 0.72rem; }
+.ventilation-session strong { color: var(--ice); font-size: 0.9rem; }
+.ventilation-session.active strong { color: var(--amber); }
+.ventilation-session-button { flex: 0 0 auto; }
+.ventilation-session-button::before { content: ""; display: none; }
+.ventilation-session.active .ventilation-session-button {
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  color: var(--amber);
+}
 
 .measurement-grid,
 .comparisons {
@@ -782,6 +804,7 @@ button:active { transform: translateY(1px) scale(0.985); }
   .operating-mode-heading { align-items: flex-start; flex-direction: column; }
   .operating-mode-badge { align-self: flex-start; }
   .operating-mode-details { grid-template-columns: 1fr; }
+  .ventilation-session { align-items: stretch; flex-direction: column; }
   .section-note { text-align: left; }
   .room-observation { grid-template-columns: 34px minmax(0, 1fr); }
   .room-observation strong { grid-column: 2; }
