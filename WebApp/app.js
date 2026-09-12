@@ -233,6 +233,25 @@ const renderVentilationSession = (session) => {
   button.dataset.action = active ? "stop" : "start";
 };
 
+const renderHeatingThermostat = (snapshot, control, operatingMode) => {
+  const heatingEnabled = operatingMode?.heatingEnabled === true;
+  const age = snapshot ? Date.now() - new Date(snapshot.timestamp).getTime() : Infinity;
+  const current = snapshot?.available === true && Number.isFinite(age)
+    && age >= -30_000 && age <= 12 * 60_000;
+  if (!heatingEnabled) {
+    setText("thermostat-state", "Heizung aus · nicht berücksichtigt");
+  } else if (control?.suspended === true) {
+    setText("thermostat-state", "Für Stosslüftung ausgeschaltet");
+  } else if (!current) {
+    setText("thermostat-state", "Status nicht verfügbar");
+  } else {
+    setText("thermostat-state", snapshot.currentStatus === 2
+      ? "Heizt aktiv" : "Bereit · kein Wärmebedarf");
+  }
+  setText("thermostat-temperature", current && Number.isFinite(Number(snapshot.temperature))
+    ? `${Number(snapshot.temperature).toFixed(1)} °C` : "--.- °C");
+};
+
 const sensorReading = (raw, fallback) => ({
   id: raw?.id || fallback.id,
   name: raw?.name || fallback.name,
@@ -720,6 +739,8 @@ const render = ({
   seasonalRecommendation,
   seasonalRecommendationError,
   ventilationSession,
+  heatingThermostat,
+  heatingVentilationControl,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
   additionalSensorError,
@@ -750,6 +771,7 @@ const render = ({
     seasonalRecommendationError,
   );
   renderVentilationSession(ventilationSession);
+  renderHeatingThermostat(heatingThermostat, heatingVentilationControl, operatingMode);
 
   renderRoomSensorCards(
     "indoor-grid",

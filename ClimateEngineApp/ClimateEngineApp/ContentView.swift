@@ -37,6 +37,9 @@ struct ContentView: View {
     @State private var operatingModeLoadError: String?
     @State private var ventilationSession: VentilationSession?
     @State private var ventilationSessionError: String?
+    @State private var heatingThermostat: HeatingThermostatSnapshot?
+    @State private var heatingControl: HeatingVentilationControl?
+    @State private var ventilationRequestInFlight = false
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -117,6 +120,8 @@ struct ContentView: View {
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 ventilationSession: ventilationSession,
+                heatingThermostat: heatingThermostat,
+                heatingControl: heatingControl,
                 errorMessage: operatingModeLoadError ?? ventilationSessionError,
                 onHeatingChanged: updateHeatingState,
                 onSelectionChanged: updateOperatingModeSelection,
@@ -493,6 +498,18 @@ struct ContentView: View {
             ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
         }
 
+        heatingThermostat = try? HeatingThermostatSnapshotStore().load(
+            from: paths.heatingThermostatSnapshotURL
+        )
+        heatingControl = try? HeatingVentilationControlStore().load(
+            from: paths.heatingVentilationControlURL
+        )
+
+        if !(ventilationSession?.isActive() ?? false), heatingControl?.suspended == true,
+           !ventilationRequestInFlight {
+            changeVentilationSession(action: "stop")
+        }
+
         if FileManager.default.fileExists(
             atPath: paths.seasonalRecommendationSnapshotURL.path
         ) {
@@ -545,11 +562,34 @@ struct ContentView: View {
     }
 
     private func startVentilationSession() {
-        saveVentilationSession(.start())
+        changeVentilationSession(action: "start")
     }
 
     private func stopVentilationSession() {
-        saveVentilationSession(.stopped())
+        changeVentilationSession(action: "stop")
+    }
+
+    private func changeVentilationSession(action: String) {
+        guard !ventilationRequestInFlight else { return }
+        ventilationRequestInFlight = true
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://localhost:8080/api/ventilation-session")!)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("http://localhost:8080", forHTTPHeaderField: "Origin")
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["action": action])
+                let (_, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                loadSnapshot()
+                ventilationSessionError = nil
+            } catch {
+                ventilationSessionError = "Stosslüftung konnte den lokalen Webdienst nicht erreichen."
+            }
+            ventilationRequestInFlight = false
+        }
     }
 
     private func saveVentilationSession(_ session: VentilationSession) {

@@ -140,6 +140,14 @@ public struct ClimateEnginePaths: Sendable {
         stateDirectory.appendingPathComponent("ventilation-session.json")
     }
 
+    public var heatingThermostatSnapshotURL: URL {
+        dataDirectory.appendingPathComponent("heating/buero-alois.json")
+    }
+
+    public var heatingVentilationControlURL: URL {
+        stateDirectory.appendingPathComponent("heating/ventilation-control.json")
+    }
+
     public var seasonalRecommendationSnapshotURL: URL {
         dataDirectory
             .appendingPathComponent("seasonal-recommendation")

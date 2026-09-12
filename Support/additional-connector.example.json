@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "heatingShortcut": "ClimateEngine Read Heating Büro Alois",
   "shortcuts": {
     "homepod-kueche": "ClimateEngine Read Küche",
     "homepod-bad-peter": "ClimateEngine Read Bad Peter",

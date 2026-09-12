@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import socket
+import subprocess
 import threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +17,14 @@ WEB_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
 VENTILATION_SESSION_PATH = DATA_ROOT / "ventilation-session.json"
 VENTILATION_SESSION_LOCK = threading.Lock()
+HEATING_DIRECTORY = DATA_ROOT / "heating"
+HEATING_SNAPSHOT_PATH = HEATING_DIRECTORY / "buero-alois.json"
+HEATING_CONTROL_PATH = HEATING_DIRECTORY / "ventilation-control.json"
+HEATING_LOCK = threading.Lock()
+HEATING_SHORTCUTS = {
+    "off": "ClimateEngine Heating Büro Alois Off",
+    "on": "ClimateEngine Heating Büro Alois On",
+}
 
 
 def read_optional_json(path):
@@ -35,11 +44,14 @@ def ventilation_session_payload(now=None):
         expires_at = datetime.fromisoformat(session["expiresAt"].replace("Z", "+00:00"))
         active = started_at <= now < expires_at
         remaining = max(0, int((expires_at - now).total_seconds() + 0.999)) if active else 0
-        return {
+        payload = {
             **session,
             "active": active,
             "remainingSeconds": remaining,
         }
+        if not active:
+            reconcile_heating_after_ventilation()
+        return payload
     except (KeyError, TypeError, ValueError):
         return {"active": False, "remainingSeconds": 0}
 
@@ -59,7 +71,86 @@ def write_ventilation_session(active, now=None):
             json.dump(session, file, ensure_ascii=False, indent=2, sort_keys=True)
             file.write("\n")
         os.replace(temporary_path, VENTILATION_SESSION_PATH)
+    if active:
+        suspend_heating_for_ventilation()
+    else:
+        reconcile_heating_after_ventilation()
     return ventilation_session_payload(now=now)
+
+
+def write_atomic_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_suffix(".json.tmp")
+    with temporary_path.open("w", encoding="utf-8") as file:
+        json.dump(value, file, ensure_ascii=False, indent=2, sort_keys=True)
+        file.write("\n")
+    os.replace(temporary_path, path)
+
+
+def heating_enabled():
+    try:
+        return read_optional_json(DATA_ROOT / "operating-mode.json").get("heatingEnabled") is True
+    except (AttributeError, OSError, ValueError, json.JSONDecodeError):
+        return False
+
+
+def run_heating_shortcut(action):
+    result = subprocess.run(
+        ["/usr/bin/shortcuts", "run", HEATING_SHORTCUTS[action]],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(f"Heizkörperbefehl {action} fehlgeschlagen")
+
+
+def suspend_heating_for_ventilation():
+    if not heating_enabled():
+        return
+    with HEATING_LOCK:
+        try:
+            run_heating_shortcut("off")
+            write_atomic_json(HEATING_CONTROL_PATH, {
+                "version": 1,
+                "suspended": True,
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "error": None,
+            })
+        except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
+            write_atomic_json(HEATING_CONTROL_PATH, {
+                "version": 1, "suspended": False,
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "error": str(error),
+            })
+
+
+def reconcile_heating_after_ventilation():
+    with HEATING_LOCK:
+        try:
+            state = read_optional_json(HEATING_CONTROL_PATH)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return
+        if not isinstance(state, dict) or state.get("suspended") is not True:
+            return
+        if not heating_enabled():
+            write_atomic_json(HEATING_CONTROL_PATH, {
+                "version": 1, "suspended": False,
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "error": None,
+            })
+            return
+        try:
+            run_heating_shortcut("on")
+            write_atomic_json(HEATING_CONTROL_PATH, {
+                "version": 1, "suspended": False,
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "error": None,
+            })
+        except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
+            state["error"] = str(error)
+            write_atomic_json(HEATING_CONTROL_PATH, state)
 
 
 def parse_temperature(value):
@@ -288,6 +379,8 @@ def read_dashboard_data():
         "seasonalRecommendation": seasonal_recommendation,
         "seasonalRecommendationError": seasonal_recommendation_error,
         "ventilationSession": ventilation_session_payload(),
+        "heatingThermostat": read_optional_json(HEATING_SNAPSHOT_PATH),
+        "heatingVentilationControl": read_optional_json(HEATING_CONTROL_PATH),
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),
         "additionalSensorError": additional_sensor_error,

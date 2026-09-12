@@ -6,6 +6,8 @@ struct OperatingModePanel: View {
     let effectiveMode: OperatingMode
     let shadowRecommendation: SeasonalRecommendationSnapshot?
     let ventilationSession: VentilationSession?
+    let heatingThermostat: HeatingThermostatSnapshot?
+    let heatingControl: HeatingVentilationControl?
     let errorMessage: String?
     let onHeatingChanged: (Bool) -> Void
     let onSelectionChanged: (OperatingModeSelection) -> Void
@@ -127,6 +129,31 @@ struct OperatingModePanel: View {
             .padding(14)
             .liquidGlassInset(cornerRadius: 16)
 
+            HStack(spacing: 14) {
+                LiquidGlassIndicatorIcon(
+                    systemName: "thermometer.medium",
+                    tint: thermostatTint,
+                    size: 28,
+                    symbolSize: 12,
+                    vibrant: thermostatIsHeating
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Büro Alois Heizkörper · Prototyp")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(thermostatStatusText)
+                        .font(.caption)
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+                }
+                Spacer()
+                Text(thermostatTemperatureText)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+            }
+            .padding(14)
+            .liquidGlassInset(cornerRadius: 16)
+
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -240,5 +267,28 @@ struct OperatingModePanel: View {
         }
         let minutes = max(1, Int(ceil(Double(ventilationSession.remainingSeconds()) / 60)))
         return "Noch ca. \(minutes) Minuten · endet automatisch um \(ventilationSession.expiresAt.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private var thermostatIsHeating: Bool {
+        state.heatingEnabled && heatingThermostat?.currentStatus == 2 && heatingControl?.suspended != true
+    }
+
+    private var thermostatTint: Color {
+        if heatingControl?.suspended == true { return .orange }
+        return thermostatIsHeating ? .red : LiquidGlassTheme.mint
+    }
+
+    private var thermostatTemperatureText: String {
+        guard let snapshot = heatingThermostat, snapshot.isCurrent(), let value = snapshot.temperature else {
+            return "--.- °C"
+        }
+        return String(format: "%.1f °C", value)
+    }
+
+    private var thermostatStatusText: String {
+        guard state.heatingEnabled else { return "Heizung aus · wird nicht berücksichtigt" }
+        if heatingControl?.suspended == true { return "Für Stosslüftung ausgeschaltet" }
+        guard let snapshot = heatingThermostat, snapshot.isCurrent() else { return "Status nicht verfügbar" }
+        return snapshot.currentStatus == 2 ? "Heizt aktiv" : "Bereit · aktuell kein Wärmebedarf"
     }
 }

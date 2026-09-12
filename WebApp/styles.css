@@ -264,7 +264,7 @@ button {
 }
 .operating-mode-details {
   display: grid;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1.65fr);
+  grid-template-columns: minmax(110px, 0.3fr) minmax(0, 1.2fr) minmax(190px, 0.7fr);
   gap: 11px;
   margin-top: 12px;
 }
