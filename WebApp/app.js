@@ -627,7 +627,7 @@ const renderWeather = (weather, weatherError) => {
       <div><dt>Luftfeuchte</dt><dd>${humidityText(Number(current.humidity))}</dd></div>
       <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(Number(current.temperature), Number(current.humidity)))}</dd></div>
       <div><dt>Absolute Feuchte</dt><dd>${absoluteText(absoluteHumidity(Number(current.temperature), Number(current.humidity)))}</dd></div>
-      <div><dt>Regenchance</dt><dd>${precipitationText(current.precipitationChance)}</dd></div>
+      <div><dt>Tagesregenchance</dt><dd>${precipitationText(current.precipitationChance)}</dd></div>
       <div><dt>Wind</dt><dd>${windText(current.windSpeed)}</dd></div>
     </dl>`;
   currentCard.querySelector(".weather-location").textContent = weather.location || "Aktueller Ort";

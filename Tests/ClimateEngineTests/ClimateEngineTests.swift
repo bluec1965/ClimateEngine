@@ -1355,6 +1355,51 @@ func rainAndWindOnlyWarnWhileVentilating() {
     #expect(closed.snapshot.weatherAdvisory == nil)
 }
 
+@Test
+func dailyCurrentRainChanceDoesNotCreateHourlyWarning() {
+    let advisor = StableVentilationAdvisor()
+    let now = ISO8601DateFormatter().date(from: "2026-09-13T08:05:00Z")!
+    let dryHour = WeatherReading(
+        timestamp: now.addingTimeInterval(55 * 60),
+        temperature: 19,
+        humidity: 63,
+        condition: "Meist bewölkt",
+        precipitationChance: 0,
+        windSpeed: 5,
+        precipitationAmount: 0
+    )
+    let weather = WeatherSnapshot(
+        timestamp: now,
+        location: "Zuhause",
+        current: WeatherReading(
+            timestamp: now,
+            temperature: 17,
+            humidity: 69,
+            condition: "Meist bewölkt",
+            precipitationChance: 73,
+            windSpeed: 3,
+            precipitationAmount: 0
+        ),
+        hourlyForecast: [dryHour]
+    )
+    let result = advisor.evaluate(
+        snapshot: recommendationTestSnapshot(
+            timestamp: now,
+            indoorTemperature: 23,
+            indoorHumidity: 55,
+            outdoorTemperature: 17,
+            outdoorHumidity: 50
+        ),
+        weather: weather,
+        previousState: nil,
+        now: now
+    )
+
+    #expect(result.snapshot.analysis.recommendation == .ventilate)
+    #expect(result.snapshot.weatherAdvisory == nil)
+    #expect(!result.snapshot.analysis.explanation.contains("Regen möglich"))
+}
+
 private func recommendationTestSnapshot(
     timestamp: Date,
     indoorTemperature: Double,

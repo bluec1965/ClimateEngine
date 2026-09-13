@@ -743,7 +743,7 @@ private struct WeatherObservationPanel: View {
                 WeatherMetric(title: "Luftfeuchte", value: percentage(snapshot.current.humidity))
                 WeatherMetric(title: "Taupunkt", value: temperature(snapshot.current.dewPoint))
                 WeatherMetric(title: "Absolute Feuchte", value: String(format: "%.1f g/m³", snapshot.current.absoluteHumidity))
-                WeatherMetric(title: "Regenchance", value: optionalPercentage(snapshot.current.precipitationChance))
+                WeatherMetric(title: "Tagesregenchance", value: optionalPercentage(snapshot.current.precipitationChance))
                 WeatherMetric(title: "Wind", value: optionalSpeed(snapshot.current.windSpeed))
             }
         }

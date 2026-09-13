@@ -261,12 +261,20 @@ public struct StableVentilationAdvisor {
               now.timeIntervalSince(weather.timestamp) <= 90 * 60 else {
             return nil
         }
-        let readings = [weather.current] + nextTwoHours(weather: weather, now: now)
-        let rain = readings.contains {
+        let forecast = nextTwoHours(weather: weather, now: now)
+        let currentRain = (weather.current.precipitationAmount ?? 0) > 0 ||
+            Self.isRainCondition(weather.current.condition)
+        let forecastRain = forecast.contains {
             ($0.precipitationChance ?? 0) >= 40 ||
                 ($0.precipitationAmount ?? 0) > 0 ||
                 Self.isRainCondition($0.condition)
         }
+        // Apple Weather's probability on a current observation can represent
+        // the whole day. Use it only as a fallback when no hourly forecast is
+        // available; otherwise it creates an all-day "Regen möglich" warning.
+        let rain = currentRain || forecastRain ||
+            (forecast.isEmpty && (weather.current.precipitationChance ?? 0) >= 40)
+        let readings = [weather.current] + forecast
         let wind = readings.contains { ($0.windSpeed ?? 0) >= 20 }
 
         switch (rain, wind) {
