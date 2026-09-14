@@ -6,7 +6,7 @@ struct OperatingModePanel: View {
     let effectiveMode: OperatingMode
     let shadowRecommendation: SeasonalRecommendationSnapshot?
     let ventilationSession: VentilationSession?
-    let heatingThermostat: HeatingThermostatSnapshot?
+    let heatingThermostats: [HeatingThermostatSnapshot]
     let heatingControl: HeatingVentilationControl?
     let errorMessage: String?
     let onHeatingChanged: (Bool) -> Void
@@ -129,29 +129,14 @@ struct OperatingModePanel: View {
             .padding(14)
             .liquidGlassInset(cornerRadius: 16)
 
-            HStack(spacing: 14) {
-                LiquidGlassIndicatorIcon(
-                    systemName: "thermometer.medium",
-                    tint: thermostatTint,
-                    size: 28,
-                    symbolSize: 12,
-                    vibrant: thermostatIsHeating
-                )
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Büro Alois Heizkörper · Prototyp")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(thermostatStatusText)
-                        .font(.caption)
-                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+            VStack(spacing: 0) {
+                ForEach(Array(thermostatRooms.enumerated()), id: \.element.id) { index, room in
+                    thermostatRow(roomID: room.id, roomName: room.name)
+                    if index < thermostatRooms.count - 1 {
+                        Divider().overlay(Color.white.opacity(0.08))
+                    }
                 }
-                Spacer()
-                Text(thermostatTemperatureText)
-                    .font(.headline)
-                    .foregroundStyle(.white)
             }
-            .padding(14)
             .liquidGlassInset(cornerRadius: 16)
 
             if let errorMessage {
@@ -269,26 +254,44 @@ struct OperatingModePanel: View {
         return "Noch ca. \(minutes) Minuten · endet automatisch um \(ventilationSession.expiresAt.formatted(date: .omitted, time: .shortened))"
     }
 
-    private var thermostatIsHeating: Bool {
-        state.heatingEnabled && heatingThermostat?.currentStatus == 2 && heatingControl?.suspended != true
+    private let thermostatRooms = [
+        (id: "buero-alois", name: "Büro Alois"),
+        (id: "bad-alois", name: "Bad Alois"),
+        (id: "sauna", name: "Sauna"),
+    ]
+
+    @ViewBuilder
+    private func thermostatRow(roomID: String, roomName: String) -> some View {
+        let snapshot = heatingThermostats.first { $0.roomID == roomID }
+        let isHeating = state.heatingEnabled && snapshot?.isEnabled == true && !(heatingControl?.isSuspended(roomID: roomID) ?? false)
+        HStack(spacing: 14) {
+            LiquidGlassIndicatorIcon(systemName: "thermometer.medium", tint: thermostatTint(roomID: roomID, isHeating: isHeating), size: 28, symbolSize: 12, vibrant: isHeating)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(roomName) Heizkörper").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                Text(thermostatStatusText(snapshot: snapshot, roomID: roomID)).font(.caption).foregroundStyle(LiquidGlassTheme.secondaryText)
+            }
+            Spacer()
+            Text(thermostatTemperatureText(snapshot: snapshot)).font(.headline).foregroundStyle(.white)
+        }.padding(14)
     }
 
-    private var thermostatTint: Color {
-        if heatingControl?.suspended == true { return .orange }
-        return thermostatIsHeating ? .red : LiquidGlassTheme.mint
+    private func thermostatTint(roomID: String, isHeating: Bool) -> Color {
+        if heatingControl?.isSuspended(roomID: roomID) == true { return .orange }
+        return isHeating ? .red : LiquidGlassTheme.mint
     }
 
-    private var thermostatTemperatureText: String {
-        guard let snapshot = heatingThermostat, snapshot.isCurrent(), let value = snapshot.temperature else {
+    private func thermostatTemperatureText(snapshot: HeatingThermostatSnapshot?) -> String {
+        guard let snapshot, snapshot.isCurrent(), let value = snapshot.temperature else {
             return "--.- °C"
         }
         return String(format: "%.1f °C", value)
     }
 
-    private var thermostatStatusText: String {
+    private func thermostatStatusText(snapshot: HeatingThermostatSnapshot?, roomID: String) -> String {
         guard state.heatingEnabled else { return "Heizung aus · wird nicht berücksichtigt" }
-        if heatingControl?.suspended == true { return "Für Stosslüftung ausgeschaltet" }
-        guard let snapshot = heatingThermostat, snapshot.isCurrent() else { return "Status nicht verfügbar" }
-        return snapshot.currentStatus == 2 ? "Heizt aktiv" : "Bereit · aktuell kein Wärmebedarf"
+        if heatingControl?.isSuspended(roomID: roomID) == true { return "Für Stosslüftung ausgeschaltet" }
+        guard let snapshot, snapshot.isCurrent() else { return "Status nicht verfügbar" }
+        guard let isEnabled = snapshot.isEnabled else { return "Ein/Aus-Status nicht verfügbar" }
+        return isEnabled ? "Heizkörper ein" : "Heizkörper aus"
     }
 }

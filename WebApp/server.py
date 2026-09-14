@@ -18,12 +18,12 @@ DATA_ROOT = Path.home() / "Library" / "Application Support" / "ClimateEngine"
 VENTILATION_SESSION_PATH = DATA_ROOT / "ventilation-session.json"
 VENTILATION_SESSION_LOCK = threading.Lock()
 HEATING_DIRECTORY = DATA_ROOT / "heating"
-HEATING_SNAPSHOT_PATH = HEATING_DIRECTORY / "buero-alois.json"
 HEATING_CONTROL_PATH = HEATING_DIRECTORY / "ventilation-control.json"
 HEATING_LOCK = threading.Lock()
-HEATING_SHORTCUTS = {
-    "off": "ClimateEngine Heating Büro Alois Off",
-    "on": "ClimateEngine Heating Büro Alois On",
+HEATING_THERMOSTATS = {
+    "buero-alois": {"off": "ClimateEngine Heating Büro Alois Off", "on": "ClimateEngine Heating Büro Alois On"},
+    "bad-alois": {"off": "ClimateEngine Heating Bad Alois Off", "on": "ClimateEngine Heating Bad Alois On"},
+    "sauna": {"off": "ClimateEngine Heating Sauna Off", "on": "ClimateEngine Heating Sauna On"},
 }
 
 
@@ -94,36 +94,34 @@ def heating_enabled():
         return False
 
 
-def run_heating_shortcut(action):
+def run_heating_shortcut(room_id, action):
     result = subprocess.run(
-        ["/usr/bin/shortcuts", "run", HEATING_SHORTCUTS[action]],
+        ["/usr/bin/shortcuts", "run", HEATING_THERMOSTATS[room_id][action]],
         capture_output=True,
         text=True,
         timeout=30,
         check=False,
     )
     if result.returncode:
-        raise RuntimeError(f"Heizkörperbefehl {action} fehlgeschlagen")
+        raise RuntimeError(f"Heizkörperbefehl {room_id} {action} fehlgeschlagen")
 
 
 def suspend_heating_for_ventilation():
     if not heating_enabled():
         return
     with HEATING_LOCK:
-        try:
-            run_heating_shortcut("off")
-            write_atomic_json(HEATING_CONTROL_PATH, {
-                "version": 1,
-                "suspended": True,
-                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "error": None,
-            })
-        except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
-            write_atomic_json(HEATING_CONTROL_PATH, {
-                "version": 1, "suspended": False,
-                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "error": str(error),
-            })
+        suspended, errors = [], {}
+        for room_id in HEATING_THERMOSTATS:
+            try:
+                run_heating_shortcut(room_id, "off")
+                suspended.append(room_id)
+            except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
+                errors[room_id] = str(error)
+        write_atomic_json(HEATING_CONTROL_PATH, {
+            "version": 2, "suspended": bool(suspended), "suspendedRoomIDs": suspended,
+            "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "error": "; ".join(errors.values()) or None, "errors": errors,
+        })
 
 
 def reconcile_heating_after_ventilation():
@@ -134,23 +132,30 @@ def reconcile_heating_after_ventilation():
             return
         if not isinstance(state, dict) or state.get("suspended") is not True:
             return
+        room_ids = state.get("suspendedRoomIDs")
+        if not isinstance(room_ids, list):
+            room_ids = ["buero-alois"]
         if not heating_enabled():
             write_atomic_json(HEATING_CONTROL_PATH, {
-                "version": 1, "suspended": False,
+                "version": 2, "suspended": False, "suspendedRoomIDs": [],
                 "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "error": None,
             })
             return
-        try:
-            run_heating_shortcut("on")
-            write_atomic_json(HEATING_CONTROL_PATH, {
-                "version": 1, "suspended": False,
-                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "error": None,
-            })
-        except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
-            state["error"] = str(error)
-            write_atomic_json(HEATING_CONTROL_PATH, state)
+        remaining, errors = [], {}
+        for room_id in room_ids:
+            if room_id not in HEATING_THERMOSTATS:
+                continue
+            try:
+                run_heating_shortcut(room_id, "on")
+            except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
+                remaining.append(room_id)
+                errors[room_id] = str(error)
+        write_atomic_json(HEATING_CONTROL_PATH, {
+            "version": 2, "suspended": bool(remaining), "suspendedRoomIDs": remaining,
+            "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "error": "; ".join(errors.values()) or None, "errors": errors,
+        })
 
 
 def parse_temperature(value):
@@ -379,7 +384,7 @@ def read_dashboard_data():
         "seasonalRecommendation": seasonal_recommendation,
         "seasonalRecommendationError": seasonal_recommendation_error,
         "ventilationSession": ventilation_session_payload(),
-        "heatingThermostat": read_optional_json(HEATING_SNAPSHOT_PATH),
+        "heatingThermostats": [read_optional_json(HEATING_DIRECTORY / f"{room_id}.json") for room_id in HEATING_THERMOSTATS],
         "heatingVentilationControl": read_optional_json(HEATING_CONTROL_PATH),
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),

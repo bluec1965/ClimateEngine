@@ -96,9 +96,25 @@ class VentilationSessionTests(unittest.TestCase):
         SERVER.write_ventilation_session(True, now=now)
         SERVER.write_ventilation_session(False, now=now + timedelta(minutes=2))
         self.assertEqual(
-            [call.args[0] for call in self.heating_command_mock.call_args_list],
-            ["off", "on"],
+            [call.args for call in self.heating_command_mock.call_args_list],
+            [
+                ("buero-alois", "off"), ("bad-alois", "off"), ("sauna", "off"),
+                ("buero-alois", "on"), ("bad-alois", "on"), ("sauna", "on"),
+            ],
         )
+
+    def test_one_failed_thermostat_does_not_block_the_others(self):
+        self.heating_enabled_mock.return_value = True
+        self.heating_command_mock.side_effect = lambda room_id, action: (
+            (_ for _ in ()).throw(RuntimeError("offline"))
+            if room_id == "bad-alois" else None
+        )
+        SERVER.suspend_heating_for_ventilation()
+        state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
+        self.assertEqual(state["suspendedRoomIDs"], ["buero-alois", "sauna"])
+        SERVER.reconcile_heating_after_ventilation()
+        state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
+        self.assertFalse(state["suspended"])
 
 
 if __name__ == "__main__":

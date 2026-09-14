@@ -141,7 +141,11 @@ public struct ClimateEnginePaths: Sendable {
     }
 
     public var heatingThermostatSnapshotURL: URL {
-        dataDirectory.appendingPathComponent("heating/buero-alois.json")
+        heatingThermostatSnapshotURL(roomID: "buero-alois")
+    }
+
+    public func heatingThermostatSnapshotURL(roomID: String) -> URL {
+        dataDirectory.appendingPathComponent("heating/\(roomID).json")
     }
 
     public var heatingVentilationControlURL: URL {

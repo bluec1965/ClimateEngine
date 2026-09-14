@@ -7,6 +7,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
     public let roomName: String
     public let temperature: Double?
     public let currentStatus: Int?
+    public let isEnabled: Bool?
     public let available: Bool
     public let error: String?
 
@@ -17,6 +18,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
         roomName: String = "Büro Alois",
         temperature: Double?,
         currentStatus: Int?,
+        isEnabled: Bool? = nil,
         available: Bool,
         error: String? = nil
     ) {
@@ -26,6 +28,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
         self.roomName = roomName
         self.temperature = temperature
         self.currentStatus = currentStatus
+        self.isEnabled = isEnabled
         self.available = available
         self.error = error
     }
@@ -54,12 +57,18 @@ public struct HeatingVentilationControl: Codable, Equatable, Sendable {
     public let suspended: Bool
     public let updatedAt: Date
     public let error: String?
+    public let suspendedRoomIDs: [String]?
 
-    public init(version: Int = 1, suspended: Bool, updatedAt: Date = Date(), error: String? = nil) {
+    public init(version: Int = 1, suspended: Bool, updatedAt: Date = Date(), error: String? = nil, suspendedRoomIDs: [String]? = nil) {
         self.version = version
         self.suspended = suspended
         self.updatedAt = updatedAt
         self.error = error
+        self.suspendedRoomIDs = suspendedRoomIDs
+    }
+
+    public func isSuspended(roomID: String) -> Bool {
+        suspendedRoomIDs?.contains(roomID) ?? (suspended && roomID == "buero-alois")
     }
 }
 

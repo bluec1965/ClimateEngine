@@ -37,7 +37,7 @@ struct ContentView: View {
     @State private var operatingModeLoadError: String?
     @State private var ventilationSession: VentilationSession?
     @State private var ventilationSessionError: String?
-    @State private var heatingThermostat: HeatingThermostatSnapshot?
+    @State private var heatingThermostats: [HeatingThermostatSnapshot] = []
     @State private var heatingControl: HeatingVentilationControl?
     @State private var ventilationRequestInFlight = false
 
@@ -120,7 +120,7 @@ struct ContentView: View {
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 ventilationSession: ventilationSession,
-                heatingThermostat: heatingThermostat,
+                heatingThermostats: heatingThermostats,
                 heatingControl: heatingControl,
                 errorMessage: operatingModeLoadError ?? ventilationSessionError,
                 onHeatingChanged: updateHeatingState,
@@ -498,9 +498,11 @@ struct ContentView: View {
             ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
         }
 
-        heatingThermostat = try? HeatingThermostatSnapshotStore().load(
-            from: paths.heatingThermostatSnapshotURL
-        )
+        heatingThermostats = ["buero-alois", "bad-alois", "sauna"].compactMap { roomID in
+            try? HeatingThermostatSnapshotStore().load(
+                from: paths.heatingThermostatSnapshotURL(roomID: roomID)
+            )
+        }.compactMap { $0 }
         heatingControl = try? HeatingVentilationControlStore().load(
             from: paths.heatingVentilationControlURL
         )

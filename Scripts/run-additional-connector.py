@@ -17,13 +17,18 @@ spec.loader.exec_module(reader)
 IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-buero-alois-rechts", "homepod-sauna-links", "homepod-buero-peter",
        "homepod-bad-alois", "dachzimmer-sensor"]
-DEFAULT_HEATING_SHORTCUT = "ClimateEngine Read Heating Büro Alois"
+HEATING_THERMOSTATS = (
+    ("buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
+    ("bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),
+    ("sauna", "Sauna", "ClimateEngine Read Heating Sauna"),
+)
 
 
-def read_heating(shortcut, command, directory, timeout=25):
-    output = directory / "heating.txt"
-    snapshot = {"version": 1, "timestamp": reader.timestamp(), "roomID": "buero-alois",
-        "roomName": "Büro Alois", "temperature": None, "currentStatus": None,
+def read_heating(room_id, room_name, shortcut, command, directory, timeout=25):
+    output = directory / f"heating-{room_id}.txt"
+    snapshot = {"version": 1, "timestamp": reader.timestamp(), "roomID": room_id,
+        "roomName": room_name, "temperature": None, "currentStatus": None,
+        "isEnabled": None,
         "available": False, "error": "unavailable"}
     try:
         result = subprocess.run([command, "run", shortcut, "--output-path", str(output)],
@@ -31,14 +36,15 @@ def read_heating(shortcut, command, directory, timeout=25):
         if result.returncode:
             return snapshot
         lines = output.read_text(encoding="utf-8-sig").strip().splitlines()
-        if len(lines) != 2:
+        if len(lines) != 3:
             raise ValueError("Wrong number of heating values")
         temperature = float(lines[0].replace("°C", "").replace("°", "").replace(",", ".").strip())
         status = int(float(lines[1].replace(",", ".").strip()))
-        if not -40 <= temperature <= 60 or status not in (0, 1, 2, 3):
+        activated = int(float(lines[2].replace(",", ".").strip()))
+        if not -40 <= temperature <= 60 or status not in (0, 1, 2, 3) or activated not in (0, 1):
             raise ValueError("Heating value out of range")
         snapshot.update({"temperature": temperature, "currentStatus": status,
-            "available": True, "error": None})
+            "isEnabled": activated == 1, "available": True, "error": None})
     except subprocess.TimeoutExpired:
         snapshot["error"] = "timeout"
     except (OSError, UnicodeError, ValueError):
@@ -49,7 +55,7 @@ def read_heating(shortcut, command, directory, timeout=25):
 def write_heating(snapshot, data_root=None):
     root = Path(data_root or os.environ.get("CLIMATEENGINE_DATA_DIRECTORY",
         Path.home() / "Library/Application Support/ClimateEngine"))
-    destination = root / "heating/buero-alois.json"
+    destination = root / "heating" / f"{snapshot['roomID']}.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2,
@@ -79,9 +85,10 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
         if collect_only:
             print(payload)
             return 0
-        heating = read_heating(config.get("heatingShortcut", DEFAULT_HEATING_SHORTCUT),
-            command, Path(temp), timeout=min(25, max(1, deadline - time.monotonic())))
-        write_heating(heating, data_root)
+        for room_id, room_name, shortcut in HEATING_THERMOSTATS:
+            heating = read_heating(room_id, room_name, shortcut, command, Path(temp),
+                timeout=min(25, max(1, deadline - time.monotonic())))
+            write_heating(heating, data_root)
         # No SMS and no retries; the primary recommendation flow is independent.
         return subprocess.run([str(cli or ROOT / ".build/debug/ClimateEngineCLI"), "additional-readings"],
             input=payload, text=True, timeout=20, check=False).returncode

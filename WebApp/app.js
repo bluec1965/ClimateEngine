@@ -233,23 +233,40 @@ const renderVentilationSession = (session) => {
   button.dataset.action = active ? "stop" : "start";
 };
 
-const renderHeatingThermostat = (snapshot, control, operatingMode) => {
+const heatingRooms = [
+  { id: "buero-alois", name: "Büro Alois" },
+  { id: "bad-alois", name: "Bad Alois" },
+  { id: "sauna", name: "Sauna" },
+];
+
+const renderHeatingThermostats = (snapshots, control, operatingMode) => {
   const heatingEnabled = operatingMode?.heatingEnabled === true;
-  const age = snapshot ? Date.now() - new Date(snapshot.timestamp).getTime() : Infinity;
-  const current = snapshot?.available === true && Number.isFinite(age)
-    && age >= -30_000 && age <= 12 * 60_000;
-  if (!heatingEnabled) {
-    setText("thermostat-state", "Heizung aus · nicht berücksichtigt");
-  } else if (control?.suspended === true) {
-    setText("thermostat-state", "Für Stosslüftung ausgeschaltet");
-  } else if (!current) {
-    setText("thermostat-state", "Status nicht verfügbar");
-  } else {
-    setText("thermostat-state", snapshot.currentStatus === 2
-      ? "Heizt aktiv" : "Bereit · kein Wärmebedarf");
-  }
-  setText("thermostat-temperature", current && Number.isFinite(Number(snapshot.temperature))
-    ? `${Number(snapshot.temperature).toFixed(1)} °C` : "--.- °C");
+  const byRoom = new Map((snapshots || []).filter(Boolean).map((item) => [item.roomID, item]));
+  const suspendedRooms = Array.isArray(control?.suspendedRoomIDs)
+    ? control.suspendedRoomIDs : (control?.suspended ? ["buero-alois"] : []);
+  const rows = heatingRooms.map((room) => {
+    const snapshot = byRoom.get(room.id);
+    const age = snapshot ? Date.now() - new Date(snapshot.timestamp).getTime() : Infinity;
+    const current = snapshot?.available === true && Number.isFinite(age)
+      && age >= -30_000 && age <= 12 * 60_000;
+    let status;
+    if (!heatingEnabled) status = "Heizung aus · nicht berücksichtigt";
+    else if (suspendedRooms.includes(room.id)) status = "Für Stosslüftung ausgeschaltet";
+    else if (!current) status = "Status nicht verfügbar";
+    else if (typeof snapshot.isEnabled !== "boolean") status = "Ein/Aus-Status nicht verfügbar";
+    else status = snapshot.isEnabled ? "Heizkörper ein" : "Heizkörper aus";
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    const state = document.createElement("strong");
+    const temperature = document.createElement("small");
+    label.textContent = `${room.name} Heizkörper`;
+    state.textContent = status;
+    temperature.textContent = current && Number.isFinite(Number(snapshot.temperature))
+      ? `${Number(snapshot.temperature).toFixed(1)} °C` : "--.- °C";
+    row.append(label, state, temperature);
+    return row;
+  });
+  byId("thermostat-list").replaceChildren(...rows);
 };
 
 const sensorReading = (raw, fallback) => ({
@@ -739,7 +756,7 @@ const render = ({
   seasonalRecommendation,
   seasonalRecommendationError,
   ventilationSession,
-  heatingThermostat,
+  heatingThermostats,
   heatingVentilationControl,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
@@ -771,7 +788,7 @@ const render = ({
     seasonalRecommendationError,
   );
   renderVentilationSession(ventilationSession);
-  renderHeatingThermostat(heatingThermostat, heatingVentilationControl, operatingMode);
+  renderHeatingThermostats(heatingThermostats, heatingVentilationControl, operatingMode);
 
   renderRoomSensorCards(
     "indoor-grid",
