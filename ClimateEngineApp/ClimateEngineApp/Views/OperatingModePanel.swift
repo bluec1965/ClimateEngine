@@ -129,15 +129,14 @@ struct OperatingModePanel: View {
             .padding(14)
             .liquidGlassInset(cornerRadius: 16)
 
-            VStack(spacing: 0) {
-                ForEach(Array(thermostatRooms.enumerated()), id: \.element.id) { index, room in
-                    thermostatRow(roomID: room.id, roomName: room.name)
-                    if index < thermostatRooms.count - 1 {
-                        Divider().overlay(Color.white.opacity(0.08))
+            VStack(alignment: .leading, spacing: 9) {
+                LiquidGlassSectionLabel(text: "Unteres Geschoss")
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 10)], spacing: 10) {
+                    ForEach(thermostatRooms, id: \.id) { room in
+                        thermostatTile(roomID: room.id, roomName: room.name)
                     }
                 }
             }
-            .liquidGlassInset(cornerRadius: 16)
 
             if let errorMessage {
                 Text(errorMessage)
@@ -261,23 +260,46 @@ struct OperatingModePanel: View {
     ]
 
     @ViewBuilder
-    private func thermostatRow(roomID: String, roomName: String) -> some View {
+    private func thermostatTile(roomID: String, roomName: String) -> some View {
         let snapshot = heatingThermostats.first { $0.roomID == roomID }
-        let isHeating = state.heatingEnabled && snapshot?.isEnabled == true && !(heatingControl?.isSuspended(roomID: roomID) ?? false)
-        HStack(spacing: 14) {
-            LiquidGlassIndicatorIcon(systemName: "thermometer.medium", tint: thermostatTint(roomID: roomID, isHeating: isHeating), size: 28, symbolSize: 12, vibrant: isHeating)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(roomName) Heizkörper").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                Text(thermostatStatusText(snapshot: snapshot, roomID: roomID)).font(.caption).foregroundStyle(LiquidGlassTheme.secondaryText)
+        let tint = thermostatTint(snapshot: snapshot, roomID: roomID)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top) {
+                Image(systemName: "thermometer.medium")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(state.heatingEnabled ? 1 : 0.58))
+                    .frame(width: 29, height: 29)
+                    .background(Circle().fill(tint.opacity(0.85)))
+                Spacer()
+                Text(thermostatTemperatureText(snapshot: snapshot))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
             }
-            Spacer()
-            Text(thermostatTemperatureText(snapshot: snapshot)).font(.headline).foregroundStyle(.white)
-        }.padding(14)
+            HStack(spacing: 6) {
+                Text(roomName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(state.heatingEnabled ? 1 : 0.58))
+                    .lineLimit(1)
+                Spacer(minLength: 2)
+                if let target = thermostatTargetText(snapshot: snapshot) {
+                    Text(target)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(LiquidGlassTheme.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(tint.opacity(state.heatingEnabled ? 0.25 : 0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(tint.opacity(state.heatingEnabled ? 0.42 : 0.16), lineWidth: 1))
+        .accessibilityLabel("\(roomName), \(thermostatStatusText(snapshot: snapshot, roomID: roomID)), \(thermostatTemperatureText(snapshot: snapshot))")
     }
 
-    private func thermostatTint(roomID: String, isHeating: Bool) -> Color {
+    private func thermostatTint(snapshot: HeatingThermostatSnapshot?, roomID: String) -> Color {
         if heatingControl?.isSuspended(roomID: roomID) == true { return .orange }
-        return isHeating ? .red : LiquidGlassTheme.mint
+        guard let snapshot, snapshot.isCurrent(), let isEnabled = snapshot.isEnabled else { return .gray }
+        return isEnabled ? .red : LiquidGlassTheme.cyan
     }
 
     private func thermostatTemperatureText(snapshot: HeatingThermostatSnapshot?) -> String {
@@ -285,6 +307,11 @@ struct OperatingModePanel: View {
             return "--.- °C"
         }
         return String(format: "%.1f °C", value)
+    }
+
+    private func thermostatTargetText(snapshot: HeatingThermostatSnapshot?) -> String? {
+        guard let snapshot, snapshot.isCurrent(), let value = snapshot.targetTemperature else { return nil }
+        return String(format: "Soll %.1f°", value)
     }
 
     private func thermostatStatusText(snapshot: HeatingThermostatSnapshot?, roomID: String) -> String {

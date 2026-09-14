@@ -27,7 +27,7 @@ class AdditionalConnectorTests(unittest.TestCase):
             sensor = args[2]
             if sensor in timeouts: raise subprocess.TimeoutExpired(args, 25)
             if sensor in failed: return types.SimpleNamespace(returncode=1)
-            Path(args[4]).write_text("24 °C\n2\n1" if "Heating" in sensor else "24 °C\n55 %")
+            Path(args[4]).write_text("24 °C\n2\n1\n21.5 °C" if "Heating" in sensor else "24 °C\n55 %")
             return types.SimpleNamespace(returncode=0)
         with tempfile.TemporaryDirectory() as data_root, patch.object(additional.subprocess, "run", side_effect=fake_run), contextlib.redirect_stdout(io.StringIO()) as output:
             code = additional.run(CONFIG, cli="test-cli", collect_only=collect_only, data_root=data_root)

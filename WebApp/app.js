@@ -255,15 +255,26 @@ const renderHeatingThermostats = (snapshots, control, operatingMode) => {
     else if (!current) status = "Status nicht verfügbar";
     else if (typeof snapshot.isEnabled !== "boolean") status = "Ein/Aus-Status nicht verfügbar";
     else status = snapshot.isEnabled ? "Heizkörper ein" : "Heizkörper aus";
-    const row = document.createElement("div");
+    const row = document.createElement("article");
+    const icon = document.createElement("span");
     const label = document.createElement("span");
-    const state = document.createElement("strong");
-    const temperature = document.createElement("small");
-    label.textContent = `${room.name} Heizkörper`;
-    state.textContent = status;
+    const temperature = document.createElement("strong");
+    const target = document.createElement("small");
+    const stateClass = !current ? "unavailable"
+      : suspendedRooms.includes(room.id) ? "suspended"
+        : snapshot.isEnabled ? "enabled" : "disabled";
+    row.className = `thermostat-tile ${stateClass}${heatingEnabled ? "" : " ignored"}`;
+    row.setAttribute("aria-label", `${room.name}, ${status}`);
+    icon.className = "thermostat-icon";
+    label.className = "thermostat-name";
+    label.textContent = room.name;
+    temperature.className = "thermostat-value";
     temperature.textContent = current && Number.isFinite(Number(snapshot.temperature))
       ? `${Number(snapshot.temperature).toFixed(1)} °C` : "--.- °C";
-    row.append(label, state, temperature);
+    target.className = "thermostat-target";
+    target.textContent = current && Number.isFinite(Number(snapshot.targetTemperature))
+      ? `Soll ${Number(snapshot.targetTemperature).toFixed(1)}°` : "";
+    row.append(icon, temperature, label, target);
     return row;
   });
   byId("thermostat-list").replaceChildren(...rows);

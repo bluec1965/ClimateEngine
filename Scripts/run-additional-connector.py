@@ -28,7 +28,7 @@ def read_heating(room_id, room_name, shortcut, command, directory, timeout=25):
     output = directory / f"heating-{room_id}.txt"
     snapshot = {"version": 1, "timestamp": reader.timestamp(), "roomID": room_id,
         "roomName": room_name, "temperature": None, "currentStatus": None,
-        "isEnabled": None,
+        "isEnabled": None, "targetTemperature": None,
         "available": False, "error": "unavailable"}
     try:
         result = subprocess.run([command, "run", shortcut, "--output-path", str(output)],
@@ -36,15 +36,18 @@ def read_heating(room_id, room_name, shortcut, command, directory, timeout=25):
         if result.returncode:
             return snapshot
         lines = output.read_text(encoding="utf-8-sig").strip().splitlines()
-        if len(lines) != 3:
+        if len(lines) != 4:
             raise ValueError("Wrong number of heating values")
         temperature = float(lines[0].replace("°C", "").replace("°", "").replace(",", ".").strip())
         status = int(float(lines[1].replace(",", ".").strip()))
         activated = int(float(lines[2].replace(",", ".").strip()))
-        if not -40 <= temperature <= 60 or status not in (0, 1, 2, 3) or activated not in (0, 1):
+        target = float(lines[3].replace("°C", "").replace("°", "").replace(",", ".").strip())
+        if (not -40 <= temperature <= 60 or status not in (0, 1, 2, 3)
+                or activated not in (0, 1) or not 5 <= target <= 35):
             raise ValueError("Heating value out of range")
         snapshot.update({"temperature": temperature, "currentStatus": status,
-            "isEnabled": activated == 1, "available": True, "error": None})
+            "isEnabled": activated == 1, "targetTemperature": target,
+            "available": True, "error": None})
     except subprocess.TimeoutExpired:
         snapshot["error"] = "timeout"
     except (OSError, UnicodeError, ValueError):

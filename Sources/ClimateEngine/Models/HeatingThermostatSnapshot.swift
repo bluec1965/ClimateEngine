@@ -8,6 +8,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
     public let temperature: Double?
     public let currentStatus: Int?
     public let isEnabled: Bool?
+    public let targetTemperature: Double?
     public let available: Bool
     public let error: String?
 
@@ -19,6 +20,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
         temperature: Double?,
         currentStatus: Int?,
         isEnabled: Bool? = nil,
+        targetTemperature: Double? = nil,
         available: Bool,
         error: String? = nil
     ) {
@@ -29,6 +31,7 @@ public struct HeatingThermostatSnapshot: Codable, Equatable, Sendable {
         self.temperature = temperature
         self.currentStatus = currentStatus
         self.isEnabled = isEnabled
+        self.targetTemperature = targetTemperature
         self.available = available
         self.error = error
     }
