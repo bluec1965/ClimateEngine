@@ -356,6 +356,48 @@ button {
   font-size: 0.68rem;
   font-weight: 650;
 }
+.heating-prototype {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 16px;
+  background: var(--glass-deep);
+}
+.heating-prototype > div { display: grid; gap: 3px; }
+.heating-prototype span,
+.heating-prototype small { color: var(--muted); font-size: 0.7rem; }
+.heating-prototype span b { color: var(--aqua); margin-left: 5px; }
+.heating-prototype strong { color: var(--ice); font-size: 0.85rem; }
+.heating-prototype-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--aqua) 75%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--aqua) 34%, transparent);
+}
+.heating-prototype-icon::before {
+  color: white;
+  content: "◷";
+  font-size: 1rem;
+  font-weight: 800;
+}
+.heating-prototype.window-open {
+  border-color: color-mix(in srgb, var(--amber) 42%, transparent);
+}
+.heating-prototype.window-open .heating-prototype-icon { background: var(--amber); }
+.heating-prototype.window-open .heating-prototype-icon::before { content: "▥"; }
+.heating-prototype.window-open strong { color: var(--amber); }
+.heating-prototype button::before { content: ""; display: none; }
+.heating-prototype.window-open button {
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  color: var(--amber);
+}
 .ventilation-session {
   display: flex;
   align-items: center;
@@ -657,6 +699,117 @@ button {
   font-weight: 720;
 }
 
+.room-accordion-list { display: grid; gap: 10px; }
+.room-floor-heading {
+  margin: 10px 4px 1px;
+  color: var(--aqua);
+  font-size: 0.69rem;
+  font-weight: 820;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.room-floor-heading:first-child { margin-top: 0; }
+.room-accordion {
+  --room-state: var(--aqua);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--room-state) 25%, var(--glass-border-soft));
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--room-state) 7%, transparent), transparent 48%),
+    var(--glass);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.10), 0 10px 30px rgba(0, 5, 8, 0.16);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  backdrop-filter: blur(24px) saturate(135%);
+}
+.room-accordion.heating { --room-state: var(--red); }
+.room-accordion.attention { --room-state: var(--amber); }
+.terrace-accordion summary {
+  grid-template-columns: 36px minmax(135px, 1fr) 135px 125px minmax(180px, auto) 16px;
+}
+.terrace-summary-icon::before { content: "♧"; font-size: 1.15rem; }
+.terrace-summary-description {
+  overflow: hidden;
+  color: var(--muted-soft);
+  font-size: 0.68rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.room-accordion summary {
+  display: grid;
+  grid-template-columns: 36px minmax(135px, 1fr) 135px 125px 105px auto 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.room-accordion summary::-webkit-details-marker { display: none; }
+.room-summary-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--room-state) 72%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--room-state) 25%, transparent);
+}
+.room-summary-icon::before { color: white; content: "⌂"; font-size: 1.05rem; font-weight: 800; }
+.room-summary-name,
+.room-summary-metric { display: grid; gap: 2px; min-width: 0; }
+.room-summary-name strong { color: var(--ice); font-size: 0.9rem; }
+.room-summary-metric small,
+.room-summary-target small { color: var(--muted-soft); font-size: 0.64rem; }
+.room-summary-metric strong { color: var(--ice); font-size: 0.83rem; font-variant-numeric: tabular-nums; }
+.room-summary-target { min-width: 0; }
+.room-summary-flag {
+  color: var(--amber);
+  font-size: 0.7rem;
+  font-weight: 780;
+  white-space: nowrap;
+}
+.room-summary-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
+}
+.room-accordion[open] .room-summary-chevron { transform: rotate(225deg) translate(-2px, -2px); }
+.room-accordion-content {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+  background: rgba(1, 13, 18, 0.22);
+}
+.room-detail-section { display: grid; gap: 9px; }
+.room-detail-section h3 { margin: 0; color: var(--ice); font-size: 0.82rem; }
+.room-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 9px; }
+.room-detail-card,
+.room-placeholder {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 14px;
+  background: var(--glass-deep);
+}
+.room-detail-card.combined { border-color: rgba(44, 242, 139, 0.22); }
+.room-detail-card.combined.provisional { border-color: rgba(255, 209, 102, 0.25); }
+.room-detail-card strong { color: var(--ice); font-size: 0.77rem; }
+.room-detail-card span { color: var(--text); font-size: 0.76rem; font-weight: 720; }
+.room-detail-card small,
+.room-placeholder { color: var(--muted-soft); font-size: 0.67rem; }
+.room-placeholder.compact { align-content: center; }
+.room-controls > div { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
+.room-controls > div > span { color: var(--muted-soft); font-size: 0.7rem; font-weight: 650; }
+.room-controls .room-plan-note { color: var(--aqua); }
+.room-controls button::before { content: ""; display: none; }
+.room-controls button.window-open { border-color: rgba(255, 209, 102, 0.42); color: var(--amber); }
+
 h2 { margin: 0; color: var(--ice); font-size: 1.08rem; }
 dl { margin: 0; }
 dl > div { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; }
@@ -880,7 +1033,13 @@ button:active { transform: translateY(1px) scale(0.985); }
   .operating-mode-badge { align-self: flex-start; }
   .operating-mode-details { grid-template-columns: 1fr; }
   .ventilation-session { align-items: stretch; flex-direction: column; }
+  .heating-prototype { grid-template-columns: 30px minmax(0, 1fr); }
+  .heating-prototype button { grid-column: 1 / -1; }
   .section-note { text-align: left; }
+  .room-accordion summary { grid-template-columns: 34px minmax(0, 1fr) 105px 15px; gap: 9px; }
+  .room-summary-metric:nth-of-type(4),
+  .room-summary-target,
+  .room-summary-flag { display: none; }
   .room-observation { grid-template-columns: 34px minmax(0, 1fr); }
   .room-observation strong { grid-column: 2; }
   .weather-heading { align-items: flex-start; flex-direction: column; }

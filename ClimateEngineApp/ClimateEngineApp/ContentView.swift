@@ -39,7 +39,11 @@ struct ContentView: View {
     @State private var ventilationSessionError: String?
     @State private var heatingThermostats: [HeatingThermostatSnapshot] = []
     @State private var heatingControl: HeatingVentilationControl?
+    @State private var heatingRoomOverrides = HeatingRoomOverrideState.empty()
+    @State private var heatingRoomOverrideError: String?
     @State private var ventilationRequestInFlight = false
+    @State private var roomOverrideRequestInFlight = false
+    @State private var terraceIsExpanded = false
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -120,9 +124,7 @@ struct ContentView: View {
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 ventilationSession: ventilationSession,
-                heatingThermostats: heatingThermostats,
-                heatingControl: heatingControl,
-                errorMessage: operatingModeLoadError ?? ventilationSessionError,
+                errorMessage: operatingModeLoadError ?? ventilationSessionError ?? heatingRoomOverrideError,
                 onHeatingChanged: updateHeatingState,
                 onSelectionChanged: updateOperatingModeSelection,
                 onVentilationStarted: startVentilationSession,
@@ -143,12 +145,7 @@ struct ContentView: View {
                     .liquidGlassCard(cornerRadius: 18, glowColor: .orange, raised: false)
             }
 
-            sensorSection(
-                title: "Aussensensoren",
-                subtitle: outdoorSensorSubtitle,
-                readings: snapshot?.outdoorSensors ?? [],
-                systemImage: "tree.fill"
-            )
+            outdoorSensorSection
 
             WeatherObservationPanel(
                 snapshot: weatherSnapshot,
@@ -240,7 +237,7 @@ struct ContentView: View {
     }
 
     private var indoorRoomSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 LiquidGlassSectionLabel(text: "Innen")
 
@@ -259,12 +256,28 @@ struct ContentView: View {
                 }
             }
 
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 430), spacing: 20)],
-                spacing: 20
-            ) {
-                ForEach(indoorRoomGroups) { room in
-                    RoomSensorGroupCard(room: room)
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(dashboardFloorNames, id: \.self) { floorName in
+                    VStack(alignment: .leading, spacing: 11) {
+                        LiquidGlassSectionLabel(text: floorName)
+                            .padding(.leading, 4)
+
+                        ForEach(dashboardRoomDefinitions.filter { $0.floorName == floorName }) { definition in
+                            RoomSensorGroupCard(
+                                roomID: definition.id,
+                                roomName: definition.name,
+                                expectedThermostatCount: definition.thermostatCount,
+                                room: indoorRoomGroups.first { $0.id == definition.id },
+                                thermostatSnapshots: heatingThermostats.filter { $0.roomID == definition.id },
+                                heatingEnabled: operatingModeState.heatingEnabled,
+                                heatingControl: heatingControl,
+                                windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
+                                onWindowOpenChanged: definition.id == "buero-alois"
+                                    ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
+                                    : nil
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -278,6 +291,27 @@ struct ContentView: View {
             includeBiasCorrectedMeasurements: sensorSnapshotsAreAligned
         )
     }
+
+    private struct DashboardRoomDefinition: Identifiable {
+        let id: String
+        let name: String
+        let floorName: String
+        let thermostatCount: Int
+    }
+
+    private let dashboardRoomDefinitions = [
+        DashboardRoomDefinition(id: "stube", name: "Stube / Küche", floorName: "Unteres Geschoss", thermostatCount: 5),
+        DashboardRoomDefinition(id: "schlafzimmer", name: "Schlafzimmer", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "bad-peter", name: "Bad Peter", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "buero-peter", name: "Büro Peter", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "buero-alois", name: "Büro Alois", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "bad-alois", name: "Bad Alois", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "sauna", name: "Sauna", floorName: "Unteres Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "galerie", name: "Galerie", floorName: "Oberes Geschoss", thermostatCount: 1),
+        DashboardRoomDefinition(id: "dachzimmer", name: "Dachzimmer", floorName: "Oberes Geschoss", thermostatCount: 2),
+    ]
+
+    private let dashboardFloorNames = ["Unteres Geschoss", "Oberes Geschoss"]
 
     private var indoorRoomSubtitle: String {
         let explanation: String
@@ -305,43 +339,110 @@ struct ContentView: View {
         return abs(primaryTimestamp.timeIntervalSince(additionalTimestamp)) <= 3 * 60
     }
 
-    private func sensorSection(
-        title: String,
-        subtitle: String,
-        readings: [SensorReading],
-        systemImage: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var outdoorSensorSection: some View {
+        let readings = snapshot?.outdoorSensors ?? []
+        let meanTemperature = readings.isEmpty
+            ? "--.- °C"
+            : formatTemperature(readings.map(\.measurement.temperature).reduce(0, +) / Double(readings.count))
+        let meanHumidity = readings.isEmpty
+            ? "-- %"
+            : formatHumidity(readings.map(\.measurement.humidity).reduce(0, +) / Double(readings.count))
+
+        return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 LiquidGlassSectionLabel(text: "Aussen")
 
-                Text(title)
+                Text("Terrasse")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(LiquidGlassTheme.secondaryText)
             }
 
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 290), spacing: 20)],
-                spacing: 20
-            ) {
-                ForEach(readings) { reading in
-                    ClimateCard(
-                        title: reading.name,
-                        systemImage: systemImage,
-                        temperature: formatTemperature(reading.measurement.temperature),
-                        humidity: formatHumidity(reading.measurement.humidity),
-                        dewPoint: formatDewPoint(reading.measurement),
-                        absoluteHumidity: formatAbsoluteHumidity(reading.measurement),
-                        referenceLabel: title == "Innenräume" && reading.isPrimary
-                            ? "SMS-Referenz"
-                            : nil
-                    )
+            VStack(spacing: 0) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        terraceIsExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 13) {
+                        LiquidGlassIndicatorIcon(
+                            systemName: "tree.fill",
+                            tint: LiquidGlassTheme.cyan,
+                            size: 34,
+                            symbolSize: 14
+                        )
+
+                        Text("Terrasse")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+
+                        Spacer(minLength: 10)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Aussenmittel")
+                                .font(.caption2)
+                                .foregroundStyle(LiquidGlassTheme.secondaryText)
+                            Text(meanTemperature)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Luftfeuchtigkeit")
+                                .font(.caption2)
+                                .foregroundStyle(LiquidGlassTheme.secondaryText)
+                            Text(meanHumidity)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                        }
+
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(LiquidGlassTheme.secondaryText)
+                            .rotationEffect(.degrees(terraceIsExpanded ? 180 : 0))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if terraceIsExpanded {
+                    Divider()
+                        .overlay(Color.white.opacity(0.10))
+                        .padding(.horizontal, 16)
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(outdoorSensorSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(LiquidGlassTheme.secondaryText)
+
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 290), spacing: 20)],
+                            spacing: 20
+                        ) {
+                            ForEach(readings) { reading in
+                                ClimateCard(
+                                    title: reading.name,
+                                    systemImage: "tree.fill",
+                                    temperature: formatTemperature(reading.measurement.temperature),
+                                    humidity: formatHumidity(reading.measurement.humidity),
+                                    dewPoint: formatDewPoint(reading.measurement),
+                                    absoluteHumidity: formatAbsoluteHumidity(reading.measurement),
+                                    referenceLabel: nil
+                                )
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
+            .liquidGlassCard(
+                cornerRadius: 19,
+                glowColor: LiquidGlassTheme.cyan,
+                raised: terraceIsExpanded
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -506,6 +607,14 @@ struct ContentView: View {
         heatingControl = try? HeatingVentilationControlStore().load(
             from: paths.heatingVentilationControlURL
         )
+        do {
+            heatingRoomOverrides = try HeatingRoomOverrideStore().load(
+                from: paths.heatingRoomOverridesURL
+            ) ?? .empty()
+            heatingRoomOverrideError = nil
+        } catch {
+            heatingRoomOverrideError = "Fensterstatus konnte nicht geladen werden."
+        }
 
         if !(ventilationSession?.isActive() ?? false), heatingControl?.suspended == true,
            !ventilationRequestInFlight {
@@ -591,6 +700,34 @@ struct ContentView: View {
                 ventilationSessionError = "Stosslüftung konnte den lokalen Webdienst nicht erreichen."
             }
             ventilationRequestInFlight = false
+        }
+    }
+
+    private func changeRoomWindowState(roomID: String, windowOpen: Bool) {
+        guard !roomOverrideRequestInFlight else { return }
+        roomOverrideRequestInFlight = true
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://localhost:8080/api/heating-room-override")!)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("http://localhost:8080", forHTTPHeaderField: "Origin")
+                request.httpBody = try JSONSerialization.data(withJSONObject: [
+                    "roomID": roomID,
+                    "windowOpen": windowOpen,
+                ])
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                heatingRoomOverrides = try decoder.decode(HeatingRoomOverrideState.self, from: data)
+                heatingRoomOverrideError = nil
+            } catch {
+                heatingRoomOverrideError = "Fensterstatus konnte den lokalen Webdienst nicht erreichen."
+            }
+            roomOverrideRequestInFlight = false
         }
     }
 

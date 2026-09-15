@@ -239,6 +239,20 @@ const heatingRooms = [
   { id: "sauna", name: "Sauna" },
 ];
 
+const dashboardRooms = [
+  { id: "stube", name: "Stube / Küche", floor: "Unteres Geschoss", thermostats: 5 },
+  { id: "schlafzimmer", name: "Schlafzimmer", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "bad-peter", name: "Bad Peter", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "buero-peter", name: "Büro Peter", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "buero-alois", name: "Büro Alois", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "bad-alois", name: "Bad Alois", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "sauna", name: "Sauna", floor: "Unteres Geschoss", thermostats: 1 },
+  { id: "galerie", name: "Galerie", floor: "Oberes Geschoss", thermostats: 1 },
+  { id: "dachzimmer", name: "Dachzimmer", floor: "Oberes Geschoss", thermostats: 2 },
+];
+
+const expandedRoomIDs = new Set();
+
 const renderHeatingThermostats = (snapshots, control, operatingMode) => {
   const heatingEnabled = operatingMode?.heatingEnabled === true;
   const byRoom = new Map((snapshots || []).filter(Boolean).map((item) => [item.roomID, item]));
@@ -278,6 +292,35 @@ const renderHeatingThermostats = (snapshots, control, operatingMode) => {
     return row;
   });
   byId("thermostat-list").replaceChildren(...rows);
+};
+
+const formatScheduleMinute = (minute) => {
+  const value = Number(minute);
+  if (!Number.isFinite(value)) return "--:--";
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+};
+
+const renderHeatingPrototype = (prototype) => {
+  const container = byId("heating-prototype");
+  const button = byId("office-window-button");
+  const windowOpen = prototype?.windowOpen === true;
+  container.classList.toggle("window-open", windowOpen);
+  if (windowOpen) {
+    setText("heating-prototype-title", "Fenster offen · würde den Heizkörper ausschalten");
+    setText("heating-prototype-detail", "Der Zustand bleibt aktiv, bis er hier oder in der Mac-App beendet wird.");
+  } else if (prototype) {
+    const period = prototype.period === "comfort" ? "Komfort" : "Nacht";
+    setText(
+      "heating-prototype-title",
+      `${period} · berechnetes Soll ${Number(prototype.targetTemperature).toFixed(1)} °C`,
+    );
+    setText(
+      "heating-prototype-detail",
+      `Komfort ${formatScheduleMinute(prototype.comfortStartMinute)}–${formatScheduleMinute(prototype.comfortEndMinute)} · keine automatische Änderung`,
+    );
+  }
+  button.textContent = windowOpen ? "Fenster offen" : "Fenster geschlossen";
+  button.dataset.windowOpen = String(windowOpen);
 };
 
 const sensorReading = (raw, fallback) => ({
@@ -585,6 +628,190 @@ const renderRoomSensorCards = (containerId, groups) => {
   byId(containerId).replaceChildren(...cards);
 };
 
+const roomDisplayMeasurement = (group) => {
+  if (group?.biasCorrectedMeasurement) return group.biasCorrectedMeasurement;
+  if (!group?.sensors?.length) return null;
+  return {
+    temperature: group.sensors.reduce((sum, sensor) => sum + sensor.temperature, 0) / group.sensors.length,
+    humidity: group.sensors.reduce((sum, sensor) => sum + sensor.humidity, 0) / group.sensors.length,
+  };
+};
+
+const postOfficeWindowState = async (button, windowOpen) => {
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/heating-room-override", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomID: "buero-alois", windowOpen }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    await refresh();
+  } catch (error) {
+    const status = byId("connection-status");
+    status.className = "status-pill error";
+    status.lastElementChild.textContent = `Fensterstatus nicht gespeichert: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const renderRoomAccordions = (
+  containerId,
+  groups,
+  thermostatSnapshots,
+  heatingControl,
+  operatingMode,
+  heatingPrototype,
+) => {
+  const groupsByID = new Map(groups.map((group) => [group.id, group]));
+  const thermostatsByRoom = new Map();
+  for (const snapshot of (thermostatSnapshots || []).filter(Boolean)) {
+    const snapshots = thermostatsByRoom.get(snapshot.roomID) || [];
+    snapshots.push(snapshot);
+    thermostatsByRoom.set(snapshot.roomID, snapshots);
+  }
+  const suspendedRooms = Array.isArray(heatingControl?.suspendedRoomIDs)
+    ? heatingControl.suspendedRoomIDs : [];
+  const heatingEnabled = operatingMode?.heatingEnabled === true;
+
+  const cards = dashboardRooms.map((definition) => {
+    const group = groupsByID.get(definition.id);
+    const measurement = roomDisplayMeasurement(group);
+    const thermostats = thermostatsByRoom.get(definition.id) || [];
+    const activeCount = thermostats.filter((item) => item.isEnabled === true).length;
+    const target = thermostats.find((item) => Number.isFinite(Number(item.targetTemperature)))?.targetTemperature;
+    const windowOpen = definition.id === "buero-alois" && heatingPrototype?.windowOpen === true;
+    const state = windowOpen || suspendedRooms.includes(definition.id) ? "attention"
+      : heatingEnabled && activeCount > 0 ? "heating" : "idle";
+
+    const card = document.createElement("details");
+    card.className = `room-accordion ${state}`;
+    card.open = expandedRoomIDs.has(definition.id);
+    card.dataset.roomId = definition.id;
+    card.addEventListener("toggle", () => {
+      if (card.open) expandedRoomIDs.add(definition.id);
+      else expandedRoomIDs.delete(definition.id);
+    });
+
+    const summary = document.createElement("summary");
+    summary.innerHTML = `
+      <span class="room-summary-icon" aria-hidden="true"></span>
+      <span class="room-summary-name"><strong></strong></span>
+      <span class="room-summary-metric"><small>Raumtemperatur</small><strong>${measurement ? temperatureText(measurement.temperature) : "--.- °C"}</strong></span>
+      <span class="room-summary-metric"><small>Thermostate</small><strong>${activeCount}/${definition.thermostats} aktiv</strong></span>
+      <span class="room-summary-target"><small>${target == null ? "Noch nicht verbunden" : `Soll ${Number(target).toFixed(1)}°`}</small></span>
+      <span class="room-summary-flag">${windowOpen ? "Fenster offen" : ""}</span>
+      <span class="room-summary-chevron" aria-hidden="true"></span>`;
+    summary.querySelector(".room-summary-name strong").textContent = definition.name;
+    if (group?.biasCorrectedMeasurement) {
+      summary.querySelector(".room-summary-metric small").textContent = "Bias-korrigiert";
+    }
+
+    const content = document.createElement("div");
+    content.className = "room-accordion-content";
+
+    const sensorSection = document.createElement("section");
+    sensorSection.className = "room-detail-section";
+    sensorSection.innerHTML = '<h3>Sensoren und Bias</h3><div class="room-detail-grid"></div>';
+    const sensorGrid = sensorSection.querySelector(".room-detail-grid");
+    if (!group) {
+      sensorGrid.innerHTML = '<p class="room-placeholder">Noch keine Sensoren verbunden.</p>';
+    } else {
+      if (group.biasCorrectedMeasurement) {
+        const combined = group.biasCorrectedMeasurement;
+        const panel = document.createElement("article");
+        panel.className = `room-detail-card combined${combined.correction.isProvisional ? " provisional" : ""}`;
+        panel.innerHTML = `<strong>Kombinierter Raumwert</strong><span>${temperatureText(combined.temperature)} · ${humidityText(combined.humidity)}</span><small></small>`;
+        panel.querySelector("small").textContent = `Bias-Korrektur ${combined.adjustedSensorName}: ${signedNumber(combined.correction.temperatureAdjustment)} °C`;
+        sensorGrid.append(panel);
+      }
+      group.sensors.forEach((sensor, index) => {
+        const panel = document.createElement("article");
+        panel.className = "room-detail-card";
+        panel.innerHTML = '<strong></strong><span></span><small></small>';
+        panel.querySelector("strong").textContent = group.sensors.length > 1
+          ? `Sensor ${index + 1} · ${sensor.name}` : sensor.name;
+        panel.querySelector("span").textContent = `${temperatureText(sensor.temperature)} · ${humidityText(sensor.humidity)}`;
+        panel.querySelector("small").textContent = sensor.origin === "main" ? "Hauptmessung"
+          : sensor.origin === "fallback" ? "Ersatzmessung · bias-korrigiert" : "Zusatzmessung";
+        sensorGrid.append(panel);
+      });
+    }
+
+    const thermostatSection = document.createElement("section");
+    thermostatSection.className = "room-detail-section";
+    thermostatSection.innerHTML = '<h3>Thermostate</h3><div class="room-detail-grid"></div>';
+    const thermostatGrid = thermostatSection.querySelector(".room-detail-grid");
+    if (!thermostats.length) {
+      thermostatGrid.innerHTML = `<p class="room-placeholder">${definition.thermostats} ${definition.thermostats === 1 ? "Thermostat ist" : "Thermostate sind"} vorgesehen, aber noch nicht verbunden.</p>`;
+    } else {
+      thermostats.forEach((snapshot) => {
+        const panel = document.createElement("article");
+        panel.className = "room-detail-card thermostat";
+        const status = !heatingEnabled ? "Heizung aus · nicht berücksichtigt"
+          : suspendedRooms.includes(definition.id) ? "Für Stosslüftung ausgeschaltet"
+            : snapshot.isEnabled ? "Heizkörper ein" : "Heizkörper aus";
+        panel.innerHTML = '<strong></strong><span></span><small></small>';
+        panel.querySelector("strong").textContent = snapshot.roomName;
+        panel.querySelector("span").textContent = `${temperatureText(Number(snapshot.temperature))} · Soll ${Number(snapshot.targetTemperature).toFixed(1)}°`;
+        panel.querySelector("small").textContent = status;
+        thermostatGrid.append(panel);
+      });
+      const missing = Math.max(0, definition.thermostats - thermostats.length);
+      if (missing) {
+        const note = document.createElement("p");
+        note.className = "room-placeholder compact";
+        note.textContent = `Weitere ${missing} ${missing === 1 ? "Thermostat" : "Thermostate"} vorgesehen.`;
+        thermostatGrid.append(note);
+      }
+    }
+
+    const controls = document.createElement("section");
+    controls.className = "room-detail-section room-controls";
+    controls.innerHTML = '<h3>Raumfunktionen</h3><div></div>';
+    const controlsRow = controls.querySelector("div");
+    if (definition.id === "buero-alois") {
+      const windowButton = document.createElement("button");
+      windowButton.type = "button";
+      windowButton.textContent = windowOpen ? "Fenster offen" : "Fenster geschlossen";
+      windowButton.className = windowOpen ? "window-open" : "";
+      windowButton.addEventListener("click", () => postOfficeWindowState(windowButton, !windowOpen));
+      controlsRow.append(windowButton);
+
+      const plan = document.createElement("span");
+      plan.className = "room-plan-note";
+      plan.textContent = windowOpen ? "Schattenplan würde Heizung ausschalten"
+        : `${heatingPrototype?.period === "comfort" ? "Komfort" : "Nacht"} · berechnetes Soll ${Number(heatingPrototype?.targetTemperature).toFixed(1)} °C`;
+      controlsRow.append(plan);
+    } else {
+      const windowFuture = document.createElement("span");
+      windowFuture.textContent = "Fenstersteuerung folgt";
+      controlsRow.append(windowFuture);
+    }
+    const comfort = document.createElement("span");
+    comfort.textContent = definition.id === "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt";
+    controlsRow.append(comfort);
+
+    content.append(sensorSection, thermostatSection, controls);
+    card.append(summary, content);
+    return card;
+  });
+
+  const groupedCards = [];
+  for (const floorName of ["Unteres Geschoss", "Oberes Geschoss"]) {
+    const heading = document.createElement("h3");
+    heading.className = "room-floor-heading";
+    heading.textContent = floorName;
+    groupedCards.push(heading, ...cards.filter((card) => {
+      const definition = dashboardRooms.find((room) => room.id === card.dataset.roomId);
+      return definition?.floor === floorName;
+    }));
+  }
+  byId(containerId).replaceChildren(...groupedCards);
+};
+
 const renderRoomObservations = (rooms, referenceOutdoor) => {
   const observations = rooms.map((room) => {
     const advice = recommendation(room, referenceOutdoor);
@@ -606,6 +833,9 @@ const renderRoomObservations = (rooms, referenceOutdoor) => {
 
 const renderOutdoorSummary = (readings) => {
   const summary = byId("outdoor-summary");
+  const mean = readings.length ? meanOutdoor(readings) : null;
+  setText("terrace-temperature", mean ? temperatureText(mean.temperature) : "--.- °C");
+  setText("terrace-humidity", mean ? humidityText(mean.humidity) : "-- %");
   if (readings.length < 2) {
     summary.textContent = "Der vorhandene Aussensensor wird für die Empfehlung verwendet";
     summary.className = "section-note";
@@ -769,6 +999,7 @@ const render = ({
   ventilationSession,
   heatingThermostats,
   heatingVentilationControl,
+  heatingPrototype,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
   additionalSensorError,
@@ -799,15 +1030,17 @@ const render = ({
     seasonalRecommendationError,
   );
   renderVentilationSession(ventilationSession);
-  renderHeatingThermostats(heatingThermostats, heatingVentilationControl, operatingMode);
-
-  renderRoomSensorCards(
+  renderRoomAccordions(
     "indoor-grid",
     groupedRoomReadings(
       indoorRooms,
       activeAdditionalSnapshot,
       alignedSensorSnapshots,
     ),
+    heatingThermostats,
+    heatingVentilationControl,
+    operatingMode,
+    heatingPrototype,
   );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   if (acquisition.unavailable) {

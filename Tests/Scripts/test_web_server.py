@@ -117,5 +117,36 @@ class VentilationSessionTests(unittest.TestCase):
         self.assertFalse(state["suspended"])
 
 
+class HeatingRoomPrototypeTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.original_path = SERVER.HEATING_ROOM_OVERRIDES_PATH
+        SERVER.HEATING_ROOM_OVERRIDES_PATH = (
+            Path(self.temporary_directory.name) / "room-overrides.json"
+        )
+
+    def tearDown(self):
+        SERVER.HEATING_ROOM_OVERRIDES_PATH = self.original_path
+        self.temporary_directory.cleanup()
+
+    def test_window_override_is_persisted_and_cleared(self):
+        opened = SERVER.write_heating_room_override("buero-alois", True)
+        self.assertEqual(opened["openRoomIDs"], ["buero-alois"])
+        self.assertTrue(SERVER.heating_prototype_payload(overrides=opened)["wouldDisableHeating"])
+        closed = SERVER.write_heating_room_override("buero-alois", False)
+        self.assertEqual(closed["openRoomIDs"], [])
+
+    def test_weekend_schedule_uses_later_start(self):
+        saturday = datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc)
+        payload = SERVER.heating_prototype_payload(now=saturday)
+        self.assertEqual(payload["period"], "night")
+        self.assertEqual(payload["targetTemperature"], 18.0)
+        self.assertEqual(payload["comfortStartMinute"], 450)
+
+    def test_other_rooms_are_rejected_in_prototype(self):
+        with self.assertRaises(ValueError):
+            SERVER.write_heating_room_override("sauna", True)
+
+
 if __name__ == "__main__":
     unittest.main()

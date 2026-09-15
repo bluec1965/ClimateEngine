@@ -152,6 +152,10 @@ public struct ClimateEnginePaths: Sendable {
         stateDirectory.appendingPathComponent("heating/ventilation-control.json")
     }
 
+    public var heatingRoomOverridesURL: URL {
+        stateDirectory.appendingPathComponent("heating/room-overrides.json")
+    }
+
     public var seasonalRecommendationSnapshotURL: URL {
         dataDirectory
             .appendingPathComponent("seasonal-recommendation")

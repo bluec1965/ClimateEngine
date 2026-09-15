@@ -19,11 +19,23 @@ VENTILATION_SESSION_PATH = DATA_ROOT / "ventilation-session.json"
 VENTILATION_SESSION_LOCK = threading.Lock()
 HEATING_DIRECTORY = DATA_ROOT / "heating"
 HEATING_CONTROL_PATH = HEATING_DIRECTORY / "ventilation-control.json"
+HEATING_ROOM_OVERRIDES_PATH = HEATING_DIRECTORY / "room-overrides.json"
 HEATING_LOCK = threading.Lock()
+HEATING_ROOM_OVERRIDES_LOCK = threading.Lock()
 HEATING_THERMOSTATS = {
     "buero-alois": {"off": "ClimateEngine Heating Büro Alois Off", "on": "ClimateEngine Heating Büro Alois On"},
     "bad-alois": {"off": "ClimateEngine Heating Bad Alois Off", "on": "ClimateEngine Heating Bad Alois On"},
     "sauna": {"off": "ClimateEngine Heating Sauna Off", "on": "ClimateEngine Heating Sauna On"},
+}
+HEATING_PROTOTYPE_SCHEDULE = {
+    "roomID": "buero-alois",
+    "roomName": "Büro Alois",
+    "comfortTemperature": 21.5,
+    "nightTemperature": 18.0,
+    "weekdayComfortStartMinute": 6 * 60,
+    "weekdayComfortEndMinute": 22 * 60,
+    "weekendComfortStartMinute": 7 * 60 + 30,
+    "weekendComfortEndMinute": 23 * 60,
 }
 
 
@@ -85,6 +97,62 @@ def write_atomic_json(path, value):
         json.dump(value, file, ensure_ascii=False, indent=2, sort_keys=True)
         file.write("\n")
     os.replace(temporary_path, path)
+
+
+def heating_room_overrides_payload():
+    try:
+        state = read_optional_json(HEATING_ROOM_OVERRIDES_PATH)
+    except (OSError, ValueError, json.JSONDecodeError):
+        state = None
+    if not isinstance(state, dict) or not isinstance(state.get("openRoomIDs"), list):
+        return {"version": 1, "openRoomIDs": [], "updatedAt": None}
+    return state
+
+
+def write_heating_room_override(room_id, window_open, now=None):
+    if room_id != HEATING_PROTOTYPE_SCHEDULE["roomID"]:
+        raise ValueError("Raum ist im Prototyp noch nicht schaltbar")
+    if not isinstance(window_open, bool):
+        raise ValueError("windowOpen muss ein Wahrheitswert sein")
+    with HEATING_ROOM_OVERRIDES_LOCK:
+        state = heating_room_overrides_payload()
+        open_room_ids = set(state["openRoomIDs"])
+        if window_open:
+            open_room_ids.add(room_id)
+        else:
+            open_room_ids.discard(room_id)
+        timestamp = (now or datetime.now(timezone.utc)).replace(microsecond=0)
+        state = {
+            "version": 1,
+            "openRoomIDs": sorted(open_room_ids),
+            "updatedAt": timestamp.isoformat().replace("+00:00", "Z"),
+        }
+        write_atomic_json(HEATING_ROOM_OVERRIDES_PATH, state)
+        return state
+
+
+def heating_prototype_payload(now=None, overrides=None):
+    now = now or datetime.now().astimezone()
+    schedule = HEATING_PROTOTYPE_SCHEDULE
+    weekend = now.weekday() >= 5
+    start = schedule["weekendComfortStartMinute"] if weekend else schedule["weekdayComfortStartMinute"]
+    end = schedule["weekendComfortEndMinute"] if weekend else schedule["weekdayComfortEndMinute"]
+    minute = now.hour * 60 + now.minute
+    period = "comfort" if start <= minute < end else "night"
+    target = schedule["comfortTemperature"] if period == "comfort" else schedule["nightTemperature"]
+    overrides = overrides or heating_room_overrides_payload()
+    window_open = schedule["roomID"] in overrides["openRoomIDs"]
+    return {
+        "mode": "shadow",
+        "roomID": schedule["roomID"],
+        "roomName": schedule["roomName"],
+        "period": period,
+        "targetTemperature": target,
+        "comfortStartMinute": start,
+        "comfortEndMinute": end,
+        "windowOpen": window_open,
+        "wouldDisableHeating": window_open,
+    }
 
 
 def heating_enabled():
@@ -372,6 +440,7 @@ def read_dashboard_data():
             f"Zusatzhistorie konnte nicht geladen werden: {error}"
         )
 
+    heating_room_overrides = heating_room_overrides_payload()
     return {
         "snapshot": snapshot,
         "sensorAcquisition": read_optional_json(DATA_ROOT / "sensor-input" / "current-status.json"),
@@ -386,6 +455,8 @@ def read_dashboard_data():
         "ventilationSession": ventilation_session_payload(),
         "heatingThermostats": [read_optional_json(HEATING_DIRECTORY / f"{room_id}.json") for room_id in HEATING_THERMOSTATS],
         "heatingVentilationControl": read_optional_json(HEATING_CONTROL_PATH),
+        "heatingRoomOverrides": heating_room_overrides,
+        "heatingPrototype": heating_prototype_payload(overrides=heating_room_overrides),
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),
         "additionalSensorError": additional_sensor_error,
@@ -421,7 +492,7 @@ class ClimateEngineHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path != "/api/ventilation-session":
+        if path not in ("/api/ventilation-session", "/api/heating-room-override"):
             self.send_error(404, "Nicht gefunden")
             return
 
@@ -440,10 +511,15 @@ class ClimateEngineHandler(BaseHTTPRequestHandler):
             if length <= 0 or length > 1024:
                 raise ValueError("Ungültige Anfragegrösse")
             request = json.loads(self.rfile.read(length))
-            action = request.get("action")
-            if action not in ("start", "stop"):
-                raise ValueError("Unbekannte Aktion")
-            self.send_json(write_ventilation_session(action == "start"))
+            if path == "/api/ventilation-session":
+                action = request.get("action")
+                if action not in ("start", "stop"):
+                    raise ValueError("Unbekannte Aktion")
+                self.send_json(write_ventilation_session(action == "start"))
+            else:
+                self.send_json(write_heating_room_override(
+                    request.get("roomID"), request.get("windowOpen")
+                ))
         except (TypeError, ValueError, json.JSONDecodeError) as error:
             self.send_json({"error": str(error)}, status=400)
 

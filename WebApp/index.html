@@ -79,10 +79,6 @@
             <small id="seasonal-explanation">Die produktive Sommerlogik bleibt unverändert aktiv.</small>
           </div>
         </div>
-        <section class="thermostat-section" aria-labelledby="thermostat-heading">
-          <span class="thermostat-floor" id="thermostat-heading">Unteres Geschoss</span>
-          <div class="thermostat-grid" id="thermostat-list"></div>
-        </section>
         <div class="ventilation-session" id="ventilation-session">
           <div>
             <span>Wohnungsweite Stosslüftung</span>
@@ -99,26 +95,37 @@
       <section class="sensor-section" aria-labelledby="indoor-heading">
         <div class="section-heading sensor-heading">
           <div>
-            <p class="section-label">Innen</p>
-            <h2 id="indoor-heading">Räume</h2>
+            <p class="section-label">Raumbasiertes Dashboard</p>
+            <h2 id="indoor-heading">Innenräume</h2>
           </div>
           <span class="section-note" id="indoor-summary">
             Zweitsensoren sind dem jeweiligen Raum zugeordnet · noch ohne Mittelwerte
           </span>
         </div>
-        <div class="measurement-grid" id="indoor-grid"></div>
+        <div class="room-accordion-list" id="indoor-grid"></div>
       </section>
 
       <section class="sensor-section" aria-labelledby="outdoor-heading">
         <div class="section-heading sensor-heading">
           <div>
             <p class="section-label">Aussen</p>
-            <h2 id="outdoor-heading">Sensoren</h2>
+            <h2 id="outdoor-heading">Terrasse</h2>
           </div>
-          <span class="section-note" id="outdoor-summary">Aussenmittel wird berechnet</span>
         </div>
-        <p class="section-note warning" id="sensor-acquisition-status" role="status" hidden></p>
-        <div class="measurement-grid" id="outdoor-grid"></div>
+        <details class="room-accordion terrace-accordion">
+          <summary>
+            <span class="room-summary-icon terrace-summary-icon" aria-hidden="true"></span>
+            <span class="room-summary-name"><strong>Terrasse</strong></span>
+            <span class="room-summary-metric"><small>Aussenmittel</small><strong id="terrace-temperature">--.- °C</strong></span>
+            <span class="room-summary-metric"><small>Luftfeuchtigkeit</small><strong id="terrace-humidity">-- %</strong></span>
+            <span class="terrace-summary-description" id="outdoor-summary">Aussenmittel wird berechnet</span>
+            <span class="room-summary-chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="room-accordion-content">
+            <p class="section-note warning" id="sensor-acquisition-status" role="status" hidden></p>
+            <div class="measurement-grid" id="outdoor-grid"></div>
+          </div>
+        </details>
       </section>
 
       <section class="panel weather-panel" aria-labelledby="weather-heading">

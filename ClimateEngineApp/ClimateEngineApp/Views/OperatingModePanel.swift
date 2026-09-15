@@ -6,8 +6,6 @@ struct OperatingModePanel: View {
     let effectiveMode: OperatingMode
     let shadowRecommendation: SeasonalRecommendationSnapshot?
     let ventilationSession: VentilationSession?
-    let heatingThermostats: [HeatingThermostatSnapshot]
-    let heatingControl: HeatingVentilationControl?
     let errorMessage: String?
     let onHeatingChanged: (Bool) -> Void
     let onSelectionChanged: (OperatingModeSelection) -> Void
@@ -129,15 +127,6 @@ struct OperatingModePanel: View {
             .padding(14)
             .liquidGlassInset(cornerRadius: 16)
 
-            VStack(alignment: .leading, spacing: 9) {
-                LiquidGlassSectionLabel(text: "Unteres Geschoss")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 10)], spacing: 10) {
-                    ForEach(thermostatRooms, id: \.id) { room in
-                        thermostatTile(roomID: room.id, roomName: room.name)
-                    }
-                }
-            }
-
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -253,72 +242,4 @@ struct OperatingModePanel: View {
         return "Noch ca. \(minutes) Minuten · endet automatisch um \(ventilationSession.expiresAt.formatted(date: .omitted, time: .shortened))"
     }
 
-    private let thermostatRooms = [
-        (id: "buero-alois", name: "Büro Alois"),
-        (id: "bad-alois", name: "Bad Alois"),
-        (id: "sauna", name: "Sauna"),
-    ]
-
-    @ViewBuilder
-    private func thermostatTile(roomID: String, roomName: String) -> some View {
-        let snapshot = heatingThermostats.first { $0.roomID == roomID }
-        let tint = thermostatTint(snapshot: snapshot, roomID: roomID)
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top) {
-                Image(systemName: "thermometer.medium")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(state.heatingEnabled ? 1 : 0.58))
-                    .frame(width: 29, height: 29)
-                    .background(Circle().fill(tint.opacity(0.85)))
-                Spacer()
-                Text(thermostatTemperatureText(snapshot: snapshot))
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.white)
-            }
-            HStack(spacing: 6) {
-                Text(roomName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(state.heatingEnabled ? 1 : 0.58))
-                    .lineLimit(1)
-                Spacer(minLength: 2)
-                if let target = thermostatTargetText(snapshot: snapshot) {
-                    Text(target)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(LiquidGlassTheme.secondaryText)
-                        .lineLimit(1)
-                }
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(tint.opacity(state.heatingEnabled ? 0.25 : 0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(tint.opacity(state.heatingEnabled ? 0.42 : 0.16), lineWidth: 1))
-        .accessibilityLabel("\(roomName), \(thermostatStatusText(snapshot: snapshot, roomID: roomID)), \(thermostatTemperatureText(snapshot: snapshot))")
-    }
-
-    private func thermostatTint(snapshot: HeatingThermostatSnapshot?, roomID: String) -> Color {
-        if heatingControl?.isSuspended(roomID: roomID) == true { return .orange }
-        guard let snapshot, snapshot.isCurrent(), let isEnabled = snapshot.isEnabled else { return .gray }
-        return isEnabled ? .red : LiquidGlassTheme.cyan
-    }
-
-    private func thermostatTemperatureText(snapshot: HeatingThermostatSnapshot?) -> String {
-        guard let snapshot, snapshot.isCurrent(), let value = snapshot.temperature else {
-            return "--.- °C"
-        }
-        return String(format: "%.1f °C", value)
-    }
-
-    private func thermostatTargetText(snapshot: HeatingThermostatSnapshot?) -> String? {
-        guard let snapshot, snapshot.isCurrent(), let value = snapshot.targetTemperature else { return nil }
-        return String(format: "Soll %.1f°", value)
-    }
-
-    private func thermostatStatusText(snapshot: HeatingThermostatSnapshot?, roomID: String) -> String {
-        guard state.heatingEnabled else { return "Heizung aus · wird nicht berücksichtigt" }
-        if heatingControl?.isSuspended(roomID: roomID) == true { return "Für Stosslüftung ausgeschaltet" }
-        guard let snapshot, snapshot.isCurrent() else { return "Status nicht verfügbar" }
-        guard let isEnabled = snapshot.isEnabled else { return "Ein/Aus-Status nicht verfügbar" }
-        return isEnabled ? "Heizkörper ein" : "Heizkörper aus"
-    }
 }

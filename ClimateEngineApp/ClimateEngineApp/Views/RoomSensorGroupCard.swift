@@ -2,193 +2,327 @@ import SwiftUI
 import ClimateEngine
 
 struct RoomSensorGroupCard: View {
-    let room: RoomSensorGroup
+    let roomID: String
+    let roomName: String
+    let expectedThermostatCount: Int
+    let room: RoomSensorGroup?
+    let thermostatSnapshots: [HeatingThermostatSnapshot]
+    let heatingEnabled: Bool
+    let heatingControl: HeatingVentilationControl?
+    let windowOpen: Bool
+    let onWindowOpenChanged: ((Bool) -> Void)?
+
+    @State private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                LiquidGlassGlyph(
-                    systemName: "house.fill",
-                    size: 42,
-                    symbolSize: 25
-                )
-
-                Text(room.name)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                if room.sensors.count > 1 {
-                    badge("\(room.sensors.count) Sensoren", color: LiquidGlassTheme.cyan)
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
                 }
+            } label: {
+                summary
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(roomName) \(isExpanded ? "zuklappen" : "aufklappen")")
 
-                if room.isSMSReferenceRoom {
-                    badge("SMS-Referenz", color: LiquidGlassTheme.mint)
+            if isExpanded {
+                Divider()
+                    .overlay(Color.white.opacity(0.10))
+                    .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 15) {
+                    sensorDetails
+                    thermostatDetails
+                    roomControls
                 }
-            }
-
-            if let combined = room.biasCorrectedMeasurement {
-                biasCorrectedPanel(combined)
-
-                Text("Unveränderte Rohwerte")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(LiquidGlassTheme.secondaryText)
-            }
-
-            ForEach(Array(room.sensors.enumerated()), id: \.element.id) { index, sensor in
-                sensorPanel(sensor, index: index)
+                .padding(16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: 22, glowColor: LiquidGlassTheme.cyan)
+        .liquidGlassCard(
+            cornerRadius: 19,
+            glowColor: windowOpen ? .orange : summaryTint,
+            raised: isExpanded
+        )
     }
 
-    private func biasCorrectedPanel(
-        _ combined: BiasCorrectedRoomMeasurement
-    ) -> some View {
-        let measurement = combined.measurement
-        let correction = combined.correction
-        let statusColor: Color = correction.isProvisional
-            ? .orange
-            : LiquidGlassTheme.mint
+    private var summary: some View {
+        HStack(spacing: 13) {
+            LiquidGlassIndicatorIcon(
+                systemName: room == nil ? "house" : "house.fill",
+                tint: summaryTint,
+                size: 34,
+                symbolSize: 14,
+                vibrant: windowOpen
+            )
 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("Kombinierter Raumwert")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(roomName)
+                    .font(.headline)
                     .foregroundStyle(.white)
-
-                Spacer()
-
-                Text(correction.isProvisional ? "Bias-korrigiert · vorläufig" : "Bias-korrigiert")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(statusColor)
             }
 
-            ClimateRow(
-                label: "Temperatur",
-                value: String(format: "%.1f °C", measurement.temperature)
-            )
-            ClimateRow(
-                label: "Luftfeuchtigkeit",
-                value: String(format: "%.0f %%", measurement.humidity)
-            )
-            ClimateRow(
-                label: "Taupunkt",
-                value: String(
-                    format: "%.1f °C",
-                    ClimateCalculator.dewPoint(
-                        temperatureCelsius: measurement.temperature,
-                        relativeHumidity: measurement.humidity
-                    )
-                )
-            )
-            ClimateRow(
-                label: "Absolute Luftfeuchtigkeit",
-                value: String(
-                    format: "%.1f g/m³",
-                    ClimateCalculator.absoluteHumidity(
-                        temperatureCelsius: measurement.temperature,
-                        relativeHumidity: measurement.humidity
-                    )
-                )
+            Spacer(minLength: 10)
+
+            summaryMetric(
+                icon: "thermometer.medium",
+                primary: temperatureText,
+                secondary: room?.biasCorrectedMeasurement == nil ? "Raumtemperatur" : "Bias-korrigiert"
             )
 
-            Text(
-                "Korrektur \(combined.adjustedSensorName): "
-                    + "\(signed(correction.temperatureAdjustment)) °C · "
-                    + "\(signed(correction.relativeHumidityAdjustment)) %-Pkt. rF"
+            summaryMetric(
+                icon: "radiator",
+                primary: thermostatSummary,
+                secondary: targetSummary
             )
-            .font(.caption2)
-            .foregroundStyle(statusColor)
 
-            if let caveat = correction.caveat {
-                Text(caveat)
-                    .font(.caption2)
+            if windowOpen {
+                Label("Fenster offen", systemImage: "window.vertical.open")
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.orange)
             }
 
-            Text(
-                "Sensor 1 (\(combined.baselineSensorName)) dient als Vergleichsbasis; "
-                    + "danach 1:1 gemittelt. Basis: Median aus "
-                    + "\(correction.sampleCount) Messpaaren, "
-                    + correction.analysisPeriod + "."
-            )
-            .font(.caption2)
-            .foregroundStyle(LiquidGlassTheme.tertiaryText)
+            Image(systemName: "chevron.down")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
+                .rotationEffect(.degrees(isExpanded ? 180 : 0))
         }
-        .padding(15)
-        .liquidGlassInset(cornerRadius: 17)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .contentShape(Rectangle())
     }
 
-    private func sensorPanel(
-        _ sensor: RoomSensorObservation,
-        index: Int
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(sensorTitle(sensor, index: index))
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+    private func summaryMetric(icon: String, primary: String, secondary: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(summaryTint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(primary)
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
-
-                Spacer()
-
-                Text(originLabel(sensor.origin))
+                Text(secondary)
                     .font(.caption2)
                     .foregroundStyle(LiquidGlassTheme.tertiaryText)
             }
-
-            ClimateRow(
-                label: "Temperatur",
-                value: String(format: "%.1f °C", sensor.measurement.temperature)
-            )
-            ClimateRow(
-                label: "Luftfeuchtigkeit",
-                value: String(format: "%.0f %%", sensor.measurement.humidity)
-            )
-            ClimateRow(
-                label: "Taupunkt",
-                value: String(
-                    format: "%.1f °C",
-                    ClimateCalculator.dewPoint(
-                        temperatureCelsius: sensor.measurement.temperature,
-                        relativeHumidity: sensor.measurement.humidity
-                    )
-                )
-            )
-            ClimateRow(
-                label: "Absolute Luftfeuchtigkeit",
-                value: String(
-                    format: "%.1f g/m³",
-                    ClimateCalculator.absoluteHumidity(
-                        temperatureCelsius: sensor.measurement.temperature,
-                        relativeHumidity: sensor.measurement.humidity
-                    )
-                )
-            )
         }
-        .padding(15)
-        .liquidGlassInset(cornerRadius: 17)
+        .frame(minWidth: 120, alignment: .leading)
     }
 
-    private func sensorTitle(
-        _ sensor: RoomSensorObservation,
-        index: Int
-    ) -> String {
-        guard room.sensors.count > 1 else { return sensor.name }
-        return "Sensor \(index + 1) · \(sensor.name)"
+    @ViewBuilder
+    private var sensorDetails: some View {
+        detailHeading("Sensoren und Bias", icon: "sensor.fill")
+        if let room {
+            if let combined = room.biasCorrectedMeasurement {
+                biasCorrectedPanel(combined)
+                Text("Unveränderte Rohwerte")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
+            }
+            ForEach(Array(room.sensors.enumerated()), id: \.element.id) { index, sensor in
+                sensorPanel(sensor, index: index, sensorCount: room.sensors.count)
+            }
+        } else {
+            placeholder("Noch keine Sensoren verbunden.")
+        }
     }
 
-    private func signed(_ value: Double) -> String {
-        String(format: "%+.1f", value)
+    @ViewBuilder
+    private var thermostatDetails: some View {
+        detailHeading("Thermostate", icon: "thermometer.medium")
+        if thermostatSnapshots.isEmpty {
+            placeholder("\(expectedThermostatCount) \(expectedThermostatCount == 1 ? "Thermostat ist" : "Thermostate sind") vorgesehen, aber noch nicht verbunden.")
+        } else {
+            ForEach(Array(thermostatSnapshots.enumerated()), id: \.offset) { _, snapshot in
+                thermostatPanel(snapshot)
+            }
+            let missing = max(0, expectedThermostatCount - thermostatSnapshots.count)
+            if missing > 0 {
+                Text("Weitere \(missing) \(missing == 1 ? "Thermostat" : "Thermostate") vorgesehen")
+                    .font(.caption)
+                    .foregroundStyle(LiquidGlassTheme.tertiaryText)
+            }
+        }
+
+        if roomID == "buero-alois" {
+            let evaluation = HeatingWeeklySchedule.bueroAloisPrototype.evaluation()
+            HStack {
+                Label("Schattenplan", systemImage: "calendar.badge.clock")
+                    .foregroundStyle(LiquidGlassTheme.cyan)
+                Spacer()
+                Text(windowOpen
+                    ? "Fenster offen · würde Heizung ausschalten"
+                    : "\(evaluation.period == .comfort ? "Komfort" : "Nacht") · Soll \(String(format: "%.1f °C", evaluation.targetTemperature))")
+                    .foregroundStyle(windowOpen ? Color.orange : LiquidGlassTheme.secondaryText)
+            }
+            .font(.caption.weight(.semibold))
+            .padding(12)
+            .liquidGlassInset(cornerRadius: 14)
+        }
     }
+
+    private var roomControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            detailHeading("Raumfunktionen", icon: "slider.horizontal.3")
+            HStack(spacing: 16) {
+                if let onWindowOpenChanged {
+                    Toggle(
+                        "Fenster offen",
+                        isOn: Binding(get: { windowOpen }, set: onWindowOpenChanged)
+                    )
+                    .toggleStyle(.switch)
+                    .tint(.orange)
+                } else {
+                    Label("Fenstersteuerung folgt", systemImage: "window.vertical.closed")
+                        .foregroundStyle(LiquidGlassTheme.tertiaryText)
+                }
+
+                Spacer()
+
+                Label(
+                    roomID == "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt",
+                    systemImage: "sparkles"
+                )
+                .foregroundStyle(LiquidGlassTheme.tertiaryText)
+            }
+            .font(.caption.weight(.semibold))
+        }
+    }
+
+    private func detailHeading(_ title: String, icon: String) -> some View {
+        Label(title, systemImage: icon)
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(.white)
+    }
+
+    private func placeholder(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(LiquidGlassTheme.tertiaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(13)
+            .liquidGlassInset(cornerRadius: 14)
+    }
+
+    private func thermostatPanel(_ snapshot: HeatingThermostatSnapshot) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(thermostatTint(snapshot).opacity(0.85))
+                .frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(snapshot.roomName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(thermostatStatus(snapshot))
+                    .font(.caption)
+                    .foregroundStyle(LiquidGlassTheme.secondaryText)
+            }
+            Spacer()
+            Text(snapshot.temperature.map { String(format: "%.1f °C", $0) } ?? "--.- °C")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(snapshot.targetTemperature.map { String(format: "Soll %.1f°", $0) } ?? "")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LiquidGlassTheme.secondaryText)
+        }
+        .padding(13)
+        .liquidGlassInset(cornerRadius: 14)
+    }
+
+    private func biasCorrectedPanel(_ combined: BiasCorrectedRoomMeasurement) -> some View {
+        let correction = combined.correction
+        let statusColor: Color = correction.isProvisional ? .orange : LiquidGlassTheme.mint
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Text("Kombinierter Raumwert").font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(correction.isProvisional ? "Bias-korrigiert · vorläufig" : "Bias-korrigiert")
+                    .font(.caption2.weight(.semibold)).foregroundStyle(statusColor)
+            }
+            measurementRows(combined.measurement)
+            Text("Korrektur \(combined.adjustedSensorName): \(signed(correction.temperatureAdjustment)) °C · \(signed(correction.relativeHumidityAdjustment)) %-Pkt. rF")
+                .font(.caption2).foregroundStyle(statusColor)
+            if let caveat = correction.caveat {
+                Text(caveat).font(.caption2).foregroundStyle(.orange)
+            }
+            Text("Sensor 1 (\(combined.baselineSensorName)) ist die Vergleichsbasis; danach 1:1 gemittelt. Basis: \(correction.sampleCount) Messpaare, \(correction.analysisPeriod).")
+                .font(.caption2).foregroundStyle(LiquidGlassTheme.tertiaryText)
+        }
+        .padding(14)
+        .liquidGlassInset(cornerRadius: 15)
+    }
+
+    private func sensorPanel(_ sensor: RoomSensorObservation, index: Int, sensorCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Text(sensorCount > 1 ? "Sensor \(index + 1) · \(sensor.name)" : sensor.name)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                Spacer()
+                Text(originLabel(sensor.origin)).font(.caption2).foregroundStyle(LiquidGlassTheme.tertiaryText)
+            }
+            measurementRows(sensor.measurement)
+        }
+        .padding(14)
+        .liquidGlassInset(cornerRadius: 15)
+    }
+
+    private func measurementRows(_ measurement: ClimateMeasurement) -> some View {
+        VStack(spacing: 0) {
+            ClimateRow(label: "Temperatur", value: String(format: "%.1f °C", measurement.temperature))
+            ClimateRow(label: "Luftfeuchtigkeit", value: String(format: "%.0f %%", measurement.humidity))
+            ClimateRow(label: "Taupunkt", value: String(format: "%.1f °C", ClimateCalculator.dewPoint(temperatureCelsius: measurement.temperature, relativeHumidity: measurement.humidity)))
+            ClimateRow(label: "Absolute Luftfeuchtigkeit", value: String(format: "%.1f g/m³", ClimateCalculator.absoluteHumidity(temperatureCelsius: measurement.temperature, relativeHumidity: measurement.humidity)))
+        }
+    }
+
+    private var displayMeasurement: ClimateMeasurement? {
+        if let corrected = room?.biasCorrectedMeasurement?.measurement { return corrected }
+        guard let sensors = room?.sensors, !sensors.isEmpty else { return nil }
+        return ClimateMeasurement(
+            temperature: sensors.map(\.measurement.temperature).reduce(0, +) / Double(sensors.count),
+            humidity: sensors.map(\.measurement.humidity).reduce(0, +) / Double(sensors.count)
+        )
+    }
+
+    private var temperatureText: String {
+        displayMeasurement.map { String(format: "%.1f °C", $0.temperature) } ?? "--.- °C"
+    }
+
+    private var thermostatSummary: String {
+        guard !thermostatSnapshots.isEmpty else { return "0/\(expectedThermostatCount)" }
+        let active = thermostatSnapshots.filter { $0.isEnabled == true }.count
+        return "\(active)/\(expectedThermostatCount) aktiv"
+    }
+
+    private var targetSummary: String {
+        guard let target = thermostatSnapshots.compactMap(\.targetTemperature).first else {
+            return "Thermostate"
+        }
+        return String(format: "Soll %.1f°", target)
+    }
+
+    private var summaryTint: Color {
+        if windowOpen || heatingControl?.isSuspended(roomID: roomID) == true { return .orange }
+        guard heatingEnabled, !thermostatSnapshots.isEmpty else { return LiquidGlassTheme.cyan }
+        return thermostatSnapshots.contains { $0.isEnabled == true } ? .red : LiquidGlassTheme.cyan
+    }
+
+    private func thermostatTint(_ snapshot: HeatingThermostatSnapshot) -> Color {
+        if windowOpen || heatingControl?.isSuspended(roomID: roomID) == true { return .orange }
+        guard heatingEnabled else { return .gray }
+        return snapshot.isEnabled == true ? .red : LiquidGlassTheme.cyan
+    }
+
+    private func thermostatStatus(_ snapshot: HeatingThermostatSnapshot) -> String {
+        if windowOpen { return "Fenster offen · im Schattenbetrieb" }
+        guard heatingEnabled else { return "Heizung aus · nicht berücksichtigt" }
+        if heatingControl?.isSuspended(roomID: roomID) == true { return "Für Stosslüftung ausgeschaltet" }
+        return snapshot.isEnabled == true ? "Heizkörper ein" : "Heizkörper aus"
+    }
+
+    private func signed(_ value: Double) -> String { String(format: "%+.1f", value) }
 
     private func originLabel(_ origin: RoomSensorOrigin) -> String {
         switch origin {
@@ -196,15 +330,5 @@ struct RoomSensorGroupCard: View {
         case .additionalConnector: return "Zusatzmessung"
         case .fallback: return "Ersatzmessung · bias-korrigiert"
         }
-    }
-
-    private func badge(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .foregroundStyle(color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .liquidGlassInset(cornerRadius: 99)
     }
 }
