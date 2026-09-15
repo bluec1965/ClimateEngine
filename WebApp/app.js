@@ -431,9 +431,10 @@ const roomBiasCorrections = Object.freeze({
     caveat: "Feuchteabweichung abhängig von der Temperatur (ca. −4 bis +1 %-Pkt. rF).",
   },
 });
+let activeBiasCorrections = roomBiasCorrections;
 
 const biasCorrectedMeasurement = (group) => {
-  const correction = roomBiasCorrections[group.id];
+  const correction = activeBiasCorrections[group.id];
   if (!correction) return null;
 
   const reference = group.sensors.find(
@@ -714,27 +715,51 @@ const renderRoomAccordions = (
 
     const sensorSection = document.createElement("section");
     sensorSection.className = "room-detail-section";
-    sensorSection.innerHTML = '<h3>Sensoren und Bias</h3><div class="room-detail-grid"></div>';
+    sensorSection.innerHTML = '<h3>Sensoren und Bias</h3><div class="room-detail-grid room-sensors"></div>';
     const sensorGrid = sensorSection.querySelector(".room-detail-grid");
     if (!group) {
       sensorGrid.innerHTML = '<p class="room-placeholder">Noch keine Sensoren verbunden.</p>';
     } else {
       if (group.biasCorrectedMeasurement) {
         const combined = group.biasCorrectedMeasurement;
+        const correction = combined.correction;
+        const absolute = absoluteHumidity(combined.temperature, combined.humidity);
         const panel = document.createElement("article");
-        panel.className = `room-detail-card combined${combined.correction.isProvisional ? " provisional" : ""}`;
-        panel.innerHTML = `<strong>Kombinierter Raumwert</strong><span>${temperatureText(combined.temperature)} · ${humidityText(combined.humidity)}</span><small></small>`;
-        panel.querySelector("small").textContent = `Bias-Korrektur ${combined.adjustedSensorName}: ${signedNumber(combined.correction.temperatureAdjustment)} °C`;
+        panel.className = `room-sensor room-combined${correction.isProvisional ? " provisional" : ""}`;
+        panel.innerHTML = `
+          <div class="room-sensor-header"><strong>Kombinierter Raumwert</strong><span class="bias-badge">${correction.isProvisional ? "Bias-korrigiert · vorläufig" : "Bias-korrigiert"}</span></div>
+          <dl>
+            <div><dt>Temperatur</dt><dd>${temperatureText(combined.temperature)}</dd></div>
+            <div><dt>Luftfeuchtigkeit</dt><dd>${humidityText(combined.humidity)}</dd></div>
+            <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(combined.temperature, combined.humidity))}</dd></div>
+            <div><dt>Absolute Luftfeuchtigkeit</dt><dd>${absoluteText(absolute)}</dd></div>
+          </dl>
+          <p class="bias-correction"></p><p class="bias-caveat"></p><p class="bias-basis"></p>`;
+        panel.querySelector(".bias-correction").textContent = `Korrektur ${combined.adjustedSensorName}: ${signedNumber(correction.temperatureAdjustment)} °C · ${signedNumber(correction.humidityAdjustment)} %-Pkt. rF`;
+        panel.querySelector(".bias-caveat").textContent = correction.caveat || "";
+        panel.querySelector(".bias-basis").textContent = `Sensor 1 (${combined.baselineSensorName}) ist die Vergleichsbasis; danach 1:1 gemittelt. Basis: ${correction.sampleCount} Messpaare, ${correction.analysisPeriod}.`;
         sensorGrid.append(panel);
+
+        const rawLabel = document.createElement("p");
+        rawLabel.className = "room-raw-label";
+        rawLabel.textContent = "Unveränderte Rohwerte";
+        sensorGrid.append(rawLabel);
       }
       group.sensors.forEach((sensor, index) => {
+        const absolute = absoluteHumidity(sensor.temperature, sensor.humidity);
         const panel = document.createElement("article");
-        panel.className = "room-detail-card";
-        panel.innerHTML = '<strong></strong><span></span><small></small>';
-        panel.querySelector("strong").textContent = group.sensors.length > 1
+        panel.className = "room-sensor";
+        panel.innerHTML = `
+          <div class="room-sensor-header"><strong></strong><span class="sensor-origin"></span></div>
+          <dl>
+            <div><dt>Temperatur</dt><dd>${temperatureText(sensor.temperature)}</dd></div>
+            <div><dt>Luftfeuchtigkeit</dt><dd>${humidityText(sensor.humidity)}</dd></div>
+            <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(sensor.temperature, sensor.humidity))}</dd></div>
+            <div><dt>Absolute Luftfeuchtigkeit</dt><dd>${absoluteText(absolute)}</dd></div>
+          </dl>`;
+        panel.querySelector(".room-sensor-header strong").textContent = group.sensors.length > 1
           ? `Sensor ${index + 1} · ${sensor.name}` : sensor.name;
-        panel.querySelector("span").textContent = `${temperatureText(sensor.temperature)} · ${humidityText(sensor.humidity)}`;
-        panel.querySelector("small").textContent = sensor.origin === "main" ? "Hauptmessung"
+        panel.querySelector(".sensor-origin").textContent = sensor.origin === "main" ? "Hauptmessung"
           : sensor.origin === "fallback" ? "Ersatzmessung · bias-korrigiert" : "Zusatzmessung";
         sensorGrid.append(panel);
       });
@@ -831,14 +856,39 @@ const renderRoomObservations = (rooms, referenceOutdoor) => {
   byId("room-observations").replaceChildren(...observations);
 };
 
+const correctedOutdoorMean = (readings) => {
+  const correction = activeBiasCorrections.terrasse;
+  const corrected = readings.map((reading) => {
+    if (!correction || reading.id !== correction.adjustedSensorId) return reading;
+    return {
+      ...reading,
+      temperature: reading.temperature + correction.temperatureAdjustment,
+      humidity: Math.max(0, Math.min(100, reading.humidity + correction.humidityAdjustment)),
+    };
+  });
+  return meanOutdoor(corrected);
+};
+
 const renderOutdoorSummary = (readings) => {
   const summary = byId("outdoor-summary");
-  const mean = readings.length ? meanOutdoor(readings) : null;
+  const terraceProfile = activeBiasCorrections.terrasse;
+  const calibrated = terraceProfile?.isProvisional === false;
+  const calibrationDetail = byId("terrace-calibration-detail");
+  if (terraceProfile) {
+    calibrationDetail.textContent = terraceProfile.isProvisional
+      ? `Bias-Kalibrierung vorläufig · ${terraceProfile.sampleCount} Messpaare · ${terraceProfile.analysisPeriod}`
+      : `Bias-Kalibrierung aktuell · ${terraceProfile.sampleCount.toLocaleString("de-CH")} Messpaare · ${terraceProfile.analysisPeriod}`;
+    calibrationDetail.className = `terrace-calibration-detail${calibrated ? " calibrated" : " warning"}`;
+  } else {
+    calibrationDetail.textContent = "Noch keine Bias-Kalibrierung verfügbar";
+    calibrationDetail.className = "terrace-calibration-detail warning";
+  }
+  const mean = readings.length ? correctedOutdoorMean(readings) : null;
   setText("terrace-temperature", mean ? temperatureText(mean.temperature) : "--.- °C");
   setText("terrace-humidity", mean ? humidityText(mean.humidity) : "-- %");
   if (readings.length < 2) {
     summary.textContent = "Der vorhandene Aussensensor wird für die Empfehlung verwendet";
-    summary.className = "section-note";
+    summary.className = `terrace-summary-description${calibrated ? " calibrated" : ""}`;
     return;
   }
   const temperatures = readings.map((reading) => reading.temperature);
@@ -848,7 +898,7 @@ const renderOutdoorSummary = (readings) => {
   const humiditySpread = Math.max(...absoluteValues) - Math.min(...absoluteValues);
   const uncertain = temperatureSpread >= 1.5 || humiditySpread >= 1.0;
   summary.textContent = `Aussenmittel aus ${readings.length} Sensoren · Spanne ${temperatureSpread.toFixed(1)} °C · ${humiditySpread.toFixed(1)} g/m³${uncertain ? " · beobachten" : ""}`;
-  summary.className = `section-note${uncertain ? " warning" : ""}`;
+  summary.className = `terrace-summary-description${calibrated ? " calibrated" : ""}${uncertain ? " warning" : ""}`;
 };
 
 const renderWeather = (weather, weatherError) => {
@@ -1005,7 +1055,22 @@ const render = ({
   additionalSensorError,
   additionalHistorySummary,
   additionalHistoryError,
+  biasCalibration,
 }) => {
+  if (Array.isArray(biasCalibration?.profiles)) {
+    activeBiasCorrections = Object.fromEntries(biasCalibration.profiles.map((profile) => [
+      profile.roomID,
+      {
+        additionalSensorId: profile.adjustedSensorID,
+        temperatureAdjustment: profile.temperatureAdjustment,
+        humidityAdjustment: profile.relativeHumidityAdjustment,
+        sampleCount: profile.sampleCount,
+        analysisPeriod: profile.analysisPeriod,
+        isProvisional: profile.isProvisional,
+        caveat: profile.caveat,
+      },
+    ]));
+  }
   const additionalState = additionalAcquisitionState(additionalSensorSnapshot, additionalSensorAcquisition);
   const activeAdditionalSnapshot = additionalSensorSnapshot
     ? { ...additionalSensorSnapshot, sensors: additionalState.sensors } : null;
@@ -1084,7 +1149,7 @@ const render = ({
   const indoorSummary = byId("indoor-summary");
   const summaryText = additionalSensorSnapshot && !alignedSensorSnapshots
     ? "Bias-korrigierte Raumwerte warten auf zeitlich passende Haupt- und Zusatzmessungen"
-    : "Bias-Korrektur nur mit zwei aktuellen Sensoren · Büro Alois und Sauna vorläufig";
+    : "Wöchentlich kalibrierte Bias-Korrektur mit zwei aktuellen Sensoren";
   if (additionalSensorSnapshot?.timestamp) {
     indoorSummary.textContent = `${summaryText} · Zusatzmessung ${formatTime(additionalSensorSnapshot.timestamp)}`;
     indoorSummary.className = "section-note";

@@ -462,6 +462,7 @@ def read_dashboard_data():
         "additionalSensorError": additional_sensor_error,
         "additionalHistorySummary": additional_history_summary,
         "additionalHistoryError": additional_history_error,
+        "biasCalibration": read_optional_json(DATA_ROOT / "bias-calibration.json"),
         "servedAt": datetime.now().astimezone().isoformat(),
     }
 

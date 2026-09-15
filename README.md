@@ -146,12 +146,26 @@ Messpaaren vom 15. bis 28. August 2026:
 Die Oberflächen weisen Korrektur, Gewichtung und Datengrundlage direkt beim
 Raumwert aus; darunter bleiben die unveränderten Rohwerte beider Sensoren
 sichtbar. Eine Kombination erfolgt nur, wenn Haupt- und Zusatzsnapshot höchstens
-drei Minuten auseinanderliegen. Die Korrekturen für **Büro Alois** und **Sauna**
-sind wegen ihrer temperaturabhängigen Abweichungen ausdrücklich als vorläufig
-gekennzeichnet; der jeweilige Hinweis steht direkt beim Raumwert. SMS und
+drei Minuten auseinanderliegen. SMS und
 Lüftungsempfehlung verwenden weiterhin nur die bisherigen Referenzsensoren. Zur
 eindeutigen Orientierung wird der bisherige Hauptsensor im Büro Alois als
 `HomePod Büro Alois Links` und in der Sauna als `HomePod Sauna Rechts` angezeigt.
+
+### Wöchentliche Bias-Kalibrierung
+
+`Scripts/run-bias-calibration.py` kalibriert Stube/Küche, Schlafzimmer,
+Büro Alois, Sauna und Terrasse wöchentlich anhand der letzten 14 Tage. Es
+verwendet den Median aus zeitlich höchstens drei Minuten auseinanderliegenden
+Messpaaren. Ein Profil wird nur bei mindestens 500 Paaren und begrenzter
+Streuung grün; andernfalls bleibt es vorläufig/orange. Pro Wochenlauf sind
+Änderungen auf 0,3 °C und 1,0 Prozentpunkt rF begrenzt. Die Terrasse gleicht
+den HomePod an den Eve Degree an, bevor der gemeinsame Anzeigewert entsteht.
+
+Der LaunchAgent `Support/ch.climateengine.bias-calibration.plist` startet den
+Lauf sonntags um 03:15 Uhr und zusätzlich nach dem Laden des Agents. Das
+gemeinsame Ergebnis liegt in
+`~/Library/Application Support/ClimateEngine/bias-calibration.json` und wird
+von Mac-App und WebUI verwendet.
 
 Direkt nach dem Textfeld folgt `Shell-Skript ausführen` mit diesem Befehl:
 

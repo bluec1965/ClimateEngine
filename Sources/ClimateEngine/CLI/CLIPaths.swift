@@ -116,6 +116,10 @@ public struct ClimateEnginePaths: Sendable {
         dataDirectory.appendingPathComponent("additional-sensors/current-status.json")
     }
 
+    public var biasCalibrationURL: URL {
+        dataDirectory.appendingPathComponent("bias-calibration.json")
+    }
+
     public var sensorInputHistoryDirectory: URL {
         dataDirectory
             .appendingPathComponent("sensor-input")

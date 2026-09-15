@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var ventilationRequestInFlight = false
     @State private var roomOverrideRequestInFlight = false
     @State private var terraceIsExpanded = false
+    @State private var biasCalibration: BiasCalibrationDocument?
 
     private let refreshTimer = Timer.publish(
         every: 10,
@@ -285,7 +286,7 @@ struct ContentView: View {
     }
 
     private var indoorRoomGroups: [RoomSensorGroup] {
-        RoomSensorGrouper().groups(
+        RoomSensorGrouper(calibration: biasCalibration).groups(
             primaryRooms: snapshot?.indoorRooms ?? [],
             additionalSensors: additionalSensorSnapshot?.currentSensors(status: additionalAcquisitionStatus) ?? [],
             includeBiasCorrectedMeasurements: sensorSnapshotsAreAligned
@@ -341,12 +342,13 @@ struct ContentView: View {
 
     private var outdoorSensorSection: some View {
         let readings = snapshot?.outdoorSensors ?? []
-        let meanTemperature = readings.isEmpty
+        let correctedReadings = correctedTerraceReadings(readings)
+        let meanTemperature = correctedReadings.isEmpty
             ? "--.- °C"
-            : formatTemperature(readings.map(\.measurement.temperature).reduce(0, +) / Double(readings.count))
-        let meanHumidity = readings.isEmpty
+            : formatTemperature(correctedReadings.map(\.measurement.temperature).reduce(0, +) / Double(correctedReadings.count))
+        let meanHumidity = correctedReadings.isEmpty
             ? "-- %"
-            : formatHumidity(readings.map(\.measurement.humidity).reduce(0, +) / Double(readings.count))
+            : formatHumidity(correctedReadings.map(\.measurement.humidity).reduce(0, +) / Double(correctedReadings.count))
 
         return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
@@ -417,6 +419,14 @@ struct ContentView: View {
                             .font(.subheadline)
                             .foregroundStyle(LiquidGlassTheme.secondaryText)
 
+                        if let profile = biasCalibration?.profile(roomID: "terrasse") {
+                            Text(profile.isProvisional
+                                ? "Bias-Kalibrierung vorläufig"
+                                : "Bias-Kalibrierung aktuell · \(profile.sampleCount) Messpaare · \(profile.analysisPeriod)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(profile.isProvisional ? .orange : LiquidGlassTheme.mint)
+                        }
+
                         LazyVGrid(
                             columns: [GridItem(.adaptive(minimum: 290), spacing: 20)],
                             spacing: 20
@@ -447,6 +457,25 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func correctedTerraceReadings(_ readings: [SensorReading]) -> [SensorReading] {
+        guard let profile = biasCalibration?.profile(roomID: "terrasse") else { return readings }
+        return readings.map { reading in
+            guard reading.id == profile.adjustedSensorID else { return reading }
+            return SensorReading(
+                id: reading.id,
+                name: reading.name,
+                measurement: ClimateMeasurement(
+                    temperature: reading.measurement.temperature + profile.temperatureAdjustment,
+                    humidity: min(100, max(0, reading.measurement.humidity + profile.relativeHumidityAdjustment))
+                ),
+                isPrimary: reading.isPrimary,
+                sourceSensorID: reading.sourceSensorID,
+                sourceSensorName: reading.sourceSensorName,
+                isFallback: reading.usesFallback
+            )
+        }
+    }
+
     private var outdoorSensorSubtitle: String {
         if measurementUnavailableReason != nil {
             return "Zuletzt verfügbare Messwerte · aktuell keine neue Empfehlung."
@@ -468,6 +497,7 @@ struct ContentView: View {
 
     private func loadSnapshot() {
         do {
+            biasCalibration = try? BiasCalibrationStore().load(from: paths.biasCalibrationURL)
             acquisitionStatus = try SensorAcquisitionStore().load(from: paths.sensorAcquisitionURL)
             acquisitionLoadError = nil
         } catch {

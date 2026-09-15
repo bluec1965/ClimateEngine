@@ -12,7 +12,7 @@ public struct RoomSensorGrouper {
         var sensors: [RoomSensorObservation]
     }
 
-    private static let biasProfiles: [String: BiasProfile] = [
+    private static let defaultBiasProfiles: [String: BiasProfile] = [
         "stube": BiasProfile(
             additionalSensorID: "homepod-kueche",
             correction: RoomSensorBiasCorrection(
@@ -55,7 +55,25 @@ public struct RoomSensorGrouper {
         )
     ]
 
-    public init() {}
+    private let biasProfiles: [String: BiasProfile]
+
+    public init(calibration: BiasCalibrationDocument? = nil) {
+        var profiles = Self.defaultBiasProfiles
+        for profile in calibration?.profiles ?? [] where profile.roomID != "terrasse" {
+            profiles[profile.roomID] = BiasProfile(
+                additionalSensorID: profile.adjustedSensorID,
+                correction: RoomSensorBiasCorrection(
+                    temperatureAdjustment: profile.temperatureAdjustment,
+                    relativeHumidityAdjustment: profile.relativeHumidityAdjustment,
+                    sampleCount: profile.sampleCount,
+                    analysisPeriod: profile.analysisPeriod,
+                    isProvisional: profile.isProvisional,
+                    caveat: profile.caveat
+                )
+            )
+        }
+        biasProfiles = profiles
+    }
 
     public func groups(
         primaryRooms: [SensorReading],
@@ -119,7 +137,7 @@ public struct RoomSensorGrouper {
     private func biasCorrectedMeasurement(
         for builder: Builder
     ) -> BiasCorrectedRoomMeasurement? {
-        guard let profile = Self.biasProfiles[builder.id],
+        guard let profile = biasProfiles[builder.id],
               let reference = builder.sensors.first(where: {
                   $0.origin == .mainConnector && $0.id == builder.id
               }),
