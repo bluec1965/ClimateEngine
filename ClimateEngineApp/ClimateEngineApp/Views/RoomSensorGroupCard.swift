@@ -73,10 +73,16 @@ struct RoomSensorGroupCard: View {
             )
 
             summaryMetric(
-                icon: "radiator",
+                icon: "heater.vertical",
                 primary: thermostatSummary,
-                secondary: targetSummary
+                secondary: "Thermostate"
             )
+
+            Text(targetSummary)
+                .font(.caption)
+                .foregroundStyle(LiquidGlassTheme.tertiaryText)
+                .lineLimit(2)
+                .frame(minWidth: 110, alignment: .leading)
 
             if windowOpen {
                 Label("Fenster offen", systemImage: "window.vertical.open")
@@ -298,7 +304,7 @@ struct RoomSensorGroupCard: View {
 
     private var targetSummary: String {
         guard let target = thermostatSnapshots.compactMap(\.targetTemperature).first else {
-            return "Thermostate"
+            return "Noch nicht verbunden"
         }
         return String(format: "Soll %.1f°", target)
     }

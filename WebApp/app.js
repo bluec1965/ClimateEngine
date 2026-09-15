@@ -700,8 +700,8 @@ const renderRoomAccordions = (
     summary.innerHTML = `
       <span class="room-summary-icon" aria-hidden="true"></span>
       <span class="room-summary-name"><strong></strong></span>
-      <span class="room-summary-metric"><small>Raumtemperatur</small><strong>${measurement ? temperatureText(measurement.temperature) : "--.- °C"}</strong></span>
-      <span class="room-summary-metric"><small>Thermostate</small><strong>${activeCount}/${definition.thermostats} aktiv</strong></span>
+      <span class="room-summary-metric temperature"><small>Raumtemperatur</small><strong>${measurement ? temperatureText(measurement.temperature) : "--.- °C"}</strong></span>
+      <span class="room-summary-metric thermostat"><small>Thermostate</small><strong>${activeCount}/${definition.thermostats} aktiv</strong></span>
       <span class="room-summary-target"><small>${target == null ? "Noch nicht verbunden" : `Soll ${Number(target).toFixed(1)}°`}</small></span>
       <span class="room-summary-flag">${windowOpen ? "Fenster offen" : ""}</span>
       <span class="room-summary-chevron" aria-hidden="true"></span>`;
