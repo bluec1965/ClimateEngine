@@ -21,8 +21,8 @@ Text zurück, mit genau einem Messwert je Zeile (ohne Beschriftungen):
 | `ClimateEngine Read Main Schlafzimmer` | Hauptsensor Schlafzimmer Temperatur, Hauptsensor Schlafzimmer Feuchtigkeit |
 | `ClimateEngine Read Büro Alois Links` | HomePod Büro Alois Links Temperatur, Feuchtigkeit |
 | `ClimateEngine Read Sauna Rechts` | HomePod Sauna Rechts Temperatur, Feuchtigkeit |
-| `ClimateEngine Read HomePod Terrasse` | HomePod Terrasse Temperatur, HomePod Terrasse Feuchtigkeit |
-| `ClimateEngine Read Eve Degree` | Eve Degree Temperatur, Eve Degree Feuchtigkeit |
+| `ClimateEngine Read Terrasse` | HomePod Terrasse Temperatur, HomePod Terrasse Feuchtigkeit |
+| `ClimateEngine Read Main Terrasse` | Eve Degree Temperatur, Eve Degree Feuchtigkeit |
 
 Dafür die vorhandenen HomeKit-Abfragen und ihre Gerätezuordnung übernehmen.
 Mit den Ergebnissen ein Textfeld als letzte Aktion erstellen (oder danach

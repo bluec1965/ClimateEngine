@@ -433,7 +433,7 @@ struct ContentView: View {
                         ) {
                             ForEach(readings) { reading in
                                 ClimateCard(
-                                    title: reading.name,
+                                    title: outdoorSensorDisplayName(reading),
                                     systemImage: "tree.fill",
                                     temperature: formatTemperature(reading.measurement.temperature),
                                     humidity: formatHumidity(reading.measurement.humidity),
@@ -474,6 +474,10 @@ struct ContentView: View {
                 isFallback: reading.usesFallback
             )
         }
+    }
+
+    private func outdoorSensorDisplayName(_ reading: SensorReading) -> String {
+        reading.id == "eve-degree" ? "Terrasse" : reading.name
     }
 
     private var outdoorSensorSubtitle: String {

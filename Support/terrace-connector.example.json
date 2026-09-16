@@ -6,7 +6,7 @@
     "buero-alois": "ClimateEngine Read Büro Alois Links",
     "sauna": "ClimateEngine Read Sauna Rechts"
   },
-  "eveShortcut": "ClimateEngine Read Eve Degree",
-  "homepodShortcut": "ClimateEngine Read HomePod Terrasse",
+  "eveShortcut": "ClimateEngine Read Main Terrasse",
+  "homepodShortcut": "ClimateEngine Read Terrasse",
   "processingShortcut": "ClimateEngine Process Sensors"
 }

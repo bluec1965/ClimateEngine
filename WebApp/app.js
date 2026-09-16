@@ -528,7 +528,8 @@ const renderSensorCards = (containerId, readings, iconType) => {
         <div><dt>Taupunkt</dt><dd>${temperatureText(dewPoint(reading.temperature, reading.humidity))}</dd></div>
         <div><dt>Absolute Feuchte</dt><dd>${absoluteText(absolute)}</dd></div>
       </dl>`;
-    card.querySelector("h3").textContent = reading.name;
+    card.querySelector("h3").textContent = iconType === "outdoor" && reading.id === "eve-degree"
+      ? "Terrasse" : reading.name;
     return card;
   });
   byId(containerId).replaceChildren(...cards);
