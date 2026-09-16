@@ -16,7 +16,7 @@ reader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(reader)
 IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-buero-alois-rechts", "homepod-sauna-links", "homepod-buero-peter",
-       "homepod-bad-alois", "dachzimmer-sensor"]
+       "homepod-bad-alois", "dachzimmer-sensor", "galerie-sensor"]
 HEATING_THERMOSTATS = (
     ("buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
     ("bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),
@@ -71,7 +71,7 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
     if config.get("version") != 1 or set(shortcuts) != set(IDS) or any(
         not isinstance(name, str) or not name.strip() for name in shortcuts.values()
     ) or len(set(shortcuts.values())) != len(IDS):
-        raise ValueError("Für jeden der acht Zusatzsensoren ist ein eigener Lese-Kurzbefehl erforderlich.")
+        raise ValueError("Für jeden der neun Zusatzsensoren ist ein eigener Lese-Kurzbefehl erforderlich.")
     with tempfile.TemporaryDirectory(prefix="climateengine-additional-") as temp:
         sensors = []
         deadline = time.monotonic() + 150

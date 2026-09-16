@@ -36,7 +36,8 @@ struct AdditionalSensorInputParser {
         Definition(id: "homepod-sauna-links", name: "HomePod Sauna Links", roomID: "sauna", roomName: "Sauna"),
         Definition(id: "homepod-buero-peter", name: "HomePod Büro Peter", roomID: "buero-peter", roomName: "Büro Peter"),
         Definition(id: "homepod-bad-alois", name: "HomePod Bad Alois", roomID: "bad-alois", roomName: "Bad Alois"),
-        Definition(id: "dachzimmer-sensor", name: "Dachzimmer", roomID: "dachzimmer", roomName: "Dachzimmer")
+        Definition(id: "dachzimmer-sensor", name: "Dachzimmer", roomID: "dachzimmer", roomName: "Dachzimmer"),
+        Definition(id: "galerie-sensor", name: "Galerie", roomID: "galerie", roomName: "Galerie")
     ]
 
     func parse(_ input: String, now: Date) throws -> AdditionalSensorSnapshot {

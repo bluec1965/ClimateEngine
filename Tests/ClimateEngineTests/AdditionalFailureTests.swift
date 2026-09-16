@@ -22,16 +22,16 @@ private func additionalTestPaths(_ test: (ClimateEnginePaths) throws -> Void) th
     try test(ClimateEnginePaths(dataDirectory: root, stateDirectory: root))
 }
 
-@Test func additionalFailureKeepsSevenRealSensorsAndNoBedroomBias() throws {
+@Test func additionalFailureKeepsEightRealSensorsAndNoBedroomBias() throws {
     try additionalTestPaths { paths in
         let command = ClimateEngineCommand(paths: paths, now: { additionalTime })
         #expect(try command.run(arguments: ["additional-readings"], standardInput:
             additionalPayload(additionalTime, failed: ["homepod-schlafzimmer"])) == "ADDITIONAL_SENSORS_SAVED")
         let snapshot = try AdditionalSensorSnapshotStore().load(from: paths.additionalSensorSnapshotURL)
-        #expect(snapshot.sensors.count == 7)
+        #expect(snapshot.sensors.count == 8)
         #expect(!snapshot.sensors.contains { $0.id == "homepod-schlafzimmer" })
         #expect(snapshot.availabilityMessage(status: nil, now: additionalTime)?.contains("HomePod Schlafzimmer") == true)
-        #expect(snapshot.currentSensors(status: nil, now: additionalTime).count == 7)
+        #expect(snapshot.currentSensors(status: nil, now: additionalTime).count == 8)
         let groups = RoomSensorGrouper().groups(primaryRooms: [SensorReading(id: "schlafzimmer", name: "Schlafzimmer",
             measurement: ClimateMeasurement(temperature: 24, humidity: 50), isPrimary: false)], additionalSensors: snapshot.sensors)
         #expect(groups.first { $0.id == "schlafzimmer" }?.biasCorrectedMeasurement == nil)
@@ -51,7 +51,7 @@ private func additionalTestPaths(_ test: (ClimateEnginePaths) throws -> Void) th
         _ = try command.run(arguments: ["additional-readings"], standardInput: input)
         #expect(try command.run(arguments: ["additional-readings"], standardInput: input) == "ADDITIONAL_SENSORS_UNCHANGED")
         let snapshot = try AdditionalSensorSnapshotStore().load(from: paths.additionalSensorSnapshotURL)
-        #expect(snapshot.sensors.count == 8)
+        #expect(snapshot.sensors.count == 9)
         #expect(snapshot.availabilityMessage(status: nil, now: next) == nil)
         #expect(try AdditionalSensorHistoryReader(directory: paths.additionalSensorHistoryDirectory).loadToday(now: next).count == 2)
     }

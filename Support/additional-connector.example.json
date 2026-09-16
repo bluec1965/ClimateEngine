@@ -9,6 +9,7 @@
     "homepod-sauna-links": "ClimateEngine Read Sauna Links",
     "homepod-buero-peter": "ClimateEngine Read Büro Peter",
     "homepod-bad-alois": "ClimateEngine Read Bad Alois",
-    "dachzimmer-sensor": "ClimateEngine Read Dachzimmer"
+    "dachzimmer-sensor": "ClimateEngine Read Dachzimmer",
+    "galerie-sensor": "ClimateEngine Read Galerie"
   }
 }

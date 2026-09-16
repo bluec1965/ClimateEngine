@@ -1566,10 +1566,12 @@ private let additionalSensorTestInput = """
 49 %
 26.2 °C
 42 %
+23.6 °C
+50 %
 """
 
 @Test
-func additionalSensorInputParserMapsAllEightSensors() throws {
+func additionalSensorInputParserMapsAllNineSensors() throws {
     let runDate = ISO8601DateFormatter().date(from: "2026-08-15T10:02:00Z")!
     let snapshot = try AdditionalSensorInputParser().parse(
         additionalSensorTestInput,
@@ -1577,10 +1579,10 @@ func additionalSensorInputParserMapsAllEightSensors() throws {
     )
 
     #expect(snapshot.timestamp == runDate)
-    #expect(snapshot.sensors.count == 8)
+    #expect(snapshot.sensors.count == 9)
     #expect(snapshot.sensors.map(\.roomName) == [
         "Stube", "Bad Peter", "Schlafzimmer", "Büro Alois", "Sauna", "Büro Peter", "Bad Alois",
-        "Dachzimmer"
+        "Dachzimmer", "Galerie"
     ])
     #expect(snapshot.sensors[0].roomID == "stube")
     #expect(snapshot.sensors[0].measurement.temperature == 24.1)
@@ -1588,6 +1590,8 @@ func additionalSensorInputParserMapsAllEightSensors() throws {
     #expect(snapshot.sensors[3].id == "homepod-buero-alois-rechts")
     #expect(snapshot.sensors[7].id == "dachzimmer-sensor")
     #expect(snapshot.sensors[7].measurement.temperature == 26.2)
+    #expect(snapshot.sensors[8].id == "galerie-sensor")
+    #expect(snapshot.sensors[8].measurement.temperature == 23.6)
 }
 
 @Test
@@ -1635,7 +1639,7 @@ func roomSensorGrouperCombinesSecondSensorsWithExistingRooms() throws {
 
     #expect(groups.map(\.id) == [
         "stube", "schlafzimmer", "buero-alois", "sauna",
-        "bad-peter", "buero-peter", "bad-alois", "dachzimmer"
+        "bad-peter", "buero-peter", "bad-alois", "dachzimmer", "galerie"
     ])
     #expect(groups.first(where: { $0.id == "stube" })?.sensors.map(\.id) == [
         "stube", "homepod-kueche"
@@ -1705,7 +1709,7 @@ func completeAdditionalSensorRunWritesSnapshotAndDailyHistory() throws {
     let snapshot = try AdditionalSensorSnapshotStore().load(
         from: paths.additionalSensorSnapshotURL
     )
-    #expect(snapshot.sensors.count == 8)
+    #expect(snapshot.sensors.count == 9)
 
     let historyFiles = try FileManager.default.contentsOfDirectory(
         at: paths.additionalSensorHistoryDirectory,

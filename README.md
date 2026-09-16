@@ -72,7 +72,7 @@ und verhindert doppelte oder unter falschem Namen gespeicherte Messungen.
 Die Aktivierung erfolgt erst nach Einrichtung der dort beschriebenen Kurzbefehle.
 
 Die [unabhängige Erfassung der Zusatzsensoren](Docs/Zusatzsensoren-Ausfallsicherheit.md)
-isoliert die acht Zusatzabfragen. Fehlende Sensoren werden gekennzeichnet und
+isoliert die neun Zusatzabfragen. Fehlende Sensoren werden gekennzeichnet und
 nicht durch kopierte Werte ersetzt; gültige Teilmessungen werden weiter gespeichert.
 
 ClimateEngine kann in der Beobachtungsphase zwölf Werte über die
@@ -103,7 +103,7 @@ HomePod-Sensoren unabhängig vom Haupt-Connector. Mac-App und Web-Dashboard
 zeigen diese Beobachtungsdaten an; auf SMS oder Empfehlungen haben sie zunächst
 keinen Einfluss.
 
-Das Textfeld des Kurzbefehls übergibt genau diese sechzehn Werte über `stdin`:
+Das Textfeld des Kurzbefehls übergibt genau diese achtzehn Werte über `stdin`:
 
 1. Küche Temperatur
 2. Küche Luftfeuchtigkeit
@@ -121,6 +121,8 @@ Das Textfeld des Kurzbefehls übergibt genau diese sechzehn Werte über `stdin`:
 14. Bad Alois Luftfeuchtigkeit
 15. Dachzimmer Temperatur
 16. Dachzimmer Luftfeuchtigkeit
+17. Galerie Temperatur
+18. Galerie Luftfeuchtigkeit
 
 In der Mac-App und im Web-Dashboard werden Zusatzsensoren raumweise gruppiert.
 Dabei gelten diese
@@ -131,7 +133,7 @@ bewussten Zuordnungen für bereits vorhandene Räume:
 - `HomePod Büro Alois Rechts` ist der zweite Sensor von **Büro Alois**.
 - `HomePod Sauna Links` ist der zweite Sensor der **Sauna**.
 
-Bad Peter, Büro Peter, Bad Alois und Dachzimmer erscheinen als eigene Räume.
+Bad Peter, Büro Peter, Bad Alois, Dachzimmer und Galerie erscheinen als eigene Räume.
 Für **Stube** und **Schlafzimmer** zeigen Mac-App und Web-Dashboard zusätzlich
 einen bias-korrigierten, gleich gewichteten Raumwert. Dafür wird der
 Zusatzsensor zunächst auf die Skala des Hauptsensors angeglichen und danach 1:1

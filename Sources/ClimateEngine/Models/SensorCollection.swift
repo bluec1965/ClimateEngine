@@ -24,6 +24,7 @@ public struct CollectedSensor: Codable, Equatable, Sendable {
         case "homepod-buero-peter": "HomePod Büro Peter"
         case "homepod-bad-alois": "HomePod Bad Alois"
         case "dachzimmer-sensor": "Dachzimmer"
+        case "galerie-sensor": "Galerie"
         default: id
         }
     }

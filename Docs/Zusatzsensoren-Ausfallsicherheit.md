@@ -1,7 +1,7 @@
 # Zusatzsensoren: unabhängige Erfassung
 
-Ein nicht erreichbarer Zusatzsensor darf die anderen sieben nicht blockieren.
-Die acht reinen Lese-Kurzbefehle in `Support/additional-connector.example.json`
+Ein nicht erreichbarer Zusatzsensor darf die anderen acht nicht blockieren.
+Die neun reinen Lese-Kurzbefehle in `Support/additional-connector.example.json`
 enthalten jeweils nur die bestehende Temperatur-/Feuchteabfrage eines Gerätes,
 die zugehörigen Variablen und Wartezeiten sowie einen abschliessenden Text mit
 genau zwei Messwertzeilen. Keine CLI, SMS oder HomeKit-Schreibaktionen.
@@ -29,7 +29,7 @@ und ihre SMS-Verarbeitung werden vom Zusatz-Connector nicht verändert.
 
 ## Prüfung und Aktivierung
 
-Zuerst alle acht Hilfskurzbefehle prüfen, dann rein lesend:
+Zuerst alle neun Hilfskurzbefehle prüfen, dann rein lesend:
 
 ```sh
 cd /Users/aloiscarnier/Developer/ClimateEngine
