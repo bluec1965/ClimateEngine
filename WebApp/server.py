@@ -110,7 +110,7 @@ def heating_room_overrides_payload():
 
 
 def write_heating_room_override(room_id, window_open, now=None):
-    if room_id != HEATING_PROTOTYPE_SCHEDULE["roomID"]:
+    if room_id not in (HEATING_PROTOTYPE_SCHEDULE["roomID"], "galerie"):
         raise ValueError("Raum ist im Prototyp noch nicht schaltbar")
     if not isinstance(window_open, bool):
         raise ValueError("windowOpen muss ein Wahrheitswert sein")

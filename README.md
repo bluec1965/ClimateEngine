@@ -61,6 +61,15 @@ gestartet und vorzeitig beendet werden. Der persistente Ablaufzeitpunkt beendet
 sie auch nach Neustarts automatisch. Erwartbare Abkühlung wird währenddessen
 akzeptiert; die übrigen Plausibilitäts- und Vollständigkeitsprüfungen bleiben aktiv.
 
+## Galerie-Terrassentür
+
+Die Terrassentür der Galerie wird wie das Fenster im Büro Alois manuell im
+Raum-Dashboard als offen oder geschlossen markiert. Der Zustand ist in Mac-App
+und WebUI gleich sichtbar und wird unter `heating/room-overrides.json`
+gespeichert. Ein Türsensor und Home-Automationen werden dafür nicht benötigt.
+Solange in der Galerie kein Thermostat verbunden ist, löst der Schalter keinen
+Heizkörperbefehl aus.
+
 ## Mehrere Räume und Aussensensoren
 
 Der optionale [Sensor-Ersatzbetrieb](Docs/Terrasse-Ersatzbetrieb.md) liest

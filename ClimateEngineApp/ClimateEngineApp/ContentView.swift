@@ -273,7 +273,7 @@ struct ContentView: View {
                                 heatingEnabled: operatingModeState.heatingEnabled,
                                 heatingControl: heatingControl,
                                 windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
-                                onWindowOpenChanged: definition.id == "buero-alois"
+                                onWindowOpenChanged: ["buero-alois", "galerie"].contains(definition.id)
                                     ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
                                     : nil
                             )

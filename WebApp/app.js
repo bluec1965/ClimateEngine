@@ -639,13 +639,13 @@ const roomDisplayMeasurement = (group) => {
   };
 };
 
-const postOfficeWindowState = async (button, windowOpen) => {
+const postRoomWindowState = async (button, roomID, windowOpen) => {
   button.disabled = true;
   try {
     const response = await fetch("/api/heating-room-override", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomID: "buero-alois", windowOpen }),
+      body: JSON.stringify({ roomID, windowOpen }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
@@ -666,6 +666,7 @@ const renderRoomAccordions = (
   heatingControl,
   operatingMode,
   heatingPrototype,
+  heatingRoomOverrides,
 ) => {
   const groupsByID = new Map(groups.map((group) => [group.id, group]));
   const thermostatsByRoom = new Map();
@@ -684,7 +685,7 @@ const renderRoomAccordions = (
     const thermostats = thermostatsByRoom.get(definition.id) || [];
     const activeCount = thermostats.filter((item) => item.isEnabled === true).length;
     const target = thermostats.find((item) => Number.isFinite(Number(item.targetTemperature)))?.targetTemperature;
-    const windowOpen = definition.id === "buero-alois" && heatingPrototype?.windowOpen === true;
+    const windowOpen = heatingRoomOverrides?.openRoomIDs?.includes(definition.id) === true;
     const state = windowOpen || suspendedRooms.includes(definition.id) ? "attention"
       : heatingEnabled && activeCount > 0 ? "heating" : "idle";
 
@@ -704,7 +705,7 @@ const renderRoomAccordions = (
       <span class="room-summary-metric temperature"><small>Raumtemperatur</small><strong>${measurement ? temperatureText(measurement.temperature) : "--.- °C"}</strong></span>
       <span class="room-summary-metric thermostat"><small>Thermostate</small><strong>${activeCount}/${definition.thermostats} aktiv</strong></span>
       <span class="room-summary-target"><small>${target == null ? "Noch nicht verbunden" : `Soll ${Number(target).toFixed(1)}°`}</small></span>
-      <span class="room-summary-flag">${windowOpen ? "Fenster offen" : ""}</span>
+      <span class="room-summary-flag">${windowOpen ? (definition.id === "galerie" ? "Terrassentür offen" : "Fenster offen") : ""}</span>
       <span class="room-summary-chevron" aria-hidden="true"></span>`;
     summary.querySelector(".room-summary-name strong").textContent = definition.name;
     if (group?.biasCorrectedMeasurement) {
@@ -798,19 +799,23 @@ const renderRoomAccordions = (
     controls.className = "room-detail-section room-controls";
     controls.innerHTML = '<h3>Raumfunktionen</h3><div></div>';
     const controlsRow = controls.querySelector("div");
-    if (definition.id === "buero-alois") {
+    if (["buero-alois", "galerie"].includes(definition.id)) {
       const windowButton = document.createElement("button");
       windowButton.type = "button";
-      windowButton.textContent = windowOpen ? "Fenster offen" : "Fenster geschlossen";
+      windowButton.textContent = definition.id === "galerie"
+        ? `Terrassentür ${windowOpen ? "offen" : "geschlossen"}`
+        : `Fenster ${windowOpen ? "offen" : "geschlossen"}`;
       windowButton.className = windowOpen ? "window-open" : "";
-      windowButton.addEventListener("click", () => postOfficeWindowState(windowButton, !windowOpen));
+      windowButton.addEventListener("click", () => postRoomWindowState(windowButton, definition.id, !windowOpen));
       controlsRow.append(windowButton);
 
-      const plan = document.createElement("span");
-      plan.className = "room-plan-note";
-      plan.textContent = windowOpen ? "Schattenplan würde Heizung ausschalten"
-        : `${heatingPrototype?.period === "comfort" ? "Komfort" : "Nacht"} · berechnetes Soll ${Number(heatingPrototype?.targetTemperature).toFixed(1)} °C`;
-      controlsRow.append(plan);
+      if (definition.id === "buero-alois") {
+        const plan = document.createElement("span");
+        plan.className = "room-plan-note";
+        plan.textContent = windowOpen ? "Schattenplan würde Heizung ausschalten"
+          : `${heatingPrototype?.period === "comfort" ? "Komfort" : "Nacht"} · berechnetes Soll ${Number(heatingPrototype?.targetTemperature).toFixed(1)} °C`;
+        controlsRow.append(plan);
+      }
     } else {
       const windowFuture = document.createElement("span");
       windowFuture.textContent = "Fenstersteuerung folgt";
@@ -1051,6 +1056,7 @@ const render = ({
   heatingThermostats,
   heatingVentilationControl,
   heatingPrototype,
+  heatingRoomOverrides,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
   additionalSensorError,
@@ -1107,6 +1113,7 @@ const render = ({
     heatingVentilationControl,
     operatingMode,
     heatingPrototype,
+    heatingRoomOverrides,
   );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   if (acquisition.unavailable) {

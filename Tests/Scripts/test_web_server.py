@@ -143,6 +143,14 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
         self.assertEqual(payload["targetTemperature"], 18.0)
         self.assertEqual(payload["comfortStartMinute"], 450)
 
+    def test_galerie_window_override_is_persisted_independently(self):
+        SERVER.write_heating_room_override("buero-alois", True)
+        opened = SERVER.write_heating_room_override("galerie", True)
+        self.assertEqual(opened["openRoomIDs"], ["buero-alois", "galerie"])
+        self.assertTrue(SERVER.heating_prototype_payload(overrides=opened)["wouldDisableHeating"])
+        closed = SERVER.write_heating_room_override("galerie", False)
+        self.assertEqual(closed["openRoomIDs"], ["buero-alois"])
+
     def test_other_rooms_are_rejected_in_prototype(self):
         with self.assertRaises(ValueError):
             SERVER.write_heating_room_override("sauna", True)

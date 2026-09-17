@@ -85,7 +85,7 @@ struct RoomSensorGroupCard: View {
                 .frame(minWidth: 110, alignment: .leading)
 
             if windowOpen {
-                Label("Fenster offen", systemImage: "window.vertical.open")
+                Label(roomID == "galerie" ? "Terrassentür offen" : "Fenster offen", systemImage: "window.vertical.open")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.orange)
             }
@@ -175,7 +175,7 @@ struct RoomSensorGroupCard: View {
             HStack(spacing: 16) {
                 if let onWindowOpenChanged {
                     Toggle(
-                        "Fenster offen",
+                        roomID == "galerie" ? "Terrassentür offen" : "Fenster offen",
                         isOn: Binding(get: { windowOpen }, set: onWindowOpenChanged)
                     )
                     .toggleStyle(.switch)
