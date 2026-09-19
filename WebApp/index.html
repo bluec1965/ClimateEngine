@@ -7,6 +7,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ClimateEngine" />
+    <script>
+      (() => {
+        const preference = localStorage.getItem("climateEngineAppearance") || "automatic";
+        document.documentElement.dataset.theme = preference === "automatic"
+          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : preference;
+      })();
+    </script>
     <title>ClimateEngine</title>
     <link rel="icon" type="image/png" href="/climateengine-app-icon.png" />
     <link rel="apple-touch-icon" href="/climateengine-app-icon.png" />
@@ -37,9 +45,25 @@
               <strong id="hero-recommendation-title">Warte auf Analyse</strong>
             </span>
           </div>
+          <div class="appearance-control" role="group" aria-label="Darstellung">
+            <span>Darstellung</span>
+            <div class="appearance-segments">
+              <button type="button" data-appearance="automatic">Automatisch</button>
+              <button type="button" data-appearance="light">Hell</button>
+              <button type="button" data-appearance="dark">Dunkel</button>
+            </div>
+          </div>
           <img
-            class="hero-app-icon"
+            class="hero-app-icon hero-app-icon-dark"
             src="/climateengine-app-icon.png"
+            width="128"
+            height="128"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            class="hero-app-icon hero-app-icon-light"
+            src="/climateengine-app-icon-light.png"
             width="128"
             height="128"
             alt=""

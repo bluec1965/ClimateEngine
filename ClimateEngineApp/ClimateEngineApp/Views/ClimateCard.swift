@@ -22,7 +22,7 @@ struct ClimateCard: View {
                     Text(title)
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LiquidGlassTheme.primaryText)
                 }
 
                 Spacer()

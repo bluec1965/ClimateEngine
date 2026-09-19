@@ -18,7 +18,7 @@ struct ComparisonBox: View {
 
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
             }
 
             ClimateRow(label: "Innen", value: indoor)

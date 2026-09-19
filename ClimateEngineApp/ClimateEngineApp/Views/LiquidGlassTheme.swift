@@ -1,20 +1,91 @@
 import SwiftUI
+import AppKit
+
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case automatic
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: "Automatisch"
+        case .light: "Hell"
+        case .dark: "Dunkel"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .automatic: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+private extension Color {
+    static func climateAdaptive(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        })
+    }
+}
 
 enum LiquidGlassTheme {
-    static let backgroundTop = Color(red: 0.015, green: 0.105, blue: 0.130)
-    static let backgroundMiddle = Color(red: 0.018, green: 0.075, blue: 0.095)
-    static let backgroundBottom = Color(red: 0.008, green: 0.025, blue: 0.035)
+    static let backgroundTop = Color.climateAdaptive(
+        light: NSColor(red: 0.91, green: 0.98, blue: 0.97, alpha: 1),
+        dark: NSColor(red: 0.015, green: 0.105, blue: 0.130, alpha: 1)
+    )
+    static let backgroundMiddle = Color.climateAdaptive(
+        light: NSColor(red: 0.965, green: 0.985, blue: 0.98, alpha: 1),
+        dark: NSColor(red: 0.018, green: 0.075, blue: 0.095, alpha: 1)
+    )
+    static let backgroundBottom = Color.climateAdaptive(
+        light: NSColor(red: 0.985, green: 0.99, blue: 0.985, alpha: 1),
+        dark: NSColor(red: 0.008, green: 0.025, blue: 0.035, alpha: 1)
+    )
 
     static let mint = Color(red: 0.08, green: 0.95, blue: 0.66)
     static let cyan = Color(red: 0.40, green: 0.90, blue: 1.00)
     static let ice = Color(red: 0.88, green: 0.98, blue: 1.00)
     static let petrol = Color(red: 0.01, green: 0.48, blue: 0.49)
-    static let secondaryText = Color.white.opacity(0.74)
-    static let tertiaryText = Color.white.opacity(0.58)
-    static let divider = Color.white.opacity(0.14)
+    static let brandLeading = Color.climateAdaptive(
+        light: NSColor(red: 0.015, green: 0.34, blue: 0.35, alpha: 1),
+        dark: NSColor(red: 0.88, green: 0.98, blue: 1.00, alpha: 1)
+    )
+    static let brandMiddle = Color.climateAdaptive(
+        light: NSColor(red: 0.01, green: 0.50, blue: 0.51, alpha: 1),
+        dark: NSColor(red: 0.40, green: 0.90, blue: 1.00, alpha: 1)
+    )
+    static let primaryText = Color.climateAdaptive(
+        light: NSColor(red: 0.035, green: 0.16, blue: 0.17, alpha: 1),
+        dark: .white
+    )
+    static let secondaryText = Color.climateAdaptive(
+        light: NSColor(red: 0.15, green: 0.30, blue: 0.31, alpha: 1),
+        dark: NSColor.white.withAlphaComponent(0.74)
+    )
+    static let tertiaryText = Color.climateAdaptive(
+        light: NSColor(red: 0.30, green: 0.43, blue: 0.44, alpha: 1),
+        dark: NSColor.white.withAlphaComponent(0.58)
+    )
+    static let divider = Color.climateAdaptive(
+        light: NSColor(red: 0.03, green: 0.29, blue: 0.30, alpha: 0.16),
+        dark: NSColor.white.withAlphaComponent(0.14)
+    )
+    static let surfaceTint = Color.climateAdaptive(
+        light: NSColor.white.withAlphaComponent(0.68),
+        dark: NSColor.white.withAlphaComponent(0.055)
+    )
+    static let surfaceBorder = Color.climateAdaptive(
+        light: NSColor(red: 0.04, green: 0.37, blue: 0.38, alpha: 0.20),
+        dark: NSColor.white.withAlphaComponent(0.12)
+    )
 
     static let brandGradient = LinearGradient(
-        colors: [ice, cyan, mint],
+        colors: [brandLeading, brandMiddle, mint],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -40,14 +111,38 @@ enum LiquidGlassTheme {
     }
 }
 
+struct AppearanceModePicker: View {
+    @Binding var selection: AppearanceMode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LiquidGlassSectionLabel(text: "Darstellung")
+
+            Picker("Darstellung", selection: $selection) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+        }
+        .padding(10)
+        .liquidGlassInset(cornerRadius: 14)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Darstellung")
+    }
+}
+
 struct LiquidGlassBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 LiquidGlassTheme.backgroundGradient
 
                 Circle()
-                    .fill(LiquidGlassTheme.mint.opacity(0.16))
+                    .fill(LiquidGlassTheme.mint.opacity(colorScheme == .dark ? 0.16 : 0.10))
                     .frame(
                         width: proxy.size.width * 0.72,
                         height: proxy.size.width * 0.72
@@ -59,7 +154,7 @@ struct LiquidGlassBackground: View {
                     )
 
                 Circle()
-                    .fill(LiquidGlassTheme.cyan.opacity(0.11))
+                    .fill(LiquidGlassTheme.cyan.opacity(colorScheme == .dark ? 0.11 : 0.08))
                     .frame(
                         width: proxy.size.width * 0.62,
                         height: proxy.size.width * 0.62
@@ -71,7 +166,7 @@ struct LiquidGlassBackground: View {
                     )
 
                 Circle()
-                    .fill(Color.blue.opacity(0.08))
+                    .fill(Color.blue.opacity(colorScheme == .dark ? 0.08 : 0.045))
                     .frame(
                         width: proxy.size.width * 0.8,
                         height: proxy.size.width * 0.8
@@ -89,6 +184,7 @@ struct LiquidGlassBackground: View {
 
 private struct LiquidGlassCardModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     let cornerRadius: CGFloat
     let glowColor: Color
@@ -108,9 +204,9 @@ private struct LiquidGlassCardModifier: ViewModifier {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.075),
+                                        Color.white.opacity(colorScheme == .dark ? 0.075 : 0.48),
                                         LiquidGlassTheme.cyan.opacity(0.025),
-                                        Color.black.opacity(0.08)
+                                        Color.black.opacity(colorScheme == .dark ? 0.08 : 0.015)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -122,9 +218,9 @@ private struct LiquidGlassCardModifier: ViewModifier {
                             .stroke(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.24),
-                                        LiquidGlassTheme.cyan.opacity(0.11),
-                                        Color.white.opacity(0.055)
+                                        Color.white.opacity(colorScheme == .dark ? 0.24 : 0.82),
+                                        LiquidGlassTheme.cyan.opacity(colorScheme == .dark ? 0.11 : 0.16),
+                                        LiquidGlassTheme.surfaceBorder
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -133,7 +229,7 @@ private struct LiquidGlassCardModifier: ViewModifier {
                             )
                     }
                     .shadow(
-                        color: Color.black.opacity(raised ? 0.34 : 0.22),
+                        color: Color.black.opacity(colorScheme == .dark ? (raised ? 0.34 : 0.22) : (raised ? 0.12 : 0.07)),
                         radius: raised ? 20 : 12,
                         x: 0,
                         y: raised ? 12 : 7
@@ -153,10 +249,10 @@ private struct LiquidGlassInsetModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(reduceTransparency
                         ? LiquidGlassTheme.backgroundBottom.opacity(0.96)
-                        : Color.white.opacity(0.055))
+                        : LiquidGlassTheme.surfaceTint)
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .stroke(LiquidGlassTheme.surfaceBorder, lineWidth: 1)
                     }
             }
     }

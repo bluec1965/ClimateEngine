@@ -14,7 +14,7 @@ struct ClimateRow: View {
             Text(value)
                 .fontWeight(.medium)
                 .monospacedDigit()
-                .foregroundStyle(.white)
+                .foregroundStyle(LiquidGlassTheme.primaryText)
         }
     }
 }

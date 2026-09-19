@@ -25,6 +25,31 @@
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background-deep: #f8fcfb;
+  --background: #f0f8f6;
+  --background-light: #dff3ef;
+  --glass: rgba(255, 255, 255, 0.70);
+  --glass-deep: rgba(249, 253, 252, 0.82);
+  --glass-highlight: rgba(255, 255, 255, 0.76);
+  --glass-border: rgba(8, 107, 108, 0.20);
+  --glass-border-soft: rgba(8, 107, 108, 0.12);
+  --text: #0a3032;
+  --muted: #365d5e;
+  --muted-soft: #5d7879;
+  --mint: #087f67;
+  --cyan: #087f89;
+  --ice: #103f41;
+  --green: #087a58;
+  --red: #c9364b;
+  --amber: #9b6700;
+  --blue: #176ca5;
+  --line: rgba(8, 107, 108, 0.13);
+  --shadow-deep: 0 22px 55px rgba(19, 73, 70, 0.12);
+  --shadow-glow: 0 7px 26px rgba(27, 137, 132, 0.08);
+}
+
 * { box-sizing: border-box; }
 
 html {
@@ -83,7 +108,7 @@ body::after {
 }
 
 .hero { padding: 22px 4px 34px; }
-.hero-brand { display: flex; align-items: center; justify-content: space-between; gap: 26px; }
+.hero-brand { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .hero-copy { flex: 1 1 0; min-width: 0; }
 .eyebrow,
 .section-label {
@@ -100,13 +125,14 @@ body::after {
 
 .hero h1 {
   margin: 0;
+  padding-bottom: 0.08em;
   background: linear-gradient(125deg, #fff 5%, var(--ice) 34%, var(--cyan) 70%, var(--mint));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   font-size: clamp(2.15rem, 8vw, 4rem);
   letter-spacing: -0.052em;
-  line-height: 1.02;
+  line-height: 1.08;
   text-shadow: 0 12px 38px rgba(72, 229, 239, 0.12);
 }
 
@@ -115,7 +141,7 @@ body::after {
 .hero-recommendation {
   --status: var(--amber);
   display: flex;
-  flex: 0 1 245px;
+  flex: 0 1 220px;
   align-items: center;
   gap: 12px;
   min-width: 205px;
@@ -154,15 +180,98 @@ body::after {
 
 .hero-app-icon {
   display: block;
-  flex: 0 0 132px;
-  width: 132px;
-  height: 132px;
+  flex: 0 0 112px;
+  width: 112px;
+  height: 112px;
   border-radius: 22%;
   clip-path: inset(0 round 22%);
   object-fit: contain;
   filter:
     drop-shadow(0 24px 30px rgba(0, 4, 8, 0.48))
     drop-shadow(0 0 22px rgba(22, 242, 165, 0.15));
+}
+.hero-app-icon-light { display: none; }
+:root[data-theme="light"] .hero-app-icon-dark { display: none; }
+:root[data-theme="light"] .hero-app-icon-light { display: block; }
+
+.appearance-control {
+  display: grid;
+  flex: 0 0 210px;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--glass-border-soft);
+  border-radius: 16px;
+  background: var(--glass-deep);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+.appearance-control > span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.appearance-segments { display: grid; grid-template-columns: 1.3fr 0.7fr 0.8fr; gap: 4px; }
+.appearance-segments button {
+  min-height: 30px;
+  padding: 0 8px;
+  border-color: transparent;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 0.69rem;
+}
+.appearance-segments button::before { display: none; }
+.appearance-segments button.active {
+  border-color: var(--glass-border);
+  background: color-mix(in srgb, var(--cyan) 16%, var(--glass-deep));
+  color: var(--text);
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(9, 166, 131, 0.13), transparent 31rem),
+    radial-gradient(circle at 102% 22%, rgba(21, 160, 170, 0.11), transparent 34rem),
+    linear-gradient(145deg, var(--background-light) 0%, var(--background) 42%, var(--background-deep) 100%);
+}
+:root[data-theme="light"] .hero h1 {
+  background: linear-gradient(125deg, #07595a 5%, #087f89 55%, #087f67);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:root[data-theme="light"] .eyebrow,
+:root[data-theme="light"] .section-label,
+:root[data-theme="light"] .hero-recommendation-copy > span {
+  background: linear-gradient(120deg, #07595a, #087f89 52%, #087f67);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:root[data-theme="light"] .climate-card,
+:root[data-theme="light"] .panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.30) 34%),
+    rgba(244, 251, 249, 0.76);
+  box-shadow: var(--shadow-deep), var(--shadow-glow), inset 0 1px rgba(255, 255, 255, 0.92);
+}
+:root[data-theme="light"] .hero-recommendation,
+:root[data-theme="light"] .status-pill,
+:root[data-theme="light"] .count-badge,
+:root[data-theme="light"] button,
+:root[data-theme="light"] .operating-mode-icon {
+  background: rgba(251, 254, 253, 0.78);
+  box-shadow: 0 9px 25px rgba(19, 73, 70, 0.09), inset 0 1px rgba(255, 255, 255, 0.92);
+}
+:root[data-theme="light"] .mode-segments,
+:root[data-theme="light"] .room-accordion-content { background: rgba(8, 107, 108, 0.045); }
+:root[data-theme="light"] .mode-segments span.active {
+  background: color-mix(in srgb, var(--mode-accent) 18%, white);
+  color: var(--text);
+}
+:root[data-theme="light"] .operating-mode-badge {
+  background: color-mix(in srgb, var(--mode-accent) 12%, white);
+  color: color-mix(in srgb, var(--mode-accent) 72%, #073c3d);
 }
 
 .status-pill,
@@ -1067,6 +1176,11 @@ button:active { transform: translateY(1px) scale(0.985); }
     justify-self: start;
     width: min(100%, 300px);
     min-width: 0;
+  }
+  .appearance-control {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: min(100%, 360px);
   }
   .climate-card,
   .panel { border-radius: 21px; }

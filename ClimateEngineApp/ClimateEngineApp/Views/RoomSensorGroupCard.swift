@@ -64,7 +64,7 @@ struct RoomSensorGroupCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(roomName)
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
             }
 
             Spacer(minLength: 10)
@@ -117,7 +117,7 @@ struct RoomSensorGroupCard: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(primary)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
                 Text(secondary)
                     .font(.caption2)
                     .foregroundStyle(LiquidGlassTheme.tertiaryText)
@@ -219,7 +219,7 @@ struct RoomSensorGroupCard: View {
     private func detailHeading(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
             .font(.subheadline.weight(.bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(LiquidGlassTheme.primaryText)
     }
 
     private func placeholder(_ text: String) -> some View {
@@ -239,7 +239,7 @@ struct RoomSensorGroupCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(snapshot.roomName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
                 Text(thermostatStatus(snapshot))
                     .font(.caption)
                     .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -247,7 +247,7 @@ struct RoomSensorGroupCard: View {
             Spacer()
             Text(snapshot.temperature.map { String(format: "%.1f °C", $0) } ?? "--.- °C")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LiquidGlassTheme.primaryText)
             Text(snapshot.targetTemperature.map { String(format: "Soll %.1f°", $0) } ?? "")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -283,7 +283,7 @@ struct RoomSensorGroupCard: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Text(sensorCount > 1 ? "Sensor \(index + 1) · \(sensor.name)" : sensor.name)
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(LiquidGlassTheme.primaryText)
                 Spacer()
                 Text(originLabel(sensor.origin)).font(.caption2).foregroundStyle(LiquidGlassTheme.tertiaryText)
             }

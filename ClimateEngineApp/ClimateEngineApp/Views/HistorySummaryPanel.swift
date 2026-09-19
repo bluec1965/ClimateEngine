@@ -20,7 +20,7 @@ struct HistorySummaryPanel: View {
                     Text("Historie")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LiquidGlassTheme.primaryText)
                 }
             }
 

@@ -58,7 +58,7 @@ struct RecommendationPanel: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Voraussetzungen zum Lüften")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LiquidGlassTheme.primaryText)
 
                     requirementRow(
                         "Aussenluft ist trockener",

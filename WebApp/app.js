@@ -1252,6 +1252,35 @@ const refresh = async () => {
 };
 
 byId("refresh-button").addEventListener("click", refresh);
+const appearanceMedia = window.matchMedia("(prefers-color-scheme: dark)");
+const appearancePreference = () => localStorage.getItem("climateEngineAppearance") || "automatic";
+const applyAppearance = (preference = appearancePreference()) => {
+  const resolved = preference === "automatic"
+    ? (appearanceMedia.matches ? "dark" : "light")
+    : preference;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.appearance = preference;
+  document.querySelector("meta[name='theme-color']")?.setAttribute(
+    "content",
+    resolved === "dark" ? "#03151b" : "#f0f8f6",
+  );
+  document.querySelectorAll("[data-appearance]").forEach((button) => {
+    const active = button.dataset.appearance === preference;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+};
+
+applyAppearance();
+appearanceMedia.addEventListener("change", () => {
+  if (appearancePreference() === "automatic") applyAppearance();
+});
+document.querySelectorAll("[data-appearance]").forEach((button) => {
+  button.addEventListener("click", () => {
+    localStorage.setItem("climateEngineAppearance", button.dataset.appearance);
+    applyAppearance(button.dataset.appearance);
+  });
+});
 byId("ventilation-session-button").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   const action = button.dataset.action || "start";

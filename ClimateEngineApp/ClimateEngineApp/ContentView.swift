@@ -4,6 +4,8 @@ import AppKit
 import ClimateEngine
 
 struct ContentView: View {
+    @Environment(\.colorScheme) private var systemColorScheme
+    @AppStorage("appearanceMode") private var appearanceModeRawValue = AppearanceMode.automatic.rawValue
     @State private var snapshot: SensorSnapshot?
     @State private var analysis: VentilationAnalysis?
     @State private var acquisitionStatus: SensorAcquisitionStatus?
@@ -57,6 +59,11 @@ struct ContentView: View {
 
     private let paths = ClimateEnginePaths.current
 
+    private var appearanceMode: AppearanceMode {
+        get { AppearanceMode(rawValue: appearanceModeRawValue) ?? .automatic }
+        nonmutating set { appearanceModeRawValue = newValue.rawValue }
+    }
+
     var body: some View {
         ZStack {
             LiquidGlassBackground()
@@ -71,7 +78,7 @@ struct ContentView: View {
             .scrollIndicators(.hidden)
         }
         .frame(minWidth: 760, minHeight: 740)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(appearanceMode.colorScheme)
         .onAppear {
             loadSnapshot()
         }
@@ -82,7 +89,7 @@ struct ContentView: View {
 
     private var dashboardContent: some View {
         VStack(spacing: 26) {
-            HStack(alignment: .center, spacing: 24) {
+            HStack(alignment: .center, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
                     LiquidGlassSectionLabel(text: "Live vom Mac mini")
 
@@ -102,21 +109,27 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
 
-                HeaderRecommendationBadge(analysis: analysis)
-                    .frame(width: 220)
-
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable()
-                    .interpolation(.high)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 112, height: 112)
-                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.42), radius: 22, y: 14)
-                    .shadow(color: LiquidGlassTheme.cyan.opacity(0.18), radius: 18, y: 3)
-                    .accessibilityHidden(true)
+                HeaderLogo(isLight: appearanceMode == .light
+                    || (appearanceMode == .automatic && systemColorScheme == .light))
             }
-            .padding(.vertical, 12)
+            .padding(.top, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 16) {
+                Spacer(minLength: 0)
+
+                HeaderRecommendationBadge(analysis: analysis)
+                    .frame(width: 190)
+
+                AppearanceModePicker(
+                    selection: Binding(
+                        get: { appearanceMode },
+                        set: { appearanceMode = $0 }
+                    )
+                )
+                .frame(width: 300)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
 
             OperatingModePanel(
                 state: operatingModeState,
@@ -249,7 +262,7 @@ struct ContentView: View {
                 Text("Innenräume")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
                 Text(indoorRoomSubtitle)
                     .font(.subheadline)
                     .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -366,7 +379,7 @@ struct ContentView: View {
                 Text("Terrasse")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
             }
 
             VStack(spacing: 0) {
@@ -385,7 +398,7 @@ struct ContentView: View {
 
                         Text("Terrasse")
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(LiquidGlassTheme.primaryText)
 
                         Spacer(minLength: 10)
 
@@ -395,7 +408,7 @@ struct ContentView: View {
                                 .foregroundStyle(LiquidGlassTheme.secondaryText)
                             Text(meanTemperature)
                                 .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(LiquidGlassTheme.primaryText)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -404,7 +417,7 @@ struct ContentView: View {
                                 .foregroundStyle(LiquidGlassTheme.secondaryText)
                             Text(meanHumidity)
                                 .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(LiquidGlassTheme.primaryText)
                         }
 
                         Image(systemName: "chevron.down")
@@ -883,7 +896,7 @@ private struct WeatherObservationPanel: View {
                     Text("Wetterbeobachtung")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LiquidGlassTheme.primaryText)
                     Text("Apple Weather · Prognose für stabile Empfehlungen und Lüftungshinweise")
                         .font(.subheadline)
                         .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -1024,7 +1037,7 @@ private struct WeatherMetric: View {
                 .foregroundStyle(LiquidGlassTheme.secondaryText)
             Text(value)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(LiquidGlassTheme.primaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1065,6 +1078,30 @@ private struct WeatherForecastRow: View {
     private var precipitationText: String {
         guard let chance = reading.precipitationChance else { return "–" }
         return String(format: "%.0f %%", chance)
+    }
+}
+
+private struct HeaderLogo: View {
+    let isLight: Bool
+
+    var body: some View {
+        Group {
+            if isLight {
+                Image("ClimateEngineLogoLight")
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+            }
+        }
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 112, height: 112)
+        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+        .shadow(color: Color.black.opacity(isLight ? 0.15 : 0.42), radius: 22, y: 14)
+        .shadow(color: LiquidGlassTheme.cyan.opacity(0.16), radius: 18, y: 3)
+        .accessibilityHidden(true)
     }
 }
 
@@ -1141,7 +1178,7 @@ private struct RoomObservationPanel: View {
                 Text("Raumbeobachtung")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
                 Text("Noch ohne zusätzliche SMS-Benachrichtigungen")
                     .font(.subheadline)
                     .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -1188,7 +1225,7 @@ private struct RoomObservationRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(room.name)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LiquidGlassTheme.primaryText)
                 Text(analysis.explanation)
                     .font(.caption)
                     .foregroundStyle(LiquidGlassTheme.secondaryText)

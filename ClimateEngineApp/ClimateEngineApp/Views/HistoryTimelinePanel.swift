@@ -18,7 +18,7 @@ struct HistoryTimelinePanel: View {
                     Text("Timeline heute")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LiquidGlassTheme.primaryText)
                 }
             }
 
