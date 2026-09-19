@@ -9,9 +9,9 @@ enum LiquidGlassTheme {
     static let cyan = Color(red: 0.40, green: 0.90, blue: 1.00)
     static let ice = Color(red: 0.88, green: 0.98, blue: 1.00)
     static let petrol = Color(red: 0.01, green: 0.48, blue: 0.49)
-    static let secondaryText = Color.white.opacity(0.64)
-    static let tertiaryText = Color.white.opacity(0.45)
-    static let divider = Color.white.opacity(0.10)
+    static let secondaryText = Color.white.opacity(0.74)
+    static let tertiaryText = Color.white.opacity(0.58)
+    static let divider = Color.white.opacity(0.14)
 
     static let brandGradient = LinearGradient(
         colors: [ice, cyan, mint],
@@ -88,6 +88,8 @@ struct LiquidGlassBackground: View {
 }
 
 private struct LiquidGlassCardModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     let cornerRadius: CGFloat
     let glowColor: Color
     let raised: Bool
@@ -96,15 +98,19 @@ private struct LiquidGlassCardModifier: ViewModifier {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(
+                        reduceTransparency
+                            ? AnyShapeStyle(LiquidGlassTheme.backgroundMiddle.opacity(0.98))
+                            : AnyShapeStyle(.regularMaterial)
+                    )
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.13),
-                                        LiquidGlassTheme.cyan.opacity(0.055),
-                                        Color.black.opacity(0.13)
+                                        Color.white.opacity(0.075),
+                                        LiquidGlassTheme.cyan.opacity(0.025),
+                                        Color.black.opacity(0.08)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -116,10 +122,9 @@ private struct LiquidGlassCardModifier: ViewModifier {
                             .stroke(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.38),
-                                        LiquidGlassTheme.cyan.opacity(0.20),
-                                        LiquidGlassTheme.mint.opacity(0.10),
-                                        Color.white.opacity(0.04)
+                                        Color.white.opacity(0.24),
+                                        LiquidGlassTheme.cyan.opacity(0.11),
+                                        Color.white.opacity(0.055)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -128,48 +133,31 @@ private struct LiquidGlassCardModifier: ViewModifier {
                             )
                     }
                     .shadow(
-                        color: Color.black.opacity(raised ? 0.48 : 0.34),
-                        radius: raised ? 28 : 18,
+                        color: Color.black.opacity(raised ? 0.34 : 0.22),
+                        radius: raised ? 20 : 12,
                         x: 0,
-                        y: raised ? 18 : 10
-                    )
-                    .shadow(
-                        color: glowColor.opacity(raised ? 0.13 : 0.07),
-                        radius: raised ? 24 : 16,
-                        x: 0,
-                        y: 3
+                        y: raised ? 12 : 7
                     )
             }
     }
 }
 
 private struct LiquidGlassInsetModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     let cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.black.opacity(0.16))
+                    .fill(reduceTransparency
+                        ? LiquidGlassTheme.backgroundBottom.opacity(0.96)
+                        : Color.white.opacity(0.055))
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.075),
-                                        LiquidGlassTheme.cyan.opacity(0.025),
-                                        Color.clear
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                    }
-                    .shadow(color: Color.black.opacity(0.22), radius: 10, y: 6)
             }
     }
 }
@@ -207,15 +195,15 @@ struct LiquidGlassIcon: View {
             .frame(width: size, height: size)
             .background {
                 RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(Color.white.opacity(0.075))
                     .overlay {
                         RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.20),
-                                        tint.opacity(0.18),
-                                        Color.black.opacity(0.12)
+                                        Color.white.opacity(0.12),
+                                        tint.opacity(0.10),
+                                        Color.black.opacity(0.06)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -226,15 +214,14 @@ struct LiquidGlassIcon: View {
                         RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.48), tint.opacity(0.24)],
+                                    colors: [Color.white.opacity(0.28), tint.opacity(0.16)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
                                 lineWidth: 1
                             )
                     }
-                    .shadow(color: tint.opacity(0.20), radius: 12, y: 3)
-                    .shadow(color: Color.black.opacity(0.30), radius: 8, y: 6)
+                    .shadow(color: Color.black.opacity(0.20), radius: 5, y: 3)
             }
     }
 }
@@ -297,10 +284,10 @@ private struct LiquidGlassLens: View {
 
     var body: some View {
         Circle()
-            .fill(.ultraThinMaterial)
+            .fill(Color.white.opacity(0.075))
             .overlay {
                 Circle()
-                    .fill(color.opacity(vibrant ? 0.68 : 0.16))
+                    .fill(color.opacity(vibrant ? 0.42 : 0.14))
             }
             .overlay {
                 Circle()
@@ -308,9 +295,9 @@ private struct LiquidGlassLens: View {
                         RadialGradient(
                             colors: [
                                 Color.white.opacity(vibrant ? 0.72 : 0.38),
-                                color.opacity(vibrant ? 0.70 : 0.24),
-                                color.opacity(vibrant ? 0.46 : 0.10),
-                                Color.black.opacity(vibrant ? 0.28 : 0.16)
+                                color.opacity(vibrant ? 0.48 : 0.20),
+                                color.opacity(vibrant ? 0.24 : 0.08),
+                                Color.black.opacity(vibrant ? 0.18 : 0.10)
                             ],
                             center: UnitPoint(x: 0.31, y: 0.24),
                             startRadius: 0,
@@ -335,12 +322,10 @@ private struct LiquidGlassLens: View {
                     .offset(x: size * 0.12, y: size * 0.10)
                     .blur(radius: 0.8)
             }
-            .shadow(
-                color: color.opacity(vibrant ? 0.42 : 0.22),
-                radius: size * 0.25,
-                y: size * 0.08
-            )
-            .shadow(color: Color.black.opacity(0.36), radius: size * 0.20, y: size * 0.16)
+            .overlay {
+                Circle().stroke(Color.white.opacity(0.18), lineWidth: 0.8)
+            }
+            .shadow(color: Color.black.opacity(0.24), radius: size * 0.12, y: size * 0.08)
     }
 }
 
