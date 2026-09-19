@@ -277,12 +277,12 @@ struct ContentView: View {
                                 heatingEnabled: operatingModeState.heatingEnabled,
                                 heatingControl: heatingControl,
                                 windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
-                                onWindowOpenChanged: ["buero-alois", "bad-alois", "sauna", "galerie"].contains(definition.id)
+                                onWindowOpenChanged: ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(definition.id)
                                     ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
                                     : nil,
                                 comfortActive: heatingRoomComfort.isActive(roomID: definition.id),
                                 comfortRequestInFlight: roomComfortRequestInFlight,
-                                onComfortChanged: ["buero-alois", "bad-alois", "sauna"].contains(definition.id)
+                                onComfortChanged: ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(definition.id)
                                     ? { changeRoomComfortState(roomID: definition.id, active: $0) }
                                     : nil
                             )
@@ -642,7 +642,7 @@ struct ContentView: View {
             ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
         }
 
-        heatingThermostats = ["buero-alois", "bad-alois", "sauna"].compactMap { roomID in
+        heatingThermostats = ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer-wand", "dachzimmer-fenster"].compactMap { roomID in
             try? HeatingThermostatSnapshotStore().load(
                 from: paths.heatingThermostatSnapshotURL(roomID: roomID)
             )
@@ -777,6 +777,7 @@ struct ContentView: View {
                 decoder.dateDecodingStrategy = .iso8601
                 heatingRoomOverrides = try decoder.decode(HeatingRoomOverrideState.self, from: data)
                 heatingRoomOverrideError = nil
+                loadSnapshot()
             } catch {
                 loadSnapshot()
                 heatingRoomOverrideError = "Fenstersteuerung fehlgeschlagen. Der sichere Status wird neu geladen."

@@ -161,7 +161,7 @@ struct RoomSensorGroupCard: View {
             }
         }
 
-        if ["buero-alois", "bad-alois", "sauna"].contains(roomID) {
+        if ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(roomID) {
             let evaluation = HeatingWeeklySchedule.bueroAloisPrototype.evaluation()
             HStack {
                 Label("Heizplan", systemImage: "calendar.badge.clock")
@@ -341,7 +341,7 @@ struct RoomSensorGroupCard: View {
     }
 
     private func thermostatStatus(_ snapshot: HeatingThermostatSnapshot) -> String {
-        if windowOpen { return "Fenster offen · im Schattenbetrieb" }
+        if windowOpen { return "Fenster offen · Heizung ausgeschaltet" }
         guard heatingEnabled else { return "Heizung aus · nicht berücksichtigt" }
         if heatingControl?.isSuspended(roomID: roomID) == true { return "Für Stosslüftung ausgeschaltet" }
         return snapshot.isEnabled == true ? "Heizkörper ein" : "Heizkörper aus"

@@ -36,7 +36,7 @@ class AdditionalConnectorTests(unittest.TestCase):
     def test_failed_bedroom_does_not_abort_other_eight(self):
         code, calls, payloads, _ = self.simulate(failed={"homepod-schlafzimmer"})
         self.assertEqual(code, 0)
-        self.assertEqual(len(calls), 13)
+        self.assertEqual(len(calls), 16)
         sensors = payloads[0]["sensors"]
         self.assertEqual(sum(s["measurement"] is not None for s in sensors), 8)
         self.assertEqual(sensors[2]["failure"], "unavailable")

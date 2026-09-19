@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Collect independent read-only helpers; persist only real successful readings."""
 import argparse
+from contextlib import contextmanager
+import fcntl
 import importlib.util
 import json
 import os
@@ -18,21 +20,36 @@ IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-buero-alois-rechts", "homepod-sauna-links", "homepod-buero-peter",
        "homepod-bad-alois", "dachzimmer-sensor", "galerie-sensor"]
 HEATING_THERMOSTATS = (
-    ("buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
-    ("bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),
-    ("sauna", "Sauna", "ClimateEngine Read Heating Sauna"),
+    ("buero-alois", "buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
+    ("bad-alois", "bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),
+    ("sauna", "sauna", "Sauna", "ClimateEngine Read Heating Sauna"),
+    ("galerie", "galerie", "Galerie", "ClimateEngine Read Heating Galerie"),
+    ("dachzimmer-wand", "dachzimmer", "Dachzimmer Wand", "ClimateEngine Read Heating Dachzimmer Wand"),
+    ("dachzimmer-fenster", "dachzimmer", "Dachzimmer Fenster", "ClimateEngine Read Heating Dachzimmer Fenster"),
 )
+SHORTCUT_PROCESS_LOCK_PATH = Path("/tmp/climateengine-shortcuts.lock")
 
 
-def read_heating(room_id, room_name, shortcut, command, directory, timeout=25):
-    output = directory / f"heating-{room_id}.txt"
-    snapshot = {"version": 1, "timestamp": reader.timestamp(), "roomID": room_id,
+@contextmanager
+def shortcut_process_lock():
+    with SHORTCUT_PROCESS_LOCK_PATH.open("a+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def read_heating(snapshot_id, room_id, room_name, shortcut, command, directory, timeout=25):
+    output = directory / f"heating-{snapshot_id}.txt"
+    snapshot = {"version": 1, "timestamp": reader.timestamp(), "snapshotID": snapshot_id, "roomID": room_id,
         "roomName": room_name, "temperature": None, "currentStatus": None,
         "isEnabled": None, "targetTemperature": None,
         "available": False, "error": "unavailable"}
     try:
-        result = subprocess.run([command, "run", shortcut, "--output-path", str(output)],
-            capture_output=True, text=True, timeout=timeout, check=False)
+        with shortcut_process_lock():
+            result = subprocess.run([command, "run", shortcut, "--output-path", str(output)],
+                capture_output=True, text=True, timeout=timeout, check=False)
         if result.returncode:
             return snapshot
         lines = output.read_text(encoding="utf-8-sig").strip().splitlines()
@@ -58,7 +75,7 @@ def read_heating(room_id, room_name, shortcut, command, directory, timeout=25):
 def write_heating(snapshot, data_root=None):
     root = Path(data_root or os.environ.get("CLIMATEENGINE_DATA_DIRECTORY",
         Path.home() / "Library/Application Support/ClimateEngine"))
-    destination = root / "heating" / f"{snapshot['roomID']}.json"
+    destination = root / "heating" / f"{snapshot.get('snapshotID', snapshot['roomID'])}.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2,
@@ -81,15 +98,16 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
                 sensors.append({"id": sensor_id, "measuredAt": reader.timestamp(),
                     "measurement": None, "failure": "timeout"})
                 continue
-            sensors.extend(reader.read_sensors(shortcuts[sensor_id], [sensor_id], command,
-                Path(temp), index, timeout=min(25, remaining)))
+            with shortcut_process_lock():
+                sensors.extend(reader.read_sensors(shortcuts[sensor_id], [sensor_id], command,
+                    Path(temp), index, timeout=min(25, remaining)))
         payload = json.dumps({"version": 1, "timestamp": reader.timestamp(), "sensors": sensors},
             ensure_ascii=False, allow_nan=False)
         if collect_only:
             print(payload)
             return 0
-        for room_id, room_name, shortcut in HEATING_THERMOSTATS:
-            heating = read_heating(room_id, room_name, shortcut, command, Path(temp),
+        for snapshot_id, room_id, room_name, shortcut in HEATING_THERMOSTATS:
+            heating = read_heating(snapshot_id, room_id, room_name, shortcut, command, Path(temp),
                 timeout=min(25, max(1, deadline - time.monotonic())))
             write_heating(heating, data_root)
         # No SMS and no retries; the primary recommendation flow is independent.

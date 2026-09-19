@@ -102,7 +102,9 @@ class VentilationSessionTests(unittest.TestCase):
             [call.args for call in self.heating_command_mock.call_args_list],
             [
                 ("buero-alois", "off"), ("bad-alois", "off"), ("sauna", "off"),
+                ("galerie", "off"), ("dachzimmer", "off"),
                 ("buero-alois", "on"), ("bad-alois", "on"), ("sauna", "on"),
+                ("galerie", "on"), ("dachzimmer", "on"),
             ],
         )
 
@@ -114,7 +116,10 @@ class VentilationSessionTests(unittest.TestCase):
         )
         SERVER.suspend_heating_for_ventilation()
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
-        self.assertEqual(state["suspendedRoomIDs"], ["buero-alois", "sauna"])
+        self.assertEqual(
+            state["suspendedRoomIDs"],
+            ["buero-alois", "sauna", "galerie", "dachzimmer"],
+        )
         SERVER.reconcile_heating_after_ventilation()
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
         self.assertFalse(state["suspended"])
@@ -202,10 +207,24 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
         SERVER.write_heating_room_override("sauna", False)
         self.set_heating_mock.assert_not_called()
 
-    def test_gallery_window_remains_state_only(self):
+    def test_gallery_window_controls_its_thermostat(self):
         SERVER.write_heating_room_override("galerie", True)
         SERVER.write_heating_room_override("galerie", False)
-        self.set_heating_mock.assert_not_called()
+        self.assertEqual(
+            [call.args for call in self.set_heating_mock.call_args_list],
+            [("galerie", False), ("galerie", True)],
+        )
+
+    def test_dachzimmer_window_and_comfort_are_room_wide(self):
+        now = datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc)
+        SERVER.write_heating_room_override("dachzimmer", True, now=now)
+        SERVER.write_heating_room_override("dachzimmer", False, now=now)
+        self.assertEqual(
+            [call.args for call in self.set_heating_mock.call_args_list],
+            [("dachzimmer", False), ("dachzimmer", True)],
+        )
+        SERVER.write_heating_room_comfort("dachzimmer", True, now=now)
+        self.apply_target_mock.assert_called_with("dachzimmer", "comfort", 24.0)
 
     def test_weekend_schedule_uses_later_start(self):
         saturday = datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc)
@@ -302,6 +321,15 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
 
 
 class HeatingComfortShortcutTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.original_heating_directory = SERVER.HEATING_DIRECTORY
+        SERVER.HEATING_DIRECTORY = Path(self.temporary_directory.name) / "heating"
+
+    def tearDown(self):
+        SERVER.HEATING_DIRECTORY = self.original_heating_directory
+        self.temporary_directory.cleanup()
+
     def test_write_is_confirmed_with_independent_read_shortcut(self):
         with patch.object(
             SERVER,
@@ -319,14 +347,33 @@ class HeatingComfortShortcutTests(unittest.TestCase):
             ],
         )
 
-    def test_unexpected_read_back_target_is_rejected(self):
+    def test_stale_read_back_target_does_not_reject_successful_write(self):
         with patch.object(
             SERVER,
             "run_shortcut_with_output",
             side_effect=["", "21.5 °C\n2\n1\n21.5 °C"],
         ):
-            with self.assertRaises(RuntimeError):
-                SERVER.apply_room_target("buero-alois", "comfort", 24.0)
+            self.assertEqual(
+                SERVER.apply_room_target("buero-alois", "comfort", 24.0), 24.0
+            )
+        snapshot = SERVER.read_optional_json(
+            SERVER.HEATING_DIRECTORY / "buero-alois.json"
+        )
+        self.assertEqual(snapshot["targetTemperature"], 24.0)
+
+    def test_stale_homekit_target_is_persisted_as_successful_write(self):
+        with patch.object(
+            SERVER,
+            "run_shortcut_with_output",
+            side_effect=[
+                "",
+                "22 °C\n2\n1\n21.5 °C",
+            ],
+        ):
+            self.assertEqual(SERVER.apply_room_target("galerie", "comfort", 24.0), 24.0)
+        snapshot = SERVER.read_optional_json(SERVER.HEATING_DIRECTORY / "galerie.json")
+        self.assertEqual(snapshot["targetTemperature"], 24.0)
+        self.assertTrue(snapshot["isEnabled"])
 
     def test_sauna_uses_its_own_shortcuts(self):
         with patch.object(
@@ -339,6 +386,56 @@ class HeatingComfortShortcutTests(unittest.TestCase):
             [call.args[0] for call in command.call_args_list],
             ["ClimateEngine Heating Sauna Comfort", "ClimateEngine Read Heating Sauna"],
         )
+
+    def test_dachzimmer_confirms_both_thermostat_targets(self):
+        with patch.object(
+            SERVER,
+            "run_shortcut_with_output",
+            side_effect=[
+                "", "",
+                "21.0 °C\n2\n1\n24 °C",
+                "21.2 °C\n2\n1\n24 °C",
+            ],
+        ) as command:
+            self.assertEqual(
+                SERVER.apply_room_target("dachzimmer", "comfort", 24.0), 24.0
+            )
+        self.assertEqual(
+            [call.args[0] for call in command.call_args_list],
+            [
+                "ClimateEngine Heating Dachzimmer Wand Comfort",
+                "ClimateEngine Heating Dachzimmer Fenster Comfort",
+                "ClimateEngine Read Heating Dachzimmer Wand",
+                "ClimateEngine Read Heating Dachzimmer Fenster",
+            ],
+        )
+
+    def test_dachzimmer_writes_both_despite_stale_second_target(self):
+        with patch.object(
+            SERVER,
+            "run_shortcut_with_output",
+            side_effect=[
+                "", "",
+                "21.0 °C\n2\n1\n24 °C",
+                "21.2 °C\n2\n1\n21.5 °C",
+            ],
+        ) as command:
+            self.assertEqual(
+                SERVER.apply_room_target("dachzimmer", "comfort", 24.0), 24.0
+            )
+        self.assertEqual(command.call_args_list[1].args[0], "ClimateEngine Heating Dachzimmer Fenster Comfort")
+
+    def test_dachzimmer_off_writes_both_even_when_read_is_stale(self):
+        with patch.object(SERVER, "run_heating_shortcut") as command, patch.object(
+            SERVER,
+            "run_shortcut_with_output",
+            side_effect=[
+                "21.0 °C\n2\n0\n18 °C",
+                "21.2 °C\n2\n1\n18 °C",
+            ],
+        ):
+            SERVER.set_room_heating_enabled("dachzimmer", False)
+        command.assert_called_once_with("dachzimmer", "off")
 
 
 if __name__ == "__main__":

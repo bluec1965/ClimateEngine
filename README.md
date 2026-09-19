@@ -61,28 +61,28 @@ gestartet und vorzeitig beendet werden. Der persistente Ablaufzeitpunkt beendet
 sie auch nach Neustarts automatisch. Erwartbare Abkühlung wird währenddessen
 akzeptiert; die übrigen Plausibilitäts- und Vollständigkeitsprüfungen bleiben aktiv.
 
-## Galerie-Terrassentür
+## Manuelle Fenster- und Türsteuerung
 
 Die Terrassentür der Galerie wird wie das Fenster im Büro Alois manuell im
 Raum-Dashboard als offen oder geschlossen markiert. Der Zustand ist in Mac-App
 und WebUI gleich sichtbar und wird unter `heating/room-overrides.json`
 gespeichert. Ein Türsensor und Home-Automationen werden dafür nicht benötigt.
-Solange in der Galerie kein Thermostat verbunden ist, löst der Schalter keinen
-Heizkörperbefehl aus.
-
-Die gleiche manuelle Fenstersteuerung ist in den drei Heizungs-Prototyp-Räumen
-Büro Alois, Bad Alois und Sauna verfügbar. Jeder Fensterstatus wird unabhängig
-gespeichert. Beim Öffnen wird der zugehörige Thermostat ausgeschaltet und der
+Die gleiche manuelle Steuerung ist in Büro Alois, Bad Alois, Sauna und
+Dachzimmer verfügbar. Jeder Fensterstatus wird unabhängig gespeichert. Beim
+Öffnen wird der zugehörige Thermostat ausgeschaltet und der
 frisch gelesene Zustand kontrolliert. Beim Schliessen wird er wieder
 eingeschaltet und anschliessend entweder eine noch aktive Behaglichkeit mit
 24 °C oder das aktuell gültige Heizplan-Soll von 21,5 °C beziehungsweise 18 °C
 wiederhergestellt. Während einer wohnungsweiten Stosslüftung bleibt der
-Thermostat bis zum Ende der Lüftung ausgeschaltet. Schlägt ein Heizbefehl fehl,
+Thermostat bis zum Ende der Lüftung ausgeschaltet. Im Dachzimmer gelten die
+Aktionen gemeinsam für die Heizkörper **Wand** und **Fenster** und werden bei
+beiden getrennt bestätigt. Schlägt ein Heizbefehl fehl,
 bleibt der sichere Status **Fenster offen** gespeichert.
 
-## Raum-Behaglichkeit im Büro Alois, Bad Alois und in der Sauna
+## Raum-Behaglichkeit
 
-Die drei Prototyp-Räume können in Mac-App und WebUI unabhängig voneinander auf
+Die fünf Räume Büro Alois, Bad Alois, Sauna, Galerie und Dachzimmer können in
+Mac-App und WebUI unabhängig voneinander auf
 **Behaglichkeit** gestellt werden. Vor dem Einschalten liest der Webdienst den
 jeweiligen Thermostat frisch aus und prüft zusätzlich die wohnungsweite Heizung,
 einen vorhandenen manuellen Fensterstatus und die Stosslüftung. Nur wenn alle
