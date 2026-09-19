@@ -39,4 +39,16 @@ final class HeatingRoomPlanTests: XCTestCase {
         XCTAssertTrue(state.isWindowOpen(roomID: "buero-alois"))
         XCTAssertFalse(state.isWindowOpen(roomID: "sauna"))
     }
+
+    func testComfortStateIsRoomSpecific() {
+        let state = HeatingRoomComfortState(
+            activeRoomIDs: ["buero-alois"],
+            lastAppliedTargetTemperature: 24,
+            lastAppliedTargetTemperatures: ["buero-alois": 24]
+        )
+        XCTAssertTrue(state.isActive(roomID: "buero-alois"))
+        XCTAssertFalse(state.isActive(roomID: "sauna"))
+        XCTAssertEqual(state.lastAppliedTargetTemperature, 24)
+        XCTAssertEqual(state.lastAppliedTargetTemperatures?["buero-alois"], 24)
+    }
 }

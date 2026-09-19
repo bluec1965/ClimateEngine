@@ -70,6 +70,30 @@ gespeichert. Ein Türsensor und Home-Automationen werden dafür nicht benötigt.
 Solange in der Galerie kein Thermostat verbunden ist, löst der Schalter keinen
 Heizkörperbefehl aus.
 
+Die gleiche manuelle Fenstersteuerung ist in den drei Heizungs-Prototyp-Räumen
+Büro Alois, Bad Alois und Sauna verfügbar. Jeder Fensterstatus wird unabhängig
+gespeichert. Beim Öffnen wird der zugehörige Thermostat ausgeschaltet und der
+frisch gelesene Zustand kontrolliert. Beim Schliessen wird er wieder
+eingeschaltet und anschliessend entweder eine noch aktive Behaglichkeit mit
+24 °C oder das aktuell gültige Heizplan-Soll von 21,5 °C beziehungsweise 18 °C
+wiederhergestellt. Während einer wohnungsweiten Stosslüftung bleibt der
+Thermostat bis zum Ende der Lüftung ausgeschaltet. Schlägt ein Heizbefehl fehl,
+bleibt der sichere Status **Fenster offen** gespeichert.
+
+## Raum-Behaglichkeit im Büro Alois, Bad Alois und in der Sauna
+
+Die drei Prototyp-Räume können in Mac-App und WebUI unabhängig voneinander auf
+**Behaglichkeit** gestellt werden. Vor dem Einschalten liest der Webdienst den
+jeweiligen Thermostat frisch aus und prüft zusätzlich die wohnungsweite Heizung,
+einen vorhandenen manuellen Fensterstatus und die Stosslüftung. Nur wenn alle
+Schutzbedingungen erfüllt sind, wird der Sollwert mit dem raumspezifischen
+Comfort-Kurzbefehl auf 24 °C gestellt und der gemeinsame Zustand unter
+`heating/room-comfort.json` gespeichert.
+
+Beim Ausschalten wird anhand des aktuell gültigen Wochenplans auf 21,5 °C oder
+18 °C zurückgestellt. Schlägt ein Kurzbefehl fehl oder bestätigt er nicht den
+erwarteten Sollwert, bleibt der bisherige Behaglichkeitszustand erhalten.
+
 ## Mehrere Räume und Aussensensoren
 
 Der optionale [Sensor-Ersatzbetrieb](Docs/Terrasse-Ersatzbetrieb.md) liest

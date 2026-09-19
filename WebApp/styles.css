@@ -851,6 +851,7 @@ button {
 .room-controls .room-plan-note { color: var(--aqua); }
 .room-controls button::before { content: ""; display: none; }
 .room-controls button.window-open { border-color: rgba(255, 209, 102, 0.42); color: var(--amber); }
+.room-controls button.comfort-active { border-color: rgba(31, 242, 173, 0.48); color: var(--mint); }
 
 h2 { margin: 0; color: var(--ice); font-size: 1.08rem; }
 dl { margin: 0; }

@@ -651,9 +651,30 @@ const postRoomWindowState = async (button, roomID, windowOpen) => {
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     await refresh();
   } catch (error) {
+    await refresh().catch(() => {});
     const status = byId("connection-status");
     status.className = "status-pill error";
-    status.lastElementChild.textContent = `Fensterstatus nicht gespeichert: ${error.message}`;
+    status.lastElementChild.textContent = `Fenstersteuerung fehlgeschlagen: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const postRoomComfortState = async (button, roomID, active) => {
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/heating-room-comfort", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomID, active }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    await refresh();
+  } catch (error) {
+    const status = byId("connection-status");
+    status.className = "status-pill error";
+    status.lastElementChild.textContent = `Raum-Behaglichkeit: ${error.message}`;
   } finally {
     button.disabled = false;
   }
@@ -667,6 +688,7 @@ const renderRoomAccordions = (
   operatingMode,
   heatingPrototype,
   heatingRoomOverrides,
+  heatingRoomComfort,
 ) => {
   const groupsByID = new Map(groups.map((group) => [group.id, group]));
   const thermostatsByRoom = new Map();
@@ -686,6 +708,7 @@ const renderRoomAccordions = (
     const activeCount = thermostats.filter((item) => item.isEnabled === true).length;
     const target = thermostats.find((item) => Number.isFinite(Number(item.targetTemperature)))?.targetTemperature;
     const windowOpen = heatingRoomOverrides?.openRoomIDs?.includes(definition.id) === true;
+    const comfortActive = heatingRoomComfort?.activeRoomIDs?.includes(definition.id) === true;
     const state = windowOpen || suspendedRooms.includes(definition.id) ? "attention"
       : heatingEnabled && activeCount > 0 ? "heating" : "idle";
 
@@ -705,7 +728,7 @@ const renderRoomAccordions = (
       <span class="room-summary-metric temperature"><small>Raumtemperatur</small><strong>${measurement ? temperatureText(measurement.temperature) : "--.- °C"}</strong></span>
       <span class="room-summary-metric thermostat"><small>Thermostate</small><strong>${activeCount}/${definition.thermostats} aktiv</strong></span>
       <span class="room-summary-target"><small>${target == null ? "Noch nicht verbunden" : `Soll ${Number(target).toFixed(1)}°`}</small></span>
-      <span class="room-summary-flag">${windowOpen ? (definition.id === "galerie" ? "Terrassentür offen" : "Fenster offen") : ""}</span>
+      <span class="room-summary-flag">${windowOpen ? (definition.id === "galerie" ? "Terrassentür offen" : "Fenster offen") : comfortActive ? "Behaglichkeit · 24 °C" : ""}</span>
       <span class="room-summary-chevron" aria-hidden="true"></span>`;
     summary.querySelector(".room-summary-name strong").textContent = definition.name;
     if (group?.biasCorrectedMeasurement) {
@@ -799,7 +822,7 @@ const renderRoomAccordions = (
     controls.className = "room-detail-section room-controls";
     controls.innerHTML = '<h3>Raumfunktionen</h3><div></div>';
     const controlsRow = controls.querySelector("div");
-    if (["buero-alois", "galerie"].includes(definition.id)) {
+    if (["buero-alois", "bad-alois", "sauna", "galerie"].includes(definition.id)) {
       const windowButton = document.createElement("button");
       windowButton.type = "button";
       windowButton.textContent = definition.id === "galerie"
@@ -809,10 +832,10 @@ const renderRoomAccordions = (
       windowButton.addEventListener("click", () => postRoomWindowState(windowButton, definition.id, !windowOpen));
       controlsRow.append(windowButton);
 
-      if (definition.id === "buero-alois") {
+      if (["buero-alois", "bad-alois", "sauna"].includes(definition.id)) {
         const plan = document.createElement("span");
         plan.className = "room-plan-note";
-        plan.textContent = windowOpen ? "Schattenplan würde Heizung ausschalten"
+        plan.textContent = windowOpen ? "Fenster offen · Heizung ausgeschaltet"
           : `${heatingPrototype?.period === "comfort" ? "Komfort" : "Nacht"} · berechnetes Soll ${Number(heatingPrototype?.targetTemperature).toFixed(1)} °C`;
         controlsRow.append(plan);
       }
@@ -821,9 +844,22 @@ const renderRoomAccordions = (
       windowFuture.textContent = "Fenstersteuerung folgt";
       controlsRow.append(windowFuture);
     }
-    const comfort = document.createElement("span");
-    comfort.textContent = definition.id === "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt";
-    controlsRow.append(comfort);
+    if (["buero-alois", "bad-alois", "sauna"].includes(definition.id)) {
+      const comfortButton = document.createElement("button");
+      comfortButton.type = "button";
+      comfortButton.textContent = comfortActive ? "Behaglichkeit · 24 °C" : "Behaglichkeit";
+      comfortButton.className = comfortActive ? "comfort-active" : "";
+      comfortButton.addEventListener("click", () => postRoomComfortState(
+        comfortButton,
+        definition.id,
+        !comfortActive,
+      ));
+      controlsRow.append(comfortButton);
+    } else {
+      const comfort = document.createElement("span");
+      comfort.textContent = definition.id === "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt";
+      controlsRow.append(comfort);
+    }
 
     content.append(sensorSection, thermostatSection, controls);
     card.append(summary, content);
@@ -1057,6 +1093,7 @@ const render = ({
   heatingVentilationControl,
   heatingPrototype,
   heatingRoomOverrides,
+  heatingRoomComfort,
   additionalSensorSnapshot,
   additionalSensorAcquisition,
   additionalSensorError,
@@ -1114,6 +1151,7 @@ const render = ({
     operatingMode,
     heatingPrototype,
     heatingRoomOverrides,
+    heatingRoomComfort,
   );
   renderSensorCards("outdoor-grid", outdoorSensors, "outdoor");
   if (acquisition.unavailable) {

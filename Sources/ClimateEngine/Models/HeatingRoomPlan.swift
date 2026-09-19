@@ -110,3 +110,47 @@ public final class HeatingRoomOverrideStore {
         return try decoder.decode(HeatingRoomOverrideState.self, from: Data(contentsOf: url))
     }
 }
+
+public struct HeatingRoomComfortState: Codable, Equatable, Sendable {
+    public let version: Int
+    public let activeRoomIDs: [String]
+    public let updatedAt: Date?
+    public let lastAppliedTargetTemperature: Double?
+    public let lastAppliedTargetTemperatures: [String: Double]?
+
+    public init(
+        version: Int = 1,
+        activeRoomIDs: [String],
+        updatedAt: Date? = nil,
+        lastAppliedTargetTemperature: Double? = nil,
+        lastAppliedTargetTemperatures: [String: Double]? = nil
+    ) {
+        self.version = version
+        self.activeRoomIDs = activeRoomIDs
+        self.updatedAt = updatedAt
+        self.lastAppliedTargetTemperature = lastAppliedTargetTemperature
+        self.lastAppliedTargetTemperatures = lastAppliedTargetTemperatures
+    }
+
+    public static func empty() -> HeatingRoomComfortState {
+        HeatingRoomComfortState(activeRoomIDs: [])
+    }
+
+    public func isActive(roomID: String) -> Bool {
+        activeRoomIDs.contains(roomID)
+    }
+}
+
+public final class HeatingRoomComfortStore {
+    private let decoder: JSONDecoder
+
+    public init() {
+        decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+    }
+
+    public func load(from url: URL) throws -> HeatingRoomComfortState? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try decoder.decode(HeatingRoomComfortState.self, from: Data(contentsOf: url))
+    }
+}

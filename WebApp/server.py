@@ -6,6 +6,7 @@ import mimetypes
 import os
 import socket
 import subprocess
+import tempfile
 import threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,8 +21,10 @@ VENTILATION_SESSION_LOCK = threading.Lock()
 HEATING_DIRECTORY = DATA_ROOT / "heating"
 HEATING_CONTROL_PATH = HEATING_DIRECTORY / "ventilation-control.json"
 HEATING_ROOM_OVERRIDES_PATH = HEATING_DIRECTORY / "room-overrides.json"
+HEATING_ROOM_COMFORT_PATH = HEATING_DIRECTORY / "room-comfort.json"
 HEATING_LOCK = threading.Lock()
 HEATING_ROOM_OVERRIDES_LOCK = threading.Lock()
+HEATING_ROOM_COMFORT_LOCK = threading.Lock()
 HEATING_THERMOSTATS = {
     "buero-alois": {"off": "ClimateEngine Heating Büro Alois Off", "on": "ClimateEngine Heating Büro Alois On"},
     "bad-alois": {"off": "ClimateEngine Heating Bad Alois Off", "on": "ClimateEngine Heating Bad Alois On"},
@@ -37,6 +40,33 @@ HEATING_PROTOTYPE_SCHEDULE = {
     "weekendComfortStartMinute": 7 * 60 + 30,
     "weekendComfortEndMinute": 23 * 60,
 }
+HEATING_COMFORT_SHORTCUTS = {
+    "buero-alois": {
+        "name": "Büro Alois",
+        "read": "ClimateEngine Read Heating Büro Alois",
+        "comfort": "ClimateEngine Heating Büro Alois Comfort",
+        "revert-18.0": "ClimateEngine Heating Büro Alois Revert 18.0",
+        "revert-21.5": "ClimateEngine Heating Büro Alois Revert 21.5",
+    },
+    "bad-alois": {
+        "name": "Bad Alois",
+        "read": "ClimateEngine Read Heating Bad Alois",
+        "comfort": "ClimateEngine Heating Bad Alois Comfort",
+        "revert-18.0": "ClimateEngine Heating Bad Alois Revert 18.0",
+        "revert-21.5": "ClimateEngine Heating Bad Alois Revert 21.5",
+    },
+    "sauna": {
+        "name": "Sauna",
+        "read": "ClimateEngine Read Heating Sauna",
+        "comfort": "ClimateEngine Heating Sauna Comfort",
+        "revert-18.0": "ClimateEngine Heating Sauna Revert 18.0",
+        "revert-21.5": "ClimateEngine Heating Sauna Revert 21.5",
+    },
+}
+
+
+class ComfortUnavailableError(RuntimeError):
+    pass
 
 
 def read_optional_json(path):
@@ -110,24 +140,174 @@ def heating_room_overrides_payload():
 
 
 def write_heating_room_override(room_id, window_open, now=None):
-    if room_id not in (HEATING_PROTOTYPE_SCHEDULE["roomID"], "galerie"):
+    if room_id not in ("buero-alois", "bad-alois", "sauna", "galerie"):
         raise ValueError("Raum ist im Prototyp noch nicht schaltbar")
     if not isinstance(window_open, bool):
         raise ValueError("windowOpen muss ein Wahrheitswert sein")
+    now = (now or datetime.now().astimezone()).replace(microsecond=0)
     with HEATING_ROOM_OVERRIDES_LOCK:
         state = heating_room_overrides_payload()
         open_room_ids = set(state["openRoomIDs"])
+        if (room_id in open_room_ids) == window_open:
+            return state
+
+        def persist_open_rooms():
+            persisted = {
+                "version": 1,
+                "openRoomIDs": sorted(open_room_ids),
+                "updatedAt": now.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+            write_atomic_json(HEATING_ROOM_OVERRIDES_PATH, persisted)
+            return persisted
+
         if window_open:
             open_room_ids.add(room_id)
-        else:
-            open_room_ids.discard(room_id)
-        timestamp = (now or datetime.now(timezone.utc)).replace(microsecond=0)
-        state = {
-            "version": 1,
-            "openRoomIDs": sorted(open_room_ids),
-            "updatedAt": timestamp.isoformat().replace("+00:00", "Z"),
+            state = persist_open_rooms()
+            # Persist the protective state before touching HomeKit. If the
+            # command fails, later actions must still treat the window as open.
+            if room_id in HEATING_THERMOSTATS and heating_enabled():
+                set_room_heating_enabled(room_id, False)
+            return state
+
+        if room_id in HEATING_THERMOSTATS and heating_enabled():
+            if not ventilation_session_payload(now=now)["active"]:
+                set_room_heating_enabled(room_id, True)
+                comfort = heating_room_comfort_payload()
+                if room_id in comfort["activeRoomIDs"]:
+                    apply_room_target(room_id, "comfort", 24.0)
+                else:
+                    schedule = heating_prototype_payload(now=now, overrides=state)
+                    target = schedule["targetTemperature"]
+                    action = "revert-21.5" if target == 21.5 else "revert-18.0"
+                    apply_room_target(room_id, action, target)
+
+        # Only publish a closed window after every required thermostat action
+        # has succeeded. A failure therefore keeps the safe, open state.
+        open_room_ids.discard(room_id)
+        return persist_open_rooms()
+
+
+def heating_room_comfort_payload():
+    try:
+        state = read_optional_json(HEATING_ROOM_COMFORT_PATH)
+    except (OSError, ValueError, json.JSONDecodeError):
+        state = None
+    if not isinstance(state, dict) or not isinstance(state.get("activeRoomIDs"), list):
+        return {
+            "version": 2,
+            "activeRoomIDs": [],
+            "updatedAt": None,
+            "lastAppliedTargetTemperature": None,
+            "lastAppliedTargetTemperatures": {},
         }
-        write_atomic_json(HEATING_ROOM_OVERRIDES_PATH, state)
+    return state
+
+
+def run_shortcut_with_output(shortcut_name, timeout=30):
+    with tempfile.TemporaryDirectory(prefix="climateengine-heating-") as directory:
+        output_path = Path(directory) / "output.txt"
+        result = subprocess.run(
+            ["/usr/bin/shortcuts", "run", shortcut_name, "--output-path", str(output_path)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        if result.returncode:
+            raise RuntimeError(f"Kurzbefehl {shortcut_name} fehlgeschlagen")
+        if output_path.exists():
+            return output_path.read_text(encoding="utf-8-sig").strip()
+        return result.stdout.strip()
+
+
+def read_room_heating(room_id):
+    room = HEATING_COMFORT_SHORTCUTS[room_id]
+    lines = run_shortcut_with_output(room["read"]).splitlines()
+    if len(lines) != 4:
+        raise RuntimeError(f"Heizungsstatus von {room['name']} ist unvollständig")
+    try:
+        activated = int(float(lines[2].replace(",", ".").strip()))
+    except ValueError as error:
+        raise RuntimeError(f"Heizungsstatus von {room['name']} ist ungültig") from error
+    if activated not in (0, 1):
+        raise RuntimeError(f"Heizungsstatus von {room['name']} ist ungültig")
+    return activated == 1
+
+
+def apply_room_target(room_id, action, expected_target):
+    room = HEATING_COMFORT_SHORTCUTS[room_id]
+    # Home's "Get thermostat threshold" action is visible in Shortcuts but does
+    # not produce a CLI output file. Confirm the write with the independent,
+    # read-only four-value shortcut instead.
+    run_shortcut_with_output(room[action])
+    lines = run_shortcut_with_output(room["read"]).splitlines()
+    if len(lines) != 4:
+        raise RuntimeError("Der neue Sollwert konnte nicht bestätigt werden")
+    try:
+        actual_target = parse_temperature(lines[3])
+    except (TypeError, ValueError) as error:
+        raise RuntimeError("Der neue Sollwert konnte nicht bestätigt werden") from error
+    if abs(actual_target - expected_target) > 0.11:
+        raise RuntimeError(
+            f"Unerwarteter Sollwert {actual_target:.1f} °C statt {expected_target:.1f} °C"
+        )
+    return actual_target
+
+
+def write_heating_room_comfort(room_id, active, now=None):
+    if room_id not in HEATING_COMFORT_SHORTCUTS:
+        raise ValueError("Raum-Behaglichkeit ist für diesen Raum noch nicht verfügbar")
+    if not isinstance(active, bool):
+        raise ValueError("active muss ein Wahrheitswert sein")
+    now = (now or datetime.now().astimezone()).replace(microsecond=0)
+    room_name = HEATING_COMFORT_SHORTCUTS[room_id]["name"]
+
+    with HEATING_ROOM_COMFORT_LOCK:
+        previous = heating_room_comfort_payload()
+        active_room_ids = set(previous["activeRoomIDs"])
+        targets = dict(previous.get("lastAppliedTargetTemperatures") or {})
+        if not targets and previous.get("lastAppliedTargetTemperature") is not None:
+            for active_room_id in active_room_ids:
+                targets[active_room_id] = previous["lastAppliedTargetTemperature"]
+        if active:
+            if not heating_enabled():
+                raise ComfortUnavailableError("Die wohnungsweite Heizung ist ausgeschaltet")
+            if room_id in heating_room_overrides_payload()["openRoomIDs"]:
+                raise ComfortUnavailableError(f"Fenster oder Tür in {room_name} ist offen")
+            if ventilation_session_payload(now=now)["active"]:
+                raise ComfortUnavailableError("Die Stosslüftung ist aktiv")
+            if not read_room_heating(room_id):
+                raise ComfortUnavailableError(f"Der Heizkörper in {room_name} ist ausgeschaltet")
+            target = apply_room_target(room_id, "comfort", 24.0)
+            active_room_ids.add(room_id)
+            targets[room_id] = target
+        else:
+            active_room_ids.discard(room_id)
+            protected = (
+                not heating_enabled()
+                or room_id in heating_room_overrides_payload()["openRoomIDs"]
+                or ventilation_session_payload(now=now)["active"]
+            )
+            if protected:
+                target = None
+            else:
+                schedule = heating_prototype_payload(now=now)
+                target = schedule["targetTemperature"]
+                action = "revert-21.5" if target == 21.5 else "revert-18.0"
+                target = apply_room_target(room_id, action, target)
+            if target is None:
+                targets.pop(room_id, None)
+            else:
+                targets[room_id] = target
+
+        state = {
+            "version": 2,
+            "activeRoomIDs": sorted(active_room_ids),
+            "updatedAt": now.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "lastAppliedTargetTemperature": target,
+            "lastAppliedTargetTemperatures": targets,
+        }
+        write_atomic_json(HEATING_ROOM_COMFORT_PATH, state)
         return state
 
 
@@ -143,7 +323,7 @@ def heating_prototype_payload(now=None, overrides=None):
     overrides = overrides or heating_room_overrides_payload()
     window_open = schedule["roomID"] in overrides["openRoomIDs"]
     return {
-        "mode": "shadow",
+        "mode": "active",
         "roomID": schedule["roomID"],
         "roomName": schedule["roomName"],
         "period": period,
@@ -172,6 +352,14 @@ def run_heating_shortcut(room_id, action):
     )
     if result.returncode:
         raise RuntimeError(f"Heizkörperbefehl {room_id} {action} fehlgeschlagen")
+
+
+def set_room_heating_enabled(room_id, enabled):
+    room_name = HEATING_COMFORT_SHORTCUTS[room_id]["name"]
+    run_heating_shortcut(room_id, "on" if enabled else "off")
+    if read_room_heating(room_id) != enabled:
+        expected = "ein" if enabled else "aus"
+        raise RuntimeError(f"Der Heizkörper in {room_name} ist nicht {expected}")
 
 
 def suspend_heating_for_ventilation():
@@ -213,6 +401,8 @@ def reconcile_heating_after_ventilation():
         remaining, errors = [], {}
         for room_id in room_ids:
             if room_id not in HEATING_THERMOSTATS:
+                continue
+            if room_id in heating_room_overrides_payload()["openRoomIDs"]:
                 continue
             try:
                 run_heating_shortcut(room_id, "on")
@@ -456,6 +646,7 @@ def read_dashboard_data():
         "heatingThermostats": [read_optional_json(HEATING_DIRECTORY / f"{room_id}.json") for room_id in HEATING_THERMOSTATS],
         "heatingVentilationControl": read_optional_json(HEATING_CONTROL_PATH),
         "heatingRoomOverrides": heating_room_overrides,
+        "heatingRoomComfort": heating_room_comfort_payload(),
         "heatingPrototype": heating_prototype_payload(overrides=heating_room_overrides),
         "additionalSensorSnapshot": additional_sensor_snapshot,
         "additionalSensorAcquisition": read_optional_json(DATA_ROOT / "additional-sensors" / "current-status.json"),
@@ -493,7 +684,11 @@ class ClimateEngineHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path not in ("/api/ventilation-session", "/api/heating-room-override"):
+        if path not in (
+            "/api/ventilation-session",
+            "/api/heating-room-override",
+            "/api/heating-room-comfort",
+        ):
             self.send_error(404, "Nicht gefunden")
             return
 
@@ -517,12 +712,20 @@ class ClimateEngineHandler(BaseHTTPRequestHandler):
                 if action not in ("start", "stop"):
                     raise ValueError("Unbekannte Aktion")
                 self.send_json(write_ventilation_session(action == "start"))
-            else:
+            elif path == "/api/heating-room-override":
                 self.send_json(write_heating_room_override(
                     request.get("roomID"), request.get("windowOpen")
                 ))
+            else:
+                self.send_json(write_heating_room_comfort(
+                    request.get("roomID"), request.get("active")
+                ))
+        except ComfortUnavailableError as error:
+            self.send_json({"error": str(error)}, status=409)
         except (TypeError, ValueError, json.JSONDecodeError) as error:
             self.send_json({"error": str(error)}, status=400)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+            self.send_json({"error": str(error)}, status=502)
 
     def send_json(self, value, status=200):
         payload = json.dumps(

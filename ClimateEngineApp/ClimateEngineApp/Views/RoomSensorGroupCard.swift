@@ -11,6 +11,9 @@ struct RoomSensorGroupCard: View {
     let heatingControl: HeatingVentilationControl?
     let windowOpen: Bool
     let onWindowOpenChanged: ((Bool) -> Void)?
+    let comfortActive: Bool
+    let comfortRequestInFlight: Bool
+    let onComfortChanged: ((Bool) -> Void)?
 
     @State private var isExpanded = false
 
@@ -90,6 +93,12 @@ struct RoomSensorGroupCard: View {
                     .foregroundStyle(.orange)
             }
 
+            if comfortActive {
+                Label("Behaglichkeit", systemImage: "sparkles")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(LiquidGlassTheme.mint)
+            }
+
             Image(systemName: "chevron.down")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(LiquidGlassTheme.secondaryText)
@@ -152,14 +161,14 @@ struct RoomSensorGroupCard: View {
             }
         }
 
-        if roomID == "buero-alois" {
+        if ["buero-alois", "bad-alois", "sauna"].contains(roomID) {
             let evaluation = HeatingWeeklySchedule.bueroAloisPrototype.evaluation()
             HStack {
-                Label("Schattenplan", systemImage: "calendar.badge.clock")
+                Label("Heizplan", systemImage: "calendar.badge.clock")
                     .foregroundStyle(LiquidGlassTheme.cyan)
                 Spacer()
                 Text(windowOpen
-                    ? "Fenster offen · würde Heizung ausschalten"
+                    ? "Fenster offen · Heizung ausgeschaltet"
                     : "\(evaluation.period == .comfort ? "Komfort" : "Nacht") · Soll \(String(format: "%.1f °C", evaluation.targetTemperature))")
                     .foregroundStyle(windowOpen ? Color.orange : LiquidGlassTheme.secondaryText)
             }
@@ -187,11 +196,21 @@ struct RoomSensorGroupCard: View {
 
                 Spacer()
 
-                Label(
-                    roomID == "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt",
-                    systemImage: "sparkles"
-                )
-                .foregroundStyle(LiquidGlassTheme.tertiaryText)
+                if let onComfortChanged {
+                    Toggle(
+                        comfortActive ? "Behaglichkeit · 24 °C" : "Behaglichkeit",
+                        isOn: Binding(get: { comfortActive }, set: onComfortChanged)
+                    )
+                    .toggleStyle(.switch)
+                    .tint(LiquidGlassTheme.mint)
+                    .disabled(comfortRequestInFlight)
+                } else {
+                    Label(
+                        roomID == "sauna" ? "Sauna-Behaglichkeit folgt" : "Raum-Behaglichkeit folgt",
+                        systemImage: "sparkles"
+                    )
+                    .foregroundStyle(LiquidGlassTheme.tertiaryText)
+                }
             }
             .font(.caption.weight(.semibold))
         }

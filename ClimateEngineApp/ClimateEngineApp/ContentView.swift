@@ -41,8 +41,11 @@ struct ContentView: View {
     @State private var heatingControl: HeatingVentilationControl?
     @State private var heatingRoomOverrides = HeatingRoomOverrideState.empty()
     @State private var heatingRoomOverrideError: String?
+    @State private var heatingRoomComfort = HeatingRoomComfortState.empty()
+    @State private var heatingRoomComfortError: String?
     @State private var ventilationRequestInFlight = false
     @State private var roomOverrideRequestInFlight = false
+    @State private var roomComfortRequestInFlight = false
     @State private var terraceIsExpanded = false
     @State private var biasCalibration: BiasCalibrationDocument?
 
@@ -125,7 +128,8 @@ struct ContentView: View {
                 ),
                 shadowRecommendation: measurementUnavailableReason == nil ? seasonalRecommendation : nil,
                 ventilationSession: ventilationSession,
-                errorMessage: operatingModeLoadError ?? ventilationSessionError ?? heatingRoomOverrideError,
+                errorMessage: operatingModeLoadError ?? ventilationSessionError
+                    ?? heatingRoomOverrideError ?? heatingRoomComfortError,
                 onHeatingChanged: updateHeatingState,
                 onSelectionChanged: updateOperatingModeSelection,
                 onVentilationStarted: startVentilationSession,
@@ -273,8 +277,13 @@ struct ContentView: View {
                                 heatingEnabled: operatingModeState.heatingEnabled,
                                 heatingControl: heatingControl,
                                 windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
-                                onWindowOpenChanged: ["buero-alois", "galerie"].contains(definition.id)
+                                onWindowOpenChanged: ["buero-alois", "bad-alois", "sauna", "galerie"].contains(definition.id)
                                     ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
+                                    : nil,
+                                comfortActive: heatingRoomComfort.isActive(roomID: definition.id),
+                                comfortRequestInFlight: roomComfortRequestInFlight,
+                                onComfortChanged: ["buero-alois", "bad-alois", "sauna"].contains(definition.id)
+                                    ? { changeRoomComfortState(roomID: definition.id, active: $0) }
                                     : nil
                             )
                         }
@@ -649,6 +658,16 @@ struct ContentView: View {
         } catch {
             heatingRoomOverrideError = "Fensterstatus konnte nicht geladen werden."
         }
+        do {
+            heatingRoomComfort = try HeatingRoomComfortStore().load(
+                from: paths.heatingRoomComfortURL
+            ) ?? .empty()
+            if !roomComfortRequestInFlight {
+                heatingRoomComfortError = nil
+            }
+        } catch {
+            heatingRoomComfortError = "Raum-Behaglichkeit konnte nicht geladen werden."
+        }
 
         if !(ventilationSession?.isActive() ?? false), heatingControl?.suspended == true,
            !ventilationRequestInFlight {
@@ -719,10 +738,10 @@ struct ContentView: View {
         ventilationRequestInFlight = true
         Task {
             do {
-                var request = URLRequest(url: URL(string: "http://localhost:8080/api/ventilation-session")!)
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:8080/api/ventilation-session")!)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("http://localhost:8080", forHTTPHeaderField: "Origin")
+                request.setValue("http://127.0.0.1:8080", forHTTPHeaderField: "Origin")
                 request.httpBody = try JSONSerialization.data(withJSONObject: ["action": action])
                 let (_, response) = try await URLSession.shared.data(for: request)
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -742,10 +761,10 @@ struct ContentView: View {
         roomOverrideRequestInFlight = true
         Task {
             do {
-                var request = URLRequest(url: URL(string: "http://localhost:8080/api/heating-room-override")!)
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:8080/api/heating-room-override")!)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("http://localhost:8080", forHTTPHeaderField: "Origin")
+                request.setValue("http://127.0.0.1:8080", forHTTPHeaderField: "Origin")
                 request.httpBody = try JSONSerialization.data(withJSONObject: [
                     "roomID": roomID,
                     "windowOpen": windowOpen,
@@ -759,9 +778,48 @@ struct ContentView: View {
                 heatingRoomOverrides = try decoder.decode(HeatingRoomOverrideState.self, from: data)
                 heatingRoomOverrideError = nil
             } catch {
-                heatingRoomOverrideError = "Fensterstatus konnte den lokalen Webdienst nicht erreichen."
+                loadSnapshot()
+                heatingRoomOverrideError = "Fenstersteuerung fehlgeschlagen. Der sichere Status wird neu geladen."
             }
             roomOverrideRequestInFlight = false
+        }
+    }
+
+    private func changeRoomComfortState(roomID: String, active: Bool) {
+        guard !roomComfortRequestInFlight else { return }
+        roomComfortRequestInFlight = true
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:8080/api/heating-room-comfort")!)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("http://127.0.0.1:8080", forHTTPHeaderField: "Origin")
+                request.httpBody = try JSONSerialization.data(withJSONObject: [
+                    "roomID": roomID,
+                    "active": active,
+                ])
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse else {
+                    throw URLError(.badServerResponse)
+                }
+                if http.statusCode != 200 {
+                    let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                    let message = payload?["error"] as? String
+                    throw NSError(
+                        domain: "ClimateEngine.RoomComfort",
+                        code: http.statusCode,
+                        userInfo: [NSLocalizedDescriptionKey: message ?? "Unbekannter Fehler"]
+                    )
+                }
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                heatingRoomComfort = try decoder.decode(HeatingRoomComfortState.self, from: data)
+                heatingRoomComfortError = nil
+                loadSnapshot()
+            } catch {
+                heatingRoomComfortError = "Raum-Behaglichkeit: \(error.localizedDescription)"
+            }
+            roomComfortRequestInFlight = false
         }
     }
 
