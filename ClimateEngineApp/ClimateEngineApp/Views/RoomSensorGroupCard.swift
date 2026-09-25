@@ -161,7 +161,7 @@ struct RoomSensorGroupCard: View {
             }
         }
 
-        if ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(roomID) {
+        if ["schlafzimmer", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(roomID) {
             let evaluation = HeatingWeeklySchedule.bueroAloisPrototype.evaluation()
             HStack {
                 Label("Heizplan", systemImage: "calendar.badge.clock")

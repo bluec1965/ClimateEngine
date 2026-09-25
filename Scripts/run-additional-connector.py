@@ -20,6 +20,8 @@ IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-buero-alois-rechts", "homepod-sauna-links", "homepod-buero-peter",
        "homepod-bad-alois", "dachzimmer-sensor", "galerie-sensor"]
 HEATING_THERMOSTATS = (
+    ("schlafzimmer", "schlafzimmer", "Schlafzimmer", "ClimateEngine Read Heating Schlafzimmer"),
+    ("buero-peter", "buero-peter", "Büro Peter", "ClimateEngine Read Heating Büro Peter"),
     ("buero-alois", "buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
     ("bad-alois", "bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),
     ("sauna", "sauna", "Sauna", "ClimateEngine Read Heating Sauna"),

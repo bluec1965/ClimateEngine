@@ -101,8 +101,10 @@ class VentilationSessionTests(unittest.TestCase):
         self.assertEqual(
             [call.args for call in self.heating_command_mock.call_args_list],
             [
+                ("schlafzimmer", "off"), ("buero-peter", "off"),
                 ("buero-alois", "off"), ("bad-alois", "off"), ("sauna", "off"),
                 ("galerie", "off"), ("dachzimmer", "off"),
+                ("schlafzimmer", "on"), ("buero-peter", "on"),
                 ("buero-alois", "on"), ("bad-alois", "on"), ("sauna", "on"),
                 ("galerie", "on"), ("dachzimmer", "on"),
             ],
@@ -118,7 +120,7 @@ class VentilationSessionTests(unittest.TestCase):
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
         self.assertEqual(
             state["suspendedRoomIDs"],
-            ["buero-alois", "sauna", "galerie", "dachzimmer"],
+            ["schlafzimmer", "buero-peter", "buero-alois", "sauna", "galerie", "dachzimmer"],
         )
         SERVER.reconcile_heating_after_ventilation()
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
@@ -225,6 +227,17 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
         )
         SERVER.write_heating_room_comfort("dachzimmer", True, now=now)
         self.apply_target_mock.assert_called_with("dachzimmer", "comfort", 24.0)
+
+    def test_new_rooms_have_independent_window_and_comfort_controls(self):
+        now = datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc)
+        SERVER.write_heating_room_override("schlafzimmer", True, now=now)
+        opened = SERVER.write_heating_room_override("buero-peter", True, now=now)
+        self.assertEqual(opened["openRoomIDs"], ["buero-peter", "schlafzimmer"])
+        SERVER.write_heating_room_override("schlafzimmer", False, now=now)
+        SERVER.write_heating_room_override("buero-peter", False, now=now)
+        SERVER.write_heating_room_comfort("schlafzimmer", True, now=now)
+        state = SERVER.write_heating_room_comfort("buero-peter", True, now=now)
+        self.assertEqual(state["activeRoomIDs"], ["buero-peter", "schlafzimmer"])
 
     def test_weekend_schedule_uses_later_start(self):
         saturday = datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc)
@@ -386,6 +399,23 @@ class HeatingComfortShortcutTests(unittest.TestCase):
             [call.args[0] for call in command.call_args_list],
             ["ClimateEngine Heating Sauna Comfort", "ClimateEngine Read Heating Sauna"],
         )
+
+    def test_new_rooms_use_their_own_shortcuts(self):
+        cases = [
+            ("schlafzimmer", "ClimateEngine Heating Schlafzimmer Comfort", "ClimateEngine Read Heating Schlafzimmer"),
+            ("buero-peter", "ClimateEngine Heating Büro Peter Comfort", "ClimateEngine Read Heating Büro Peter"),
+        ]
+        for room_id, comfort_shortcut, read_shortcut in cases:
+            with self.subTest(room_id=room_id), patch.object(
+                SERVER,
+                "run_shortcut_with_output",
+                side_effect=["", "21.0 °C\n2\n1\n24 °C"],
+            ) as command:
+                self.assertEqual(SERVER.apply_room_target(room_id, "comfort", 24.0), 24.0)
+            self.assertEqual(
+                [call.args[0] for call in command.call_args_list],
+                [comfort_shortcut, read_shortcut],
+            )
 
     def test_dachzimmer_confirms_both_thermostat_targets(self):
         with patch.object(

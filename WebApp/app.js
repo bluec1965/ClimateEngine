@@ -234,12 +234,15 @@ const renderVentilationSession = (session) => {
 };
 
 const heatingRooms = [
+  { id: "schlafzimmer", name: "Schlafzimmer" },
+  { id: "buero-peter", name: "Büro Peter" },
   { id: "buero-alois", name: "Büro Alois" },
   { id: "bad-alois", name: "Bad Alois" },
   { id: "sauna", name: "Sauna" },
   { id: "galerie", name: "Galerie" },
   { id: "dachzimmer", name: "Dachzimmer" },
 ];
+const controlledHeatingRoomIDs = new Set(heatingRooms.map((room) => room.id));
 
 const dashboardRooms = [
   { id: "stube", name: "Stube / Küche", floor: "Unteres Geschoss", thermostats: 5 },
@@ -824,7 +827,7 @@ const renderRoomAccordions = (
     controls.className = "room-detail-section room-controls";
     controls.innerHTML = '<h3>Raumfunktionen</h3><div></div>';
     const controlsRow = controls.querySelector("div");
-    if (["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].includes(definition.id)) {
+    if (controlledHeatingRoomIDs.has(definition.id)) {
       const windowButton = document.createElement("button");
       windowButton.type = "button";
       windowButton.textContent = definition.id === "galerie"
@@ -834,7 +837,7 @@ const renderRoomAccordions = (
       windowButton.addEventListener("click", () => postRoomWindowState(windowButton, definition.id, !windowOpen));
       controlsRow.append(windowButton);
 
-      if (["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].includes(definition.id)) {
+      if (controlledHeatingRoomIDs.has(definition.id)) {
         const plan = document.createElement("span");
         plan.className = "room-plan-note";
         plan.textContent = windowOpen ? "Fenster offen · Heizung ausgeschaltet"
@@ -846,7 +849,7 @@ const renderRoomAccordions = (
       windowFuture.textContent = "Fenstersteuerung folgt";
       controlsRow.append(windowFuture);
     }
-    if (["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].includes(definition.id)) {
+    if (controlledHeatingRoomIDs.has(definition.id)) {
       const comfortButton = document.createElement("button");
       comfortButton.type = "button";
       comfortButton.textContent = comfortActive ? "Behaglichkeit · 24 °C" : "Behaglichkeit";

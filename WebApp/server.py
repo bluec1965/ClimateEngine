@@ -30,6 +30,8 @@ HEATING_ROOM_COMFORT_LOCK = threading.Lock()
 HEATING_SHORTCUT_THREAD_LOCK = threading.Lock()
 HEATING_SHORTCUT_PROCESS_LOCK_PATH = Path("/tmp/climateengine-shortcuts.lock")
 HEATING_THERMOSTATS = {
+    "schlafzimmer": ({"snapshotID": "schlafzimmer", "name": "Schlafzimmer", "read": "ClimateEngine Read Heating Schlafzimmer", "comfort": "ClimateEngine Heating Schlafzimmer Comfort", "off": "ClimateEngine Heating Schlafzimmer Off", "on": "ClimateEngine Heating Schlafzimmer On", "revert-18.0": "ClimateEngine Heating Schlafzimmer Revert 18.0", "revert-21.5": "ClimateEngine Heating Schlafzimmer Revert 21.5"},),
+    "buero-peter": ({"snapshotID": "buero-peter", "name": "Büro Peter", "read": "ClimateEngine Read Heating Büro Peter", "comfort": "ClimateEngine Heating Büro Peter Comfort", "off": "ClimateEngine Heating Büro Peter Off", "on": "ClimateEngine Heating Büro Peter On", "revert-18.0": "ClimateEngine Heating Büro Peter Revert 18.0", "revert-21.5": "ClimateEngine Heating Büro Peter Revert 21.5"},),
     "buero-alois": ({"snapshotID": "buero-alois", "name": "Büro Alois", "read": "ClimateEngine Read Heating Büro Alois", "comfort": "ClimateEngine Heating Büro Alois Comfort", "off": "ClimateEngine Heating Büro Alois Off", "on": "ClimateEngine Heating Büro Alois On", "revert-18.0": "ClimateEngine Heating Büro Alois Revert 18.0", "revert-21.5": "ClimateEngine Heating Büro Alois Revert 21.5"},),
     "bad-alois": ({"snapshotID": "bad-alois", "name": "Bad Alois", "read": "ClimateEngine Read Heating Bad Alois", "comfort": "ClimateEngine Heating Bad Alois Comfort", "off": "ClimateEngine Heating Bad Alois Off", "on": "ClimateEngine Heating Bad Alois On", "revert-18.0": "ClimateEngine Heating Bad Alois Revert 18.0", "revert-21.5": "ClimateEngine Heating Bad Alois Revert 21.5"},),
     "sauna": ({"snapshotID": "sauna", "name": "Sauna", "read": "ClimateEngine Read Heating Sauna", "comfort": "ClimateEngine Heating Sauna Comfort", "off": "ClimateEngine Heating Sauna Off", "on": "ClimateEngine Heating Sauna On", "revert-18.0": "ClimateEngine Heating Sauna Revert 18.0", "revert-21.5": "ClimateEngine Heating Sauna Revert 21.5"},),
@@ -50,6 +52,7 @@ HEATING_PROTOTYPE_SCHEDULE = {
     "weekendComfortEndMinute": 23 * 60,
 }
 HEATING_ROOM_NAMES = {
+    "schlafzimmer": "Schlafzimmer", "buero-peter": "Büro Peter",
     "buero-alois": "Büro Alois", "bad-alois": "Bad Alois", "sauna": "Sauna",
     "galerie": "Galerie", "dachzimmer": "Dachzimmer",
 }

@@ -290,12 +290,12 @@ struct ContentView: View {
                                 heatingEnabled: operatingModeState.heatingEnabled,
                                 heatingControl: heatingControl,
                                 windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
-                                onWindowOpenChanged: ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(definition.id)
+                                onWindowOpenChanged: controlledHeatingRoomIDs.contains(definition.id)
                                     ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
                                     : nil,
                                 comfortActive: heatingRoomComfort.isActive(roomID: definition.id),
                                 comfortRequestInFlight: roomComfortRequestInFlight,
-                                onComfortChanged: ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer"].contains(definition.id)
+                                onComfortChanged: controlledHeatingRoomIDs.contains(definition.id)
                                     ? { changeRoomComfortState(roomID: definition.id, active: $0) }
                                     : nil
                             )
@@ -332,6 +332,10 @@ struct ContentView: View {
         DashboardRoomDefinition(id: "sauna", name: "Sauna", floorName: "Unteres Geschoss", thermostatCount: 1),
         DashboardRoomDefinition(id: "galerie", name: "Galerie", floorName: "Oberes Geschoss", thermostatCount: 1),
         DashboardRoomDefinition(id: "dachzimmer", name: "Dachzimmer", floorName: "Oberes Geschoss", thermostatCount: 2),
+    ]
+
+    private let controlledHeatingRoomIDs: Set<String> = [
+        "schlafzimmer", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer",
     ]
 
     private let dashboardFloorNames = ["Unteres Geschoss", "Oberes Geschoss"]
@@ -655,7 +659,7 @@ struct ContentView: View {
             ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
         }
 
-        heatingThermostats = ["buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer-wand", "dachzimmer-fenster"].compactMap { roomID in
+        heatingThermostats = ["schlafzimmer", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer-wand", "dachzimmer-fenster"].compactMap { roomID in
             try? HeatingThermostatSnapshotStore().load(
                 from: paths.heatingThermostatSnapshotURL(roomID: roomID)
             )

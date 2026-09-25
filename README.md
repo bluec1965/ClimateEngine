@@ -67,8 +67,8 @@ Die Terrassentür der Galerie wird wie das Fenster im Büro Alois manuell im
 Raum-Dashboard als offen oder geschlossen markiert. Der Zustand ist in Mac-App
 und WebUI gleich sichtbar und wird unter `heating/room-overrides.json`
 gespeichert. Ein Türsensor und Home-Automationen werden dafür nicht benötigt.
-Die gleiche manuelle Steuerung ist in Büro Alois, Bad Alois, Sauna und
-Dachzimmer verfügbar. Jeder Fensterstatus wird unabhängig gespeichert. Beim
+Die gleiche manuelle Steuerung ist in Schlafzimmer, Büro Peter, Büro Alois,
+Bad Alois, Sauna und Dachzimmer verfügbar. Jeder Fensterstatus wird unabhängig gespeichert. Beim
 Öffnen wird der zugehörige Thermostat ausgeschaltet und der
 frisch gelesene Zustand kontrolliert. Beim Schliessen wird er wieder
 eingeschaltet und anschliessend entweder eine noch aktive Behaglichkeit mit
@@ -81,8 +81,8 @@ bleibt der sichere Status **Fenster offen** gespeichert.
 
 ## Raum-Behaglichkeit
 
-Die fünf Räume Büro Alois, Bad Alois, Sauna, Galerie und Dachzimmer können in
-Mac-App und WebUI unabhängig voneinander auf
+Die sieben Räume Schlafzimmer, Büro Peter, Büro Alois, Bad Alois, Sauna,
+Galerie und Dachzimmer können in Mac-App und WebUI unabhängig voneinander auf
 **Behaglichkeit** gestellt werden. Vor dem Einschalten liest der Webdienst den
 jeweiligen Thermostat frisch aus und prüft zusätzlich die wohnungsweite Heizung,
 einen vorhandenen manuellen Fensterstatus und die Stosslüftung. Nur wenn alle
