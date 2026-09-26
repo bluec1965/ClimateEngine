@@ -108,6 +108,13 @@ Die [unabhängige Erfassung der Zusatzsensoren](Docs/Zusatzsensoren-Ausfallsiche
 isoliert die neun Zusatzabfragen. Fehlende Sensoren werden gekennzeichnet und
 nicht durch kopierte Werte ersetzt; gültige Teilmessungen werden weiter gespeichert.
 
+Nach jedem Haupt- und Zusatzsensorlauf prüft ClimateEngine den von Apple
+bereitgestellten `WidgetRenderer_Activities`. Dieser Prozess wird nur dann mit
+einem normalen Beendigungssignal neu gestartet, wenn er mindestens 500 MB RAM
+belegt und kein Kurzbefehl mehr läuft. Damit wird der beobachtete Speicherverlust
+des Kurzbefehle-Live-Activity-Widgets begrenzt, ohne Sensorwerte oder
+Thermostatzustände zu verändern. macOS startet den Systemprozess bei Bedarf neu.
+
 ClimateEngine kann in der Beobachtungsphase zwölf Werte über die
 Standardeingabe entgegennehmen. Die Reihenfolge ist:
 

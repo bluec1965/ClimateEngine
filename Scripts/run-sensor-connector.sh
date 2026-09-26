@@ -8,6 +8,11 @@ log_file="${CLIMATEENGINE_RETRY_LOG:-/tmp/climateengine-sensor-retry.log}"
 lock_file="${CLIMATEENGINE_RETRY_LOCK:-/tmp/climateengine-sensor-retry.lock}"
 retry_delay="${CLIMATEENGINE_RETRY_DELAY_SECONDS:-20}"
 max_attempts="${CLIMATEENGINE_MAX_ATTEMPTS:-3}"
+widget_renderer_guard="${0:A:h}/trim-shortcuts-widget-renderer.sh"
+
+trim_widget_renderer() {
+    [[ -x "$widget_renderer_guard" ]] && "$widget_renderer_guard" || true
+}
 
 timestamp() {
     /bin/date '+%Y-%m-%d %H:%M:%S%z'
@@ -33,6 +38,7 @@ if [[ "$shortcut_name" == "ClimateEngine Additional Sensor Connector" && -f "$ad
     log_message "START isolated additional connector"
     "${CLIMATEENGINE_PYTHON_COMMAND:-/usr/bin/python3}" -B "${0:A:h}/run-additional-connector.py" --config "$additional_config"
     exit_code=$?
+    trim_widget_renderer
     log_message "FINISH isolated additional connector exit=${exit_code}"
     exit "$exit_code"
 fi
@@ -40,6 +46,7 @@ if [[ "$shortcut_name" == "ClimateEngine Sensor Connector" && -f "$terrace_confi
     log_message "START terrace connector"
     "${CLIMATEENGINE_PYTHON_COMMAND:-/usr/bin/python3}" -B "${0:A:h}/run-terrace-connector.py" --config "$terrace_config"
     exit_code=$?
+    trim_widget_renderer
     log_message "FINISH terrace connector exit=${exit_code}"
     exit "$exit_code"
 fi
@@ -56,6 +63,7 @@ while (( attempt <= max_attempts )); do
     /bin/rm -f "$error_file"
 
     if (( exit_code == 0 )); then
+        trim_widget_renderer
         log_message "SUCCESS attempt=${attempt}/${max_attempts}"
         exit 0
     fi
@@ -64,11 +72,13 @@ while (( attempt <= max_attempts )); do
     log_message "FAIL attempt=${attempt}/${max_attempts} exit=${exit_code} error=${compact_error}"
 
     if [[ "$error_text" != *"Schreib-/Lesevorgang fehlgeschlagen"* ]]; then
+        trim_widget_renderer
         /usr/bin/printf '%s\n' "$error_text" >&2
         exit "$exit_code"
     fi
 
     if (( attempt == max_attempts )); then
+        trim_widget_renderer
         /usr/bin/printf '%s\n' "$error_text" >&2
         log_message "GIVE_UP attempts=${max_attempts}"
         exit "$exit_code"
