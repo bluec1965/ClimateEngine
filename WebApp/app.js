@@ -235,6 +235,7 @@ const renderVentilationSession = (session) => {
 
 const heatingRooms = [
   { id: "schlafzimmer", name: "Schlafzimmer" },
+  { id: "bad-peter", name: "Bad Peter" },
   { id: "buero-peter", name: "Büro Peter" },
   { id: "buero-alois", name: "Büro Alois" },
   { id: "bad-alois", name: "Bad Alois" },

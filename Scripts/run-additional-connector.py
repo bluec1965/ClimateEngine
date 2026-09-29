@@ -21,6 +21,7 @@ IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-bad-alois", "dachzimmer-sensor", "galerie-sensor"]
 HEATING_THERMOSTATS = (
     ("schlafzimmer", "schlafzimmer", "Schlafzimmer", "ClimateEngine Read Heating Schlafzimmer"),
+    ("bad-peter", "bad-peter", "Bad Peter", "ClimateEngine Read Heating Bad Peter"),
     ("buero-peter", "buero-peter", "Büro Peter", "ClimateEngine Read Heating Büro Peter"),
     ("buero-alois", "buero-alois", "Büro Alois", "ClimateEngine Read Heating Büro Alois"),
     ("bad-alois", "bad-alois", "Bad Alois", "ClimateEngine Read Heating Bad Alois"),

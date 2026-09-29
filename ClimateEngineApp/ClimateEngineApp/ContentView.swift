@@ -335,7 +335,7 @@ struct ContentView: View {
     ]
 
     private let controlledHeatingRoomIDs: Set<String> = [
-        "schlafzimmer", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer",
+        "schlafzimmer", "bad-peter", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer",
     ]
 
     private let dashboardFloorNames = ["Unteres Geschoss", "Oberes Geschoss"]
@@ -659,7 +659,7 @@ struct ContentView: View {
             ventilationSessionError = "Stosslüftung konnte nicht geladen werden: \(error)"
         }
 
-        heatingThermostats = ["schlafzimmer", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer-wand", "dachzimmer-fenster"].compactMap { roomID in
+        heatingThermostats = ["schlafzimmer", "bad-peter", "buero-peter", "buero-alois", "bad-alois", "sauna", "galerie", "dachzimmer-wand", "dachzimmer-fenster"].compactMap { roomID in
             try? HeatingThermostatSnapshotStore().load(
                 from: paths.heatingThermostatSnapshotURL(roomID: roomID)
             )

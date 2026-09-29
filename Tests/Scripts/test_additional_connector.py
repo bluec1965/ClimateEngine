@@ -33,10 +33,10 @@ class AdditionalConnectorTests(unittest.TestCase):
             code = additional.run(CONFIG, cli="test-cli", collect_only=collect_only, data_root=data_root)
         return code, calls, payloads, output.getvalue()
 
-    def test_failed_bedroom_does_not_abort_other_eight(self):
+    def test_failed_bedroom_does_not_abort_other_sensors_or_heating_reads(self):
         code, calls, payloads, _ = self.simulate(failed={"homepod-schlafzimmer"})
         self.assertEqual(code, 0)
-        self.assertEqual(len(calls), 18)
+        self.assertEqual(len(calls), 19)
         sensors = payloads[0]["sensors"]
         self.assertEqual(sum(s["measurement"] is not None for s in sensors), 8)
         self.assertEqual(sensors[2]["failure"], "unavailable")
@@ -58,6 +58,7 @@ class AdditionalConnectorTests(unittest.TestCase):
         _, calls, _, _ = self.simulate()
         shortcut_names = [call[2] for call in calls if len(call) > 2]
         self.assertIn("ClimateEngine Read Heating Schlafzimmer", shortcut_names)
+        self.assertIn("ClimateEngine Read Heating Bad Peter", shortcut_names)
         self.assertIn("ClimateEngine Read Heating Büro Peter", shortcut_names)
 
     def test_processing_never_retried(self):
