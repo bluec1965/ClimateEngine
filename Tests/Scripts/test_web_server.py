@@ -14,6 +14,31 @@ SERVER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SERVER)
 
 
+class ContactDebouncerTests(unittest.TestCase):
+    def test_shared_room_requires_both_closed(self):
+        for values in (("1", "0"), ("0", "1"), ("1", "1"), ("1", None)):
+            self.assertEqual(SERVER.combined_contact_value(values), "1")
+        self.assertEqual(SERVER.combined_contact_value(("0", "0")), "0")
+        for values in (("0", None), (None, None), ("invalid", "0")):
+            with self.assertRaises(ValueError):
+                SERVER.combined_contact_value(values)
+    def test_requires_two_minutes_and_ignores_brief_changes(self):
+        contact = SERVER.ContactDebouncer()
+        for moment in (0, 30, 60, 90):
+            self.assertIsNone(contact.observe("1", moment))
+        self.assertTrue(contact.observe("1", 120))
+        self.assertIsNone(contact.observe("0", 150))
+        self.assertIsNone(contact.observe("1", 180))
+
+    def test_invalid_read_or_long_gap_restarts_confirmation(self):
+        contact = SERVER.ContactDebouncer()
+        contact.observe("0", 0)
+        self.assertIsNone(contact.observe("0", 121))
+        with self.assertRaises(ValueError):
+            contact.observe("unknown", 140)
+        self.assertIsNone(contact.observe("0", 150))
+
+
 class OperatingModeHysteresisTests(unittest.TestCase):
     def setUp(self):
         self.state = {
@@ -242,6 +267,15 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
         state = SERVER.write_heating_room_comfort("buero-peter", True, now=now)
         self.assertEqual(state["activeRoomIDs"], ["bad-peter", "buero-peter", "schlafzimmer"])
 
+    def test_sensor_and_manual_window_sources_do_not_override_each_other(self):
+        SERVER.write_heating_room_override("galerie", True, source="sensor")
+        SERVER.write_heating_room_override("galerie", True)
+        state = SERVER.write_heating_room_override("galerie", False, source="sensor")
+        self.assertIn("galerie", state["openRoomIDs"])
+        self.assertEqual(state["sensorOpenRoomIDs"], [])
+        state = SERVER.write_heating_room_override("galerie", False)
+        self.assertNotIn("galerie", state["openRoomIDs"])
+
     def test_weekend_schedule_uses_later_start(self):
         saturday = datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc)
         payload = SERVER.heating_prototype_payload(now=saturday)
@@ -259,7 +293,7 @@ class HeatingRoomPrototypeTests(unittest.TestCase):
 
     def test_other_rooms_are_rejected_in_prototype(self):
         with self.assertRaises(ValueError):
-            SERVER.write_heating_room_override("stube", True)
+            SERVER.write_heating_room_override("unknown-room", True)
 
     def test_all_three_heating_prototype_windows_are_independent(self):
         SERVER.write_heating_room_override("buero-alois", True)

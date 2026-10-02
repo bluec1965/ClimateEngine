@@ -290,7 +290,7 @@ struct ContentView: View {
                                 heatingEnabled: operatingModeState.heatingEnabled,
                                 heatingControl: heatingControl,
                                 windowOpen: heatingRoomOverrides.isWindowOpen(roomID: definition.id),
-                                onWindowOpenChanged: controlledHeatingRoomIDs.contains(definition.id)
+                                onWindowOpenChanged: (controlledHeatingRoomIDs.contains(definition.id) || definition.id == "stube")
                                     ? { changeRoomWindowState(roomID: definition.id, windowOpen: $0) }
                                     : nil,
                                 comfortActive: heatingRoomComfort.isActive(roomID: definition.id),

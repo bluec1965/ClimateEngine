@@ -10,6 +10,7 @@ import socket
 import subprocess
 import tempfile
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -145,22 +146,38 @@ def heating_room_overrides_payload():
     return state
 
 
-def write_heating_room_override(room_id, window_open, now=None):
-    if room_id not in HEATING_THERMOSTATS:
+def write_heating_room_override(room_id, window_open, now=None, source="manual"):
+    if room_id not in HEATING_THERMOSTATS and room_id != "stube":
         raise ValueError("Raum ist im Prototyp noch nicht schaltbar")
     if not isinstance(window_open, bool):
         raise ValueError("windowOpen muss ein Wahrheitswert sein")
+    if source not in ("manual", "sensor"):
+        raise ValueError("Ungültige Fensterquelle")
     now = (now or datetime.now().astimezone()).replace(microsecond=0)
     with HEATING_ROOM_OVERRIDES_LOCK:
         state = heating_room_overrides_payload()
         open_room_ids = set(state["openRoomIDs"])
+        manual = set(state.get("manualOpenRoomIDs", state["openRoomIDs"]))
+        sensor = set(state.get("sensorOpenRoomIDs", []))
+        selected = manual if source == "manual" else sensor
+        selected.add(room_id) if window_open else selected.discard(room_id)
+        window_open = room_id in manual or room_id in sensor
+
+        def persist_sources():
+            state.update({"manualOpenRoomIDs": sorted(manual), "sensorOpenRoomIDs": sorted(sensor)})
+            write_atomic_json(HEATING_ROOM_OVERRIDES_PATH, state)
+            return state
+
         if (room_id in open_room_ids) == window_open:
+            persist_sources()
             return state
 
         def persist_open_rooms():
             persisted = {
                 "version": 1,
                 "openRoomIDs": sorted(open_room_ids),
+                "manualOpenRoomIDs": sorted(manual),
+                "sensorOpenRoomIDs": sorted(sensor),
                 "updatedAt": now.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
             write_atomic_json(HEATING_ROOM_OVERRIDES_PATH, persisted)
@@ -193,6 +210,70 @@ def write_heating_room_override(room_id, window_open, now=None):
         # has succeeded. A failure therefore keeps the safe, open state.
         open_room_ids.discard(room_id)
         return persist_open_rooms()
+
+
+class ContactDebouncer:
+    """Require continuous successful observations for two minutes."""
+
+    def __init__(self):
+        self.candidate = None
+        self.since = None
+        self.last_observation = None
+
+    def observe(self, value, now):
+        if value not in ("0", "1"):
+            self.reset()
+            raise ValueError("Kontaktzustand muss 0 oder 1 sein")
+        if (value != self.candidate or self.last_observation is None
+                or now - self.last_observation > 90):
+            self.candidate, self.since = value, now
+        self.last_observation = now
+        return value == "1" if now - self.since >= 120 else None
+
+    def reset(self):
+        self.candidate = self.since = self.last_observation = None
+
+
+CONTACT_SHORTCUTS = {
+    "galerie": ("Zustand Terrassentür",),
+    "dachzimmer": ("Zustand Dachzimmerfenster",),
+    "schlafzimmer": ("Zustand Schlafzimmerfenster",),
+    "stube": ("Zustand Küchenfenster", "Zustand Stubenfenster"),
+}
+
+
+def combined_contact_value(values):
+    if "1" in values:
+        return "1"
+    if values and all(value == "0" for value in values):
+        return "0"
+    raise ValueError("Fensterzustand unvollständig; geschlossen nicht bestätigt")
+
+
+def poll_room_contacts(stop):
+    debouncers = {room: ContactDebouncer() for room in CONTACT_SHORTCUTS}
+    while not stop.is_set():
+        for room, shortcuts in CONTACT_SHORTCUTS.items():
+            if stop.is_set():
+                return
+            try:
+                values = []
+                for shortcut in shortcuts:
+                    try:
+                        with heating_shortcut_transaction():
+                            values.append(run_shortcut_with_output(shortcut, timeout=20))
+                    except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+                        values.append(None)
+                        print(f"Fenster-Abfrage {shortcut}: {error}", flush=True)
+                confirmed = debouncers[room].observe(combined_contact_value(values), time.monotonic())
+                if confirmed is not None:
+                    write_heating_room_override(room, confirmed, source="sensor")
+            except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as error:
+                debouncers[room].reset()
+                print(f"Fenster-Abfrage {room}: {error}", flush=True)
+        subprocess.run([str(WEB_ROOT.parent / "Scripts/trim-shortcuts-widget-renderer.sh")],
+                       capture_output=True, check=False)
+        stop.wait(30)
 
 
 def heating_room_comfort_payload():
@@ -835,11 +916,15 @@ def main():
     print(f"Auf dem iPhone:  http://{local_ip()}:{arguments.port}")
     print("Zum Beenden Ctrl+C drücken.")
 
+    contact_stop = threading.Event()
+    threading.Thread(target=poll_room_contacts, args=(contact_stop,), daemon=True).start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nClimateEngine Web beendet.")
     finally:
+        contact_stop.set()
         server.server_close()
 
 

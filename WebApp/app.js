@@ -828,7 +828,7 @@ const renderRoomAccordions = (
     controls.className = "room-detail-section room-controls";
     controls.innerHTML = '<h3>Raumfunktionen</h3><div></div>';
     const controlsRow = controls.querySelector("div");
-    if (controlledHeatingRoomIDs.has(definition.id)) {
+    if (controlledHeatingRoomIDs.has(definition.id) || definition.id === "stube") {
       const windowButton = document.createElement("button");
       windowButton.type = "button";
       windowButton.textContent = definition.id === "galerie"
