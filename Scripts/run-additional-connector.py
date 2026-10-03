@@ -20,6 +20,11 @@ IDS = ["homepod-kueche", "homepod-bad-peter", "homepod-schlafzimmer",
        "homepod-buero-alois-rechts", "homepod-sauna-links", "homepod-buero-peter",
        "homepod-bad-alois", "dachzimmer-sensor", "galerie-sensor"]
 HEATING_THERMOSTATS = (
+    ("stube-kueche-ablage", "stube", "Ablage Küche", "ClimateEngine Read Heating Ablage Küche"),
+    ("stube-kueche-fenster", "stube", "Fenster Küche", "ClimateEngine Read Heating Fenster Küche"),
+    ("stube-lesen", "stube", "Lesen Stube", "ClimateEngine Read Heating Lesen Stube"),
+    ("stube-treppe", "stube", "Treppe Stube", "ClimateEngine Read Heating Treppe Stube"),
+    ("stube-bohnen", "stube", "Bohnen Stube", "ClimateEngine Read Heating Bohnen Stube"),
     ("schlafzimmer", "schlafzimmer", "Schlafzimmer", "ClimateEngine Read Heating Schlafzimmer"),
     ("bad-peter", "bad-peter", "Bad Peter", "ClimateEngine Read Heating Bad Peter"),
     ("buero-peter", "buero-peter", "Büro Peter", "ClimateEngine Read Heating Büro Peter"),
@@ -109,6 +114,9 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
         if collect_only:
             print(payload)
             return 0
+        # Thermostat reads have their own budget; adding radiators must not
+        # consume the sensor budget and leave later radiators only one second.
+        deadline = time.monotonic() + 25 * len(HEATING_THERMOSTATS)
         for snapshot_id, room_id, room_name, shortcut in HEATING_THERMOSTATS:
             heating = read_heating(snapshot_id, room_id, room_name, shortcut, command, Path(temp),
                 timeout=min(25, max(1, deadline - time.monotonic())))

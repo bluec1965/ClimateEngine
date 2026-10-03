@@ -234,6 +234,7 @@ const renderVentilationSession = (session) => {
 };
 
 const heatingRooms = [
+  { id: "stube", name: "Stube / Küche" },
   { id: "schlafzimmer", name: "Schlafzimmer" },
   { id: "bad-peter", name: "Bad Peter" },
   { id: "buero-peter", name: "Büro Peter" },
@@ -261,11 +262,18 @@ const expandedRoomIDs = new Set();
 
 const renderHeatingThermostats = (snapshots, control, operatingMode) => {
   const heatingEnabled = operatingMode?.heatingEnabled === true;
-  const byRoom = new Map((snapshots || []).filter(Boolean).map((item) => [item.roomID, item]));
+  const availableSnapshots = (snapshots || []).filter(Boolean);
+  const bySnapshot = new Map(availableSnapshots.map((item) => [item.snapshotID || item.roomID, item]));
   const suspendedRooms = Array.isArray(control?.suspendedRoomIDs)
     ? control.suspendedRoomIDs : (control?.suspended ? ["buero-alois"] : []);
-  const rows = heatingRooms.map((room) => {
-    const snapshot = byRoom.get(room.id);
+  const thermostatRows = heatingRooms.flatMap((room) => {
+    const matching = availableSnapshots.filter((item) => item.roomID === room.id);
+    return matching.length ? matching.map((snapshot) => ({ id: room.id,
+      snapshotID: snapshot.snapshotID || snapshot.roomID, name: snapshot.roomName || room.name }))
+      : [room];
+  });
+  const rows = thermostatRows.map((room) => {
+    const snapshot = bySnapshot.get(room.snapshotID || room.id);
     const age = snapshot ? Date.now() - new Date(snapshot.timestamp).getTime() : Infinity;
     const current = snapshot?.available === true && Number.isFinite(age)
       && age >= -30_000 && age <= 12 * 60_000;

@@ -31,6 +31,13 @@ HEATING_ROOM_COMFORT_LOCK = threading.Lock()
 HEATING_SHORTCUT_THREAD_LOCK = threading.Lock()
 HEATING_SHORTCUT_PROCESS_LOCK_PATH = Path("/tmp/climateengine-shortcuts.lock")
 HEATING_THERMOSTATS = {
+    "stube": (
+        {"snapshotID":"stube-kueche-ablage","name":"Ablage Küche","read":"ClimateEngine Read Heating Ablage Küche","comfort":"ClimateEngine Heating Ablage Küche Comfort","off":"ClimateEngine Heating Ablage Küche Off","on":"ClimateEngine Heating Ablage Küche On","revert-18.0":"ClimateEngine Heating Ablage Küche Revert 18.0","revert-21.5":"ClimateEngine Heating Ablage Küche Revert 21.5"},
+        {"snapshotID":"stube-kueche-fenster","name":"Fenster Küche","read":"ClimateEngine Read Heating Fenster Küche","comfort":"ClimateEngine Heating Fenster Küche Comfort","off":"ClimateEngine Heating Fenster Küche Off","on":"ClimateEngine Heating Fenster Küche On","revert-18.0":"ClimateEngine Heating Fenster Küche Revert 18.0","revert-21.5":"ClimateEngine Heating Fenster Küche Revert 21.5"},
+        {"snapshotID":"stube-lesen","name":"Lesen Stube","read":"ClimateEngine Read Heating Lesen Stube","comfort":"ClimateEngine Heating Lesen Stube Comfort","off":"ClimateEngine Heating Lesen Stube Off","on":"ClimateEngine Heating Lesen Stube On","revert-18.0":"ClimateEngine Heating Lesen Stube Revert 18.0","revert-21.5":"ClimateEngine Heating Lesen Stube Revert 21.5"},
+        {"snapshotID":"stube-treppe","name":"Treppe Stube","read":"ClimateEngine Read Heating Treppe Stube","comfort":"ClimateEngine Heating Treppe Stube Comfort","off":"ClimateEngine Heating Treppe Stube Off","on":"ClimateEngine Heating Treppe Stube On","revert-18.0":"ClimateEngine Heating Treppe Stube Revert 18.0","revert-21.5":"ClimateEngine Heating Treppe Stube Revert 21.5"},
+        {"snapshotID":"stube-bohnen","name":"Bohnen Stube","read":"ClimateEngine Read Heating Bohnen Stube","comfort":"ClimateEngine Heating Bohnen Stube Comfort","off":"ClimateEngine Heating Bohnen Stube Off","on":"ClimateEngine Heating Bohnen Stube On","revert-18.0":"ClimateEngine Heating Bohnen Stube Revert 18.0","revert-21.5":"ClimateEngine Heating Bohnen Stube Revert 21.5"},
+    ),
     "schlafzimmer": ({"snapshotID": "schlafzimmer", "name": "Schlafzimmer", "read": "ClimateEngine Read Heating Schlafzimmer", "comfort": "ClimateEngine Heating Schlafzimmer Comfort", "off": "ClimateEngine Heating Schlafzimmer Off", "on": "ClimateEngine Heating Schlafzimmer On", "revert-18.0": "ClimateEngine Heating Schlafzimmer Revert 18.0", "revert-21.5": "ClimateEngine Heating Schlafzimmer Revert 21.5"},),
     "bad-peter": ({"snapshotID": "bad-peter", "name": "Bad Peter", "read": "ClimateEngine Read Heating Bad Peter", "comfort": "ClimateEngine Heating Bad Peter Comfort", "off": "ClimateEngine Heating Bad Peter Off", "on": "ClimateEngine Heating Bad Peter On", "revert-18.0": "ClimateEngine Heating Bad Peter Revert 18.0", "revert-21.5": "ClimateEngine Heating Bad Peter Revert 21.5"},),
     "buero-peter": ({"snapshotID": "buero-peter", "name": "Büro Peter", "read": "ClimateEngine Read Heating Büro Peter", "comfort": "ClimateEngine Heating Büro Peter Comfort", "off": "ClimateEngine Heating Büro Peter Off", "on": "ClimateEngine Heating Büro Peter On", "revert-18.0": "ClimateEngine Heating Büro Peter Revert 18.0", "revert-21.5": "ClimateEngine Heating Büro Peter Revert 21.5"},),
@@ -54,6 +61,7 @@ HEATING_PROTOTYPE_SCHEDULE = {
     "weekendComfortEndMinute": 23 * 60,
 }
 HEATING_ROOM_NAMES = {
+    "stube": "Stube / Küche",
     "schlafzimmer": "Schlafzimmer", "bad-peter": "Bad Peter", "buero-peter": "Büro Peter",
     "buero-alois": "Büro Alois", "bad-alois": "Bad Alois", "sauna": "Sauna",
     "galerie": "Galerie", "dachzimmer": "Dachzimmer",
@@ -170,6 +178,14 @@ def write_heating_room_override(room_id, window_open, now=None, source="manual")
 
         if (room_id in open_room_ids) == window_open:
             persist_sources()
+            # Reconcile newly connected or externally re-enabled radiators
+            # even when the room's contact was already recorded as open.
+            if window_open and room_id in HEATING_THERMOSTATS and heating_enabled():
+                snapshots = [read_optional_json(HEATING_DIRECTORY / f"{item['snapshotID']}.json")
+                             for item in HEATING_THERMOSTATS[room_id]]
+                if any(item and item.get("isEnabled") is True for item in snapshots):
+                    with heating_shortcut_transaction():
+                        set_room_heating_enabled(room_id, False)
             return state
 
         def persist_open_rooms():

@@ -36,7 +36,7 @@ class AdditionalConnectorTests(unittest.TestCase):
     def test_failed_bedroom_does_not_abort_other_sensors_or_heating_reads(self):
         code, calls, payloads, _ = self.simulate(failed={"homepod-schlafzimmer"})
         self.assertEqual(code, 0)
-        self.assertEqual(len(calls), 19)
+        self.assertEqual(len(calls), 24)
         sensors = payloads[0]["sensors"]
         self.assertEqual(sum(s["measurement"] is not None for s in sensors), 8)
         self.assertEqual(sensors[2]["failure"], "unavailable")
@@ -60,6 +60,8 @@ class AdditionalConnectorTests(unittest.TestCase):
         self.assertIn("ClimateEngine Read Heating Schlafzimmer", shortcut_names)
         self.assertIn("ClimateEngine Read Heating Bad Peter", shortcut_names)
         self.assertIn("ClimateEngine Read Heating Büro Peter", shortcut_names)
+        for name in ("Ablage Küche", "Fenster Küche", "Lesen Stube", "Treppe Stube", "Bohnen Stube"):
+            self.assertIn(f"ClimateEngine Read Heating {name}", shortcut_names)
 
     def test_processing_never_retried(self):
         code, calls, _, _ = self.simulate(process_code=1)

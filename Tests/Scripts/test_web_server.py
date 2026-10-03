@@ -126,9 +126,11 @@ class VentilationSessionTests(unittest.TestCase):
         self.assertEqual(
             [call.args for call in self.heating_command_mock.call_args_list],
             [
+                ("stube", "off"),
                 ("schlafzimmer", "off"), ("bad-peter", "off"), ("buero-peter", "off"),
                 ("buero-alois", "off"), ("bad-alois", "off"), ("sauna", "off"),
                 ("galerie", "off"), ("dachzimmer", "off"),
+                ("stube", "on"),
                 ("schlafzimmer", "on"), ("bad-peter", "on"), ("buero-peter", "on"),
                 ("buero-alois", "on"), ("bad-alois", "on"), ("sauna", "on"),
                 ("galerie", "on"), ("dachzimmer", "on"),
@@ -145,7 +147,7 @@ class VentilationSessionTests(unittest.TestCase):
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
         self.assertEqual(
             state["suspendedRoomIDs"],
-            ["schlafzimmer", "bad-peter", "buero-peter", "buero-alois", "sauna", "galerie", "dachzimmer"],
+            ["stube", "schlafzimmer", "bad-peter", "buero-peter", "buero-alois", "sauna", "galerie", "dachzimmer"],
         )
         SERVER.reconcile_heating_after_ventilation()
         state = SERVER.read_optional_json(SERVER.HEATING_CONTROL_PATH)
@@ -456,6 +458,28 @@ class HeatingComfortShortcutTests(unittest.TestCase):
             )
 
     def test_dachzimmer_confirms_both_thermostat_targets(self):
+        self.assert_room_targets("dachzimmer", ("Dachzimmer Wand", "Dachzimmer Fenster"))
+
+    def test_stube_targets_and_switches_all_five_thermostats(self):
+        names = ("Ablage Küche", "Fenster Küche", "Lesen Stube", "Treppe Stube", "Bohnen Stube")
+        self.assert_room_targets("stube", names)
+        for action in ("off", "on", "revert-18.0", "revert-21.5"):
+            with self.subTest(action=action), patch.object(SERVER.subprocess, "run") as command:
+                command.return_value.returncode = 0
+                SERVER.run_heating_shortcut("stube", action)
+            suffix = {"off": "Off", "on": "On", "revert-18.0": "Revert 18.0", "revert-21.5": "Revert 21.5"}[action]
+            self.assertEqual([call.args[0][2] for call in command.call_args_list],
+                             [f"ClimateEngine Heating {name} {suffix}" for name in names])
+
+    def assert_room_targets(self, room, names):
+        with patch.object(SERVER, "run_shortcut_with_output",
+                          side_effect=[""] * len(names) + ["21.0 °C\n2\n1\n24 °C"] * len(names)) as command:
+            self.assertEqual(SERVER.apply_room_target(room, "comfort", 24.0), 24.0)
+        self.assertEqual([call.args[0] for call in command.call_args_list],
+                         [f"ClimateEngine Heating {name} Comfort" for name in names]
+                         + [f"ClimateEngine Read Heating {name}" for name in names])
+
+    def test_dachzimmer_confirms_individual_snapshots(self):
         with patch.object(
             SERVER,
             "run_shortcut_with_output",
