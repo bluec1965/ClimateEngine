@@ -19,7 +19,7 @@
         <key>CLIMATEENGINE_RETRY_LOG</key>
         <string>/tmp/climateengine-additional-sensor-retry.log</string>
         <key>CLIMATEENGINE_RETRY_LOCK</key>
-        <string>/tmp/climateengine-sensor-retry.lock</string>
+        <string>/tmp/climateengine-additional-sensor-retry.lock</string>
     </dict>
 
     <key>StartCalendarInterval</key>

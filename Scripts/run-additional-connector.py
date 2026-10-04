@@ -114,6 +114,9 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
         if collect_only:
             print(payload)
             return 0
+        # Persist fresh sensor data before the slower thermostat reads.
+        result = subprocess.run([str(cli or ROOT / ".build/debug/ClimateEngineCLI"), "additional-readings"],
+            input=payload, text=True, timeout=20, check=False)
         # Thermostat reads have their own budget; adding radiators must not
         # consume the sensor budget and leave later radiators only one second.
         deadline = time.monotonic() + 25 * len(HEATING_THERMOSTATS)
@@ -121,9 +124,8 @@ def run(config, command="/usr/bin/shortcuts", cli=None, collect_only=False, data
             heating = read_heating(snapshot_id, room_id, room_name, shortcut, command, Path(temp),
                 timeout=min(25, max(1, deadline - time.monotonic())))
             write_heating(heating, data_root)
-        # No SMS and no retries; the primary recommendation flow is independent.
-        return subprocess.run([str(cli or ROOT / ".build/debug/ClimateEngineCLI"), "additional-readings"],
-            input=payload, text=True, timeout=20, check=False).returncode
+        # No SMS and no retries; preserve the sensor processing result.
+        return result.returncode
 
 
 if __name__ == "__main__":

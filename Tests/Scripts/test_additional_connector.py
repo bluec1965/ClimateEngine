@@ -68,6 +68,14 @@ class AdditionalConnectorTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(sum(c[1] == "additional-readings" for c in calls), 1)
 
+    def test_sensor_data_is_saved_before_any_thermostat_read(self):
+        _, calls, _, _ = self.simulate()
+        persisted = next(i for i, call in enumerate(calls) if call[1] == "additional-readings")
+        heating_reads = [i for i, call in enumerate(calls)
+                         if call[1] == "run" and "Heating" in call[2]]
+        self.assertEqual(len(heating_reads), len(additional.HEATING_THERMOSTATS))
+        self.assertTrue(all(persisted < index for index in heating_reads))
+
     def test_overall_budget_marks_remaining_results_as_failed(self):
         with patch.object(additional.time, "monotonic", side_effect=[0] + [151] * 9), patch.object(additional.subprocess, "run") as run, contextlib.redirect_stdout(io.StringIO()) as output:
             additional.run(CONFIG, collect_only=True)

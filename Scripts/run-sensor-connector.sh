@@ -6,6 +6,11 @@ shortcut_name="${CLIMATEENGINE_SHORTCUT_NAME:-ClimateEngine Sensor Connector}"
 shortcuts_command="${CLIMATEENGINE_SHORTCUTS_COMMAND:-/usr/bin/shortcuts}"
 log_file="${CLIMATEENGINE_RETRY_LOG:-/tmp/climateengine-sensor-retry.log}"
 lock_file="${CLIMATEENGINE_RETRY_LOCK:-/tmp/climateengine-sensor-retry.lock}"
+# Older installed agents used the main lock for both connectors. Separate the
+# additional whole-run lock while retaining custom lock paths for callers.
+if [[ "$shortcut_name" == "ClimateEngine Additional Sensor Connector" && "$lock_file" == "/tmp/climateengine-sensor-retry.lock" ]]; then
+    lock_file="/tmp/climateengine-additional-sensor-retry.lock"
+fi
 retry_delay="${CLIMATEENGINE_RETRY_DELAY_SECONDS:-20}"
 max_attempts="${CLIMATEENGINE_MAX_ATTEMPTS:-3}"
 widget_renderer_guard="${0:A:h}/trim-shortcuts-widget-renderer.sh"
