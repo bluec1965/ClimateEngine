@@ -115,6 +115,14 @@ belegt und kein Kurzbefehl mehr läuft. Damit wird der beobachtete Speicherverlu
 des Kurzbefehle-Live-Activity-Widgets begrenzt, ohne Sensorwerte oder
 Thermostatzustände zu verändern. macOS startet den Systemprozess bei Bedarf neu.
 
+Zusätzlich prüft `ch.climateengine.memory-guard` den Apple-Menüleistendienst
+`MenuBarAgent` jede Minute. Ab 1 GiB Gesamtverbrauch (einschließlich komprimiertem
+Speicher) wird nur dieser Dienst des angemeldeten Benutzers mit SIGTERM neu
+gestartet; die Menüleiste kann kurz verschwinden. Neustarts sind mindestens zehn
+Minuten voneinander getrennt. Das auf zwei kleine Dateien begrenzte Protokoll
+liegt unter `diagnostics/menubar-memory-guard.log` im ClimateEngine-Datenordner.
+Der Dienst wird aus `Support/ch.climateengine.memory-guard.plist` installiert.
+
 ClimateEngine kann in der Beobachtungsphase zwölf Werte über die
 Standardeingabe entgegennehmen. Die Reihenfolge ist:
 
